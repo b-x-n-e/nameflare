@@ -127,7 +127,10 @@ wa-button.ghost::part(button) { color: var(--muted); background: transparent; bo
 wa-button.ghost:not([disabled])::part(button):hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
 wa-button.danger::part(button) { color: var(--bg); background: var(--danger); border-color: transparent; }
 wa-button.accent-text::part(button) { color: var(--accent); }
-wa-button .ui-icon { width: 16px; height: 16px; vertical-align: -3px; }
+wa-button .ui-icon { width: 16px; height: 16px; vertical-align: -3px; flex-shrink: 0; }
+/* The reset's svg max-width: 100% resolves against the label slot; in a squeezed
+   row that collapsed icons to 0px (the hearts on profile cards). */
+wa-button svg.ui-icon { max-width: none; }
 wa-button[size="xs"] .ui-icon { width: 14px; height: 14px; }
 wa-button [slot="start"] { margin-inline-end: 1px; }
 

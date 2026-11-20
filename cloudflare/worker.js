@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { isAppPath } from '../public/routes.js';
+const pageAliases={'/creators':'/profiles','/insights':'/analytics','/settings':'/account/settings','/support':'/donate'};
 import { HttpError, assert, text, validateRecipe, validateTexture, publishingFlag, catalogFilters } from '../lib/cosmetics.js';
 import { providerConfig, authorizationURL, finishOAuth, avatarSources } from '../lib/oauth.js';
 import { D1Store, token } from './store.js';
@@ -205,9 +206,18 @@ export async function handleRequest(request,env) {
   if(path.startsWith('/api/overlay/'))throw new HttpError(501,'Relay streaming is not implemented on the Cloudflare runtime. Use direct Twitch or the Node relay.');
   if(path.startsWith('/api/') || path.startsWith('/auth/') || path.startsWith('/textures/'))throw new HttpError(404,'Not found.');
   if(method==='GET') {
+    const alias=pageAliases[path.replace(/\/$/,'')];
+    if(alias)return new Response(null,{status:301,headers:{Location:alias,'Cache-Control':'public, max-age=3600'}});
     const assetPath=isAppPath(path)?'/index.html':path==='/overlay'?'/overlay.html':path;
     const assetURL=new URL(request.url);assetURL.pathname=assetPath;
-    return env.ASSETS.fetch(new Request(assetURL,request));
+    const asset=await env.ASSETS.fetch(new Request(assetURL,request));
+    // A browser asking for a page that does not exist gets the app's "Page not found" screen with a 404 status.
+    if(asset.status===404 && /\btext\/html\b/.test(request.headers.get('Accept')||'') && !/\.[a-z0-9]{1,8}$/i.test(path)) {
+      assetURL.pathname='/index.html';
+      const page=await env.ASSETS.fetch(new Request(assetURL,{headers:{Accept:'text/html'}}));
+      return new Response(page.body,{status:404,headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+    }
+    return asset;
   }
   throw new HttpError(404,'Not found.');
 }

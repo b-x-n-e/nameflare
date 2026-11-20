@@ -213,6 +213,14 @@ test('HTTP moderation, CSRF, API publication, texture privacy, and the removed r
     const crossOrigin=await fetch(base+'/api/equip',{method:'POST',headers:{Cookie:`nameflare_session=${creatorSession.raw}`,Origin:'https://attacker.example','Content-Type':'application/json','X-CSRF-Token':creatorSession.csrf},body:JSON.stringify({cosmeticId:'demo-0'})});assert.equal(crossOrigin.status,403);
     const preflight=await fetch(base+'/api/v1/resolve',{method:'OPTIONS',headers:{Origin:'https://overlay.example','Access-Control-Request-Method':'POST'}});assert.equal(preflight.status,204);
     for(const path of ['/','/app.js','/style.css','/effects.css','/overlay','/overlay.js','/license'])assert.equal((await call(path)).status,200);
+    // A page that does not exist: browsers get the app's "Page not found" screen with a 404,
+    // while API clients, assets and scripts keep a plain JSON 404. Nav-label guesses redirect.
+    const html={headers:{Accept:'text/html,application/xhtml+xml'},redirect:'manual'};
+    const missing=await fetch(base+'/no-such-page/deeper',html);
+    assert.equal(missing.status,404);assert.match(missing.headers.get('Content-Type'),/text\/html/);assert.match(await missing.text(),/id="view-notfound"/);
+    for(const path of ['/api/no-such-thing','/no-such-file.css','/vendor/webawesome/nope'])assert.match((await fetch(base+path,html)).headers.get('Content-Type'),/application\/json/);
+    assert.match((await call('/no-such-page')).headers.get('Content-Type'),/application\/json/);
+    for(const [from,to] of [['/creators','/profiles'],['/insights','/analytics'],['/settings','/account/settings'],['/support','/donate']]){const moved=await fetch(base+from,html);assert.equal(moved.status,301);assert.equal(moved.headers.get('Location'),to);}
     const source=await (await call('/source')).json();assert.ok(source.files['public/app.js']);assert.ok(source.files['LICENSE']);assert.ok(source.files['docs/ORACLE.md']);assert.ok(source.files['docs/oracle/nameflare.service']);assert.ok(source.files['docs/oracle/nameflare.nginx.conf']);assert.ok(source.files['docs/oracle/nameflare-http.nginx.conf']);assert.equal(source.files['.env'],undefined);assert.equal(Object.keys(source.files).some(p => /\.(key|pem)(\.pub)?$/.test(p)),false);assert.equal(Object.keys(source.files).some(p => p.includes('.sqlite')),false);
     assert.equal((await call('/api/me')).headers.get('Cache-Control'),'no-store');
   }finally{app.server.closeAllConnections();await new Promise(resolve => app.server.close(resolve));store.close();rmSync(dir,{recursive:true,force:true});}

@@ -930,3 +930,85 @@ a.mod-stat:hover { border-color: var(--line-hard); color: var(--ink-2); }
 .moderation-duration[hidden] { display: none; }
 .moderation-duration select { min-height: 38px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--bg-raised); color: var(--ink); font: inherit; }
 .moderation-duration small { color: var(--muted); font-weight: 400; }
+
+/* ---- Page not found ----------------------------------------------------- */
+/* Any address that matches no page. The Flare carries the moment; the copy
+   names the address and offers the two ways back in. */
+.view.notfound:not([hidden]) { display: grid; justify-items: center; max-width: 560px; margin: clamp(24px, 8vh, 88px) auto 0; text-align: center; }
+.notfound-stage {
+  --paint-color: #ff5f6d; --paint-secondary: #ffc371;
+  display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 7; margin-bottom: 28px;
+  border-radius: var(--radius-lg, 16px); overflow: hidden;
+}
+.notfound-stage strong { font-size: clamp(64px, 22vw, 120px); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.view.notfound h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 32px); letter-spacing: -.02em; }
+.view.notfound p { max-width: 46ch; margin: 0; color: var(--muted); text-wrap: pretty; }
+.view.notfound code { padding: 1px 6px; border-radius: var(--badge-r); background: var(--tint-1); color: var(--ink); font-family: var(--font-mono); font-size: .92em; overflow-wrap: anywhere; }
+.notfound-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 24px; }
+
+/* Collection with nothing in it: the empty state is the whole page, so the
+   status filters and the second Create button step aside. */
+#view-collection.is-empty .collection-toolbar { display: none; }
+/* The empty state carries the Create button, so the heading does not repeat it. */
+.created-flares.is-empty .section-heading > wa-button { display: none; }
+
+/* Account overview: the panel's own 24px is the only inset. The heading, stage
+   and info column used to add 16–22px each, so the stage floated in a frame
+   inside the frame. Sections below sit one 32px step apart. */
+.equipped-panel > .equipped-head { padding: 0 0 18px; }
+.equipped-panel .equipped-body { gap: 28px; align-items: center; }
+.equipped-panel .equipped-stage { margin: 0; }
+.equipped-panel .equipped-info { padding: 0; }
+.account-tab-content > .created-flares { margin-top: 16px; }
+.account-tab-content > .created-flares > .section-heading { margin-top: 0; }
+@media (max-width: 900px) { .equipped-panel .equipped-body { gap: 20px; } }
+
+/* Profile page: Flares start one 40px step below the hero, and the cards drop
+   the byline that would repeat the profile owner's name on every card. */
+.profile-created-flares { margin-top: 0; }
+.profile-created-flares > .section-heading { margin-top: 22px; }
+.profile-created-flares .post-author :is(wa-avatar, .post-author-copy > strong) { display: none; }
+.profile-created-flares .post-author .post-sub { margin: 0; }
+/* Creator cards: the platform/badge line keeps one height, so stat lines align
+   across a row whether or not a card carries a Moderator or Artist badge. */
+.creator-tile .cc-sub { min-height: 22px; align-items: center; }
+/* A zero like count reads as an empty room. The heart stands alone, and the
+   count keeps its space so Share never moves when the first like lands. */
+wa-button.like-button.no-likes .like-count { visibility: hidden; }
+
+/* ---- Site footer -------------------------------------------------------- */
+/* One footer under every page except Studio, which is a full-height tool:
+   the mark and a line on what Nameflare is, three short link columns, and the
+   ownership and licence line. Quiet type; links brighten on hover. */
+.site-footer {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px 48px;
+  margin-top: 64px; padding: 28px 0 8px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: var(--text-sm);
+}
+body[data-view="studio"] .site-footer { display: none; }
+.sf-brand { display: grid; align-content: start; gap: 10px; max-width: 34ch; }
+.sf-mark { display: inline-flex; align-items: center; gap: 8px; width: fit-content; color: var(--ink); font-size: 15px; font-weight: 700; letter-spacing: -.02em; text-decoration: none; }
+.sf-brand p { margin: 0; line-height: 1.55; }
+.sf-links { display: grid; grid-template-columns: repeat(3, minmax(120px, auto)); gap: 24px 40px; }
+.sf-links > div { display: grid; align-content: start; gap: 9px; }
+.sf-links h2 { margin: 0 0 3px; color: var(--ink); font-size: var(--text-sm); font-weight: 650; letter-spacing: 0; }
+.sf-links a { display: inline-flex; align-items: center; gap: 5px; width: fit-content; color: var(--muted); text-decoration: none; transition: color var(--fast) var(--ease); }
+.sf-links a:hover, .sf-legal a:hover { color: var(--ink); }
+.sf-links .ui-icon { width: 12px; height: 12px; opacity: .7; }
+.sf-legal { grid-column: 1 / -1; margin: 0; padding-top: 16px; border-top: 1px solid var(--line); color: var(--faint); font-size: var(--text-xs); }
+.sf-legal a { color: var(--muted); text-decoration: none; }
+@media (max-width: 760px) {
+  .site-footer { grid-template-columns: minmax(0, 1fr); margin-top: 48px; }
+  .sf-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Card actions: a narrow card (four-up profile grids, three-up Discover) shows
+   Share as its icon so Like, Share and Equip always fit on one row. */
+.cosmetic-card .post-actions { container: post-actions / inline-size; }
+@container post-actions (max-width: 290px) {
+  wa-button.post-action-share .share-text { display: none; }
+  wa-button.post-action-share::part(base), wa-button.post-action-share::part(button) { padding: 0 9px; }
+}
+/* The byline takes the free space, so the More menu sits at the row's end
+   whether or not a Follow button is shown beside it. */
+.post-head > .post-author { flex: 1 1 auto; min-width: 0; }

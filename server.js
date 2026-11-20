@@ -51,16 +51,18 @@ function staticEntry(file) {
   staticCache.set(full,entry);
   return entry;
 }
-export function sendStatic(req, res, file, cacheControl) {
+export function sendStatic(req, res, file, cacheControl, status = 200) {
   const entry = staticEntry(file);
   res.setHeader('Cache-Control',cacheControl);res.setHeader('ETag',entry.etag);res.setHeader('Vary','Accept-Encoding');
-  if (req.headers['if-none-match'] === entry.etag) { res.writeHead(304); return res.end(); }
+  if (status === 200 && req.headers['if-none-match'] === entry.etag) { res.writeHead(304); return res.end(); }
   const accept = String(req.headers['accept-encoding'] || '');
   const encoding = entry.br && /\bbr\b/.test(accept) ? 'br' : entry.gzip && /\bgzip\b/.test(accept) ? 'gzip' : null;
   const body = encoding ? entry[encoding] : entry.body;
-  res.writeHead(200,{ 'Content-Type':entry.type, 'Content-Length':body.length, ...(encoding ? { 'Content-Encoding':encoding } : {}) });
+  res.writeHead(status,{ 'Content-Type':entry.type, 'Content-Length':body.length, ...(encoding ? { 'Content-Encoding':encoding } : {}) });
   return res.end(req.method === 'HEAD' ? undefined : body);
 }
+export const pageAliases = { '/creators':'/profiles', '/insights':'/analytics', '/settings':'/account/settings', '/support':'/donate' };
+export const wantsPage = (req, path) => /\btext\/html\b/.test(String(req.headers.accept || '')) && !/\.[a-z0-9]{1,8}$/i.test(path) && !/^\/(?:api|auth|textures|vendor|fonts|ui)\//.test(path);
 const staticCacheControl = file => file.startsWith('fonts/') ? 'public, max-age=2592000, immutable' : file.startsWith('vendor/') ? 'public, max-age=604800' : 'public, no-cache';
 
 function canonicalIP(value) {
@@ -807,6 +809,12 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
             try { return sendStatic(req,res,vendorFile,staticCacheControl(vendorFile)); } catch {}
           }
         }
+        // The names people guess from the navigation labels.
+        const alias = pageAliases[path.replace(/\/$/,'')];
+        if (alias) { res.writeHead(301,{ Location:alias, 'Cache-Control':'public, max-age=3600' }); return res.end(); }
+        // A browser asking for a page that does not exist gets the app's own
+        // "Page not found" screen, still with a 404 status.
+        if (wantsPage(req,path)) return sendStatic(req,res,'index.html','no-store',404);
       }
       throw new HttpError(404,'Not found.');
     } catch (error) {

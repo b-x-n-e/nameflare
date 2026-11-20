@@ -16,7 +16,7 @@
 :is(
   .card-preview, .showcase-stage, #detail-content > .detail-stage, .detail-stage,
   .equipped-stage, .profile-equipped, .identity-canvas, .rail-identity-stage,
-  .review-preview, .pub-preview, .studio-name-stage, .profile-stage
+  .review-preview, .pub-preview, .studio-name-stage, .profile-stage, .notfound-stage
 ):not(.light):not(.transparent) {
   --ribbon-a: var(--paint-color, var(--canvas-accent, transparent));
   --ribbon-b: var(--paint-secondary, var(--canvas-secondary, var(--ribbon-a)));

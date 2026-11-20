@@ -294,3 +294,15 @@ Reports, moderation of reports and Account → Your data are Operate-mode screen
 - **Moderation → Reports.** One card per reported Flare or profile, carrying a paused preview, the count, and every report's reason and details. A single decision note serves the whole card. Dismiss is subtle; Remove and Ban are the only danger buttons, and they need a note. An optional checkbox blocks the images too.
 - **Review cards.** Scanner flags and open-report counts appear as a warning strip at the top of the card, so they are seen before the decision buttons.
 - **Your data.** Download comes first, then the retention table, then deletion in its own outlined panel. The delete button stays disabled until the account name is typed exactly.
+
+## Finish (2026.11)
+
+The "real site" pass: things a visitor notices only when they are missing.
+
+- **Page not found.** An address that matches no page returns the app with a 404 status and its own screen: "404" drawn in the Sunset fade preset on a stage, the address that failed, and Go to Discover / Search. API, asset and script misses keep their JSON 404. The names people guess from the navigation redirect (301): `/creators` → `/profiles`, `/insights` → `/analytics`, `/settings` → `/account/settings`, `/support` → `/donate`. Node and Cloudflare behave the same.
+- **Site footer** under every page except Studio: the mark and one line on what Nameflare is, Explore / Learn / Project link columns, then ownership and licence. The companion column's footer keeps only the live counts.
+- **Card actions always fit.** Narrow cards (four-up profiles, three-up Discover) show Share as an icon with an accessible name and a "Copy link" tooltip. A zero like count is hidden but keeps its space, so Share never moves when the first like lands. The More menu sits at the end of the byline row.
+- **Icons in buttons never collapse.** The reset's `svg { max-width: 100% }` resolved against Web Awesome's label slot and squeezed icons to 0px in tight rows; `wa-button svg.ui-icon` opts out.
+- **Compact density** sizes Web Awesome buttons through `--wa-form-control-height` only. Padding on the host made buttons shrink on hover.
+- **Empty states say one thing once.** An empty Collection hides its filters and second Create button; Account's created-Flares heading drops its Create button while the empty state shows one. Internal links never carry the external-link arrow.
+- **Spacing.** The Account "Currently wearing" panel insets once (the panel's 24px); sections sit 32px apart; a profile's Flares start 40px below the hero and drop the byline that repeated the owner's name.

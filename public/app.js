@@ -105,7 +105,7 @@ function link(label,href,cls='button primary') {
   else if(/\b(sm|small)\b/.test(cls))el.setAttribute('size','s');
   controlLabel(el,label);return el;
 }
-function empty(container,title,description,href='/studio',label='Create a Flare ↗') {
+function empty(container,title,description,href='/studio',label='Create a Flare') {
   const el=node('div','empty-state'); el.append(node('h3','',title),node('p','',description)); if(href) el.append(link(label,href));container.replaceChildren(el);
 }
 // Toasts live in a manual popover so they sit above open dialogs (the top
@@ -522,12 +522,19 @@ async function resumeFollowIntent() {
   await api(`/api/v1/profiles/${encodeURIComponent(intent.id)}`);
   follows.observe(intent.id,0,state.followingIds.has(intent.id));if(!state.followingIds.has(intent.id)){follows.toggle(intent.id);await follows.flush(intent.id);}
 }
+// Share on a card. The label sits in its own span so narrow cards can show the
+// icon alone; the accessible name and tooltip keep saying what it does.
+function shareButton(cosmetic) {
+  const button=action('Share',()=>copyFlareLink(cosmetic.id,{name:cosmetic.name}),'button ghost post-action-share'),glyph=icon('share');
+  glyph.setAttribute('slot','start');button.replaceChildren(glyph,node('span','share-text','Share'));
+  button.setAttribute('aria-label',`Share ${cosmetic.name}`);button.title='Copy link';return button;
+}
 function updateLikeButton(button) {
   const value=likes.get(button.dataset.likeId),liked=Boolean(state.user && (value?.liked ?? state.likedIds.has(button.dataset.likeId))),count=value?.count ?? Number(button.dataset.likeCount || 0);
   const wasLiked=button.getAttribute('aria-pressed')==='true',previous=button.querySelector('.like-count').textContent;
   button.setAttribute('aria-pressed',String(liked));button.setAttribute('aria-label',`Like ${button.dataset.likeName}`);
   button.setAttribute('aria-busy',String(Boolean(value?.pending)));button.title=liked?'Remove from your likes':'Save to your likes';
-  button.querySelector('.like-count').textContent=compactNumber(count);button.querySelector('.like-label').textContent='Like';
+  button.querySelector('.like-count').textContent=compactNumber(count);button.querySelector('.like-label').textContent='Like';button.classList.toggle('no-likes',!count);
   if(liked && !wasLiked && button.isConnected){button.classList.remove('heart-pop');void button.offsetWidth;button.classList.add('heart-pop');}
   if(previous!==String(count) && button.isConnected){const counter=button.querySelector('.like-count');counter.classList.remove('count-pop');void counter.offsetWidth;counter.classList.add('count-pop');}
 }
@@ -655,7 +662,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   const actions=node('div','post-actions'),social=node('div','post-social');
   if(!collection){
     if((!cosmetic.status || cosmetic.status==='approved') && cosmetic.listed)social.append(likeButton(cosmetic));
-    const shareAction=action('Share',()=>copyFlareLink(cosmetic.id,{name:cosmetic.name}),'button ghost post-action-share');const shareGlyph=icon('share');shareGlyph.setAttribute('slot','start');shareAction.prepend(shareGlyph);social.append(shareAction);
+    const shareAction=shareButton(cosmetic);social.append(shareAction);
     if((cosmetic.status==='approved' || !cosmetic.status) && Number(cosmetic.equipped_count || 0) > 0){const wearers=node('span','equip-stat',`${compactNumber(cosmetic.equipped_count)} wearing`);wearers.prepend(icon('profiles'));social.append(wearers);}
     actions.append(social);
   }
@@ -670,7 +677,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
     const buttons=node('div','card-actions'),social=node('div','post-social'),trailing=node('div','card-actions-end');
     if((!cosmetic.status || cosmetic.status==='approved') && cosmetic.listed)social.append(likeButton(cosmetic));
     // Only an approved Flare has a link worth sharing.
-    if(cosmetic.status==='approved'){const share=action('Share',()=>copyFlareLink(cosmetic.id,{name:cosmetic.name}),'button ghost post-action-share');const shareGlyph=icon('share');shareGlyph.setAttribute('slot','start');share.prepend(shareGlyph);social.append(share);}
+    if(cosmetic.status==='approved'){const share=shareButton(cosmetic);social.append(share);}
     // Needs changes: the way forward is one click away, with the note carried along.
     if(cosmetic.status==='rejected'){const revise=action('Revise',()=>editor.revise(cosmetic),'button revise-button');revise.title='Open this design in Flare studio to fix it and submit again';trailing.append(revise);}
     if(cosmetic.status==='approved'){const equipButton=action('Equip',() => equip(cosmetic.id),'button equip-button');equipButton.dataset.equipId=cosmetic.id;syncEquipButton(equipButton);trailing.append(equipButton);}
@@ -1148,7 +1155,13 @@ function renderMyFlares(append=false,added=[]) {
   $('#collection-status').textContent=`${state.mine.length} Flares · ${state.mine.filter(c=>c.status==='approved').length} approved · ${state.mine.filter(c=>c.status==='pending').length} in review${collectionNext!==null?' · more available':''}`;
   $('#collection-more').hidden=collectionNext===null;
   if(flares.length){if(append && !grid.querySelector('.empty-state'))grid.append(...flares.map(c=>card(c,true)));else grid.replaceChildren(...(append?state.mine.filter(c=>state.collectionFilter==='all' || c.status===state.collectionFilter):flares).map(c=>card(c,true)));}
-  else if(!append)empty(grid,'No Flares in this view.',collectionNext!==null?'Load more submissions or select another review status.':'Create a Flare or select another review status.');
+  else if(!append){
+    // Nothing made yet: one invitation, without filters for an empty list. A filter with no
+    // matches says which status is empty and leaves the way out to the filters above.
+    if(!state.mine.length && collectionNext===null)empty(grid,'You haven’t made a Flare yet.','Design one in Studio and submit it. It waits here while a moderator reviews it.');
+    else empty(grid,{approved:'Nothing approved yet.',pending:'Nothing in review.',rejected:'Nothing needs changes.'}[state.collectionFilter] || 'No Flares in this view.',collectionNext!==null?'Load more submissions, or choose another status.':'Choose another status above to see the rest.',null);
+  }
+  $('#view-collection').classList.toggle('is-empty',!state.mine.length && collectionNext===null);
 }
 function syncCollectionFilters(){for(const item of document.querySelectorAll('[data-collection-filter]')){const active=item.dataset.collectionFilter===(state.collectionFilter || 'all');item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));}}
 for(const b of document.querySelectorAll('[data-collection-filter]'))b.addEventListener('click',()=>{state.collectionFilter=b.dataset.collectionFilter;syncCollectionFilters();if(state.user)renderMyFlares();});
@@ -1180,7 +1193,7 @@ function createdFlares(user, own=false) {
       const readRevision=likes.revision,result=await api(`${path}?limit=24&offset=${offset}`);
       for(const paint of result.cosmetics)paint.like_read_revision=readRevision;
       if(!section.isConnected || (own && state.user?.id!==user.id))return;
-      if(!shown && !result.cosmetics.length)empty(grid,own?'No created Flares yet.':'No public Flares yet.',own?'Create your first design in Flare studio.':'This creator has not published any listed Flares.',own?'/studio':null);
+      if(!shown && !result.cosmetics.length){empty(grid,own?'You haven’t made a Flare yet.':'No public Flares yet.',own?'Design one in Studio. Everything you submit shows here, approved or not.':'This creator hasn’t published any listed Flares.',own?'/studio':null);section.classList.add('is-empty');}
       else grid.append(...result.cosmetics.map((c,i)=>{const el=card(c,own,false);el.style.setProperty('--entry-delay',`${Math.min(i,5)*30}ms`);return el;}));
       shown+=result.cosmetics.length;offset=result.next_offset;
       status.textContent=own?`${shown} created Flares shown`:'';
@@ -1199,7 +1212,7 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
   if(!state.user){
     accountShell=null;
     empty(container,'Your account starts with one sign-in.','Anyone can join through an enabled provider. Your first sign-in creates your account; returning sign-ins reopen it. No separate password or invitation.',null);
-    container.firstChild.append(action('Create account / Sign in ↗',openSignIn,'button primary'),node('p','form-footnote','Already have an account? Use the same provider. Link other platforms while signed in to keep one account.'));return;
+    container.firstChild.append(action('Sign in or create an account',openSignIn,'button primary'),node('p','form-footnote','Already have an account? Use the same provider. Link other platforms while signed in to keep one account.'));return;
   }
   const user=state.user,tab=['overview','settings','platforms','following','privacy'].includes(chapter)?chapter:'overview';
   if(!accountShell || accountShell.userId!==user.id || accountShell.container!==container || !accountShell.layout.isConnected){
@@ -2094,7 +2107,7 @@ let lastTrackedRoute='';
 function trackView() {
   const dnt=navigator.doNotTrack;
   if(!state.bootstrapped || dnt==='1' || dnt==='yes' || window.globalPrivacyControl===true)return;
-  if(!state.config?.features?.insights)return;
+  if(!state.config?.features?.insights || state.view==='notfound')return;
   const route=currentRoute();
   if(route===lastTrackedRoute)return;
   lastTrackedRoute=route;
@@ -2104,12 +2117,12 @@ function trackView() {
 let renderedRoute='',firstViewRender=true;
 function syncViewRoute() {
   const previousView=state.view,previousFeed=state.feed,previousRoute=renderedRoute;renderedRoute=currentRoute();
-  const available=['discover','following','profiles','artists','studio','collection','account','analytics','moderation','integrations','guide','donate'];const [requested,chapter]=(currentRoute().slice(1)).split('/');state.view=available.includes(requested) ? requested:'discover';
+  const available=['discover','following','profiles','artists','studio','collection','account','analytics','moderation','integrations','guide','donate'];const [requested,chapter]=(currentRoute().slice(1)).split('/');state.view=available.includes(requested) ? requested:requested ? 'notfound':'discover';
   document.body.dataset.view=state.view;delete document.documentElement.dataset.bootView;
   const rail=document.querySelector('.right-rail');if(rail)rail.hidden=state.view!=='discover';
   for(const view of document.querySelectorAll('.view'))view.hidden=view.id!==`view-${state.view}`;
   for(const nav of document.querySelectorAll('[data-nav]')){const current=nav.dataset.nav===state.view;nav.classList.toggle('active',current);if(current)nav.setAttribute('aria-current','page');else nav.removeAttribute('aria-current');}
-  $('#page-label').textContent={discover:'Discover',following:'Following',profiles:'Creators',artists:'Artists',studio:'Flare studio',collection:'Collection',account:'Account',analytics:'Insights',moderation:'Moderation',integrations:'Integrations & API',guide:'Guide',donate:'Support Nameflare'}[state.view];
+  $('#page-label').textContent={discover:'Discover',following:'Following',profiles:'Creators',artists:'Artists',studio:'Flare studio',collection:'Collection',account:'Account',analytics:'Insights',moderation:'Moderation',integrations:'Integrations & API',guide:'Guide',donate:'Support Nameflare',notfound:'Page not found'}[state.view];
   $('.topbar').classList.toggle('discovery-topbar',state.view==='discover');
   document.title=`${$('#page-label').textContent} · Nameflare`;
   for(const item of document.querySelectorAll('.guide-index a')) {
@@ -2139,6 +2152,7 @@ async function renderView() {
   if(state.view!=='discover' && $('#detail-dialog').open)$('#detail-dialog').close();
   if(state.view!=='moderation')stopModerationLive();
   if(state.view==='donate')renderDonate($('#view-donate'));
+  if(state.view==='notfound')renderNotFound();
   if(!state.bootstrapped)return;
   if(state.view==='following' && (previousView!=='following' || !state.followingLoaded))await loadFollowing();
   if(state.view==='artists')await loadArtists();else artistPreviews.clear();
@@ -2147,6 +2161,13 @@ async function renderView() {
   if(state.view==='collection')await renderCollection();if(state.view==='account')await renderAccount(chapter);if(state.view==='analytics')await renderInsights({container:$('#insights-content'),api,state,signIn:openSignIn,toast});if(state.view==='moderation')await renderModeration();
   trackView();
 }
+// An address that matches no page: say which one, and offer the two ways back in.
+function renderNotFound() {
+  let path=location.pathname;try{path=decodeURI(path);}catch{}
+  $('#notfound-path').textContent=path.length>60?`${path.slice(0,59)}…`:path;
+  applyCosmetic($('#notfound-name'),presets.sunset,location.origin,{paused:reduceMotion()});
+}
+$('#notfound-search')?.addEventListener('click',()=>$('#command-open')?.click());
 async function renderRoute() {
   // Swap views directly. Crossfading the old and new layouts painted two pages
   // together during width-changing routes such as Discover → Account.

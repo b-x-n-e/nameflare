@@ -153,7 +153,6 @@
       <div class="feed-summary"><p id="catalog-status" class="form-footnote catalog-status" role="status"></p><div id="active-filters" class="active-filters" aria-label="Active filters"></div><button id="clear-filters" class="text-button" hidden>Clear filters ×</button></div>
       <p id="like-announcement" class="sr-only" role="status" aria-live="polite"></p>
       <div id="catalog" class="cosmetic-grid"></div><button id="load-more" class="button subtle load-more" hidden>Load more ↓</button><div id="feed-end" class="feed-end" hidden><span aria-hidden="true">✦</span>You’re all caught up.</div>
-      <footer><span>Owned by <a href="https://chat.bxne.dev" target="_blank" rel="noopener">B_X_N_E ↗</a> · Independent of streaming platforms.</span><span><a href="/guide/privacy">Privacy</a> · <a href="/donate">Support Nameflare</a> · <a href="https://github.com/b-x-n-e/nameflare" target="_blank" rel="noopener">Source ↗</a> · <a href="/license" target="_blank" rel="noopener">AGPL-3.0</a> · No warranty</span></footer>
     </section>
     <section id="view-following" class="view" hidden>
       <div class="page-heading following-heading">
@@ -545,7 +544,7 @@ GET  /api/v1/stats                      site totals and top Flares</pre>
       </div></div>
     </section>
     <section id="view-artists" class="view" hidden><div class="page-heading"><h1>Artists</h1></div><div class="profile-search-tools"><label class="profile-search"><span class="sr-only">Find an artist</span><svg class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg><input id="artist-search" type="search" maxlength="80" placeholder="Search artists by name or platform login"></label><button id="artist-pause" class="button subtle" type="button" aria-pressed="false">Pause previews</button></div><p class="form-footnote artist-note">Artists are chosen by the Nameflare team. Only approved, public Flares appear.</p><p id="artist-status" class="form-footnote" role="status" aria-live="polite"></p><div id="artist-results" class="artist-showcase"></div><div id="artist-pagination" class="dashboard-pagination"></div></section>
-    <section id="view-collection" class="view" hidden><div class="page-heading"><h1>Collection</h1></div><div class="collection-toolbar"><div class="filters" role="group" aria-label="Collection status"><wa-button data-collection-filter="all" class="filter-chip active" size="xs" appearance="plain" aria-pressed="true">All submissions</wa-button><wa-button data-collection-filter="approved" class="filter-chip" size="xs" appearance="plain" aria-pressed="false">Approved</wa-button><wa-button data-collection-filter="pending" class="filter-chip" size="xs" appearance="plain" aria-pressed="false">In review</wa-button><wa-button data-collection-filter="rejected" class="filter-chip" size="xs" appearance="plain" aria-pressed="false">Needs changes</wa-button></div><a href="/studio" class="button primary">＋ Create a Flare</a></div><p id="collection-status" class="form-footnote" role="status"></p><div id="my-collection" class="cosmetic-grid"></div><button id="collection-more" class="button subtle load-more" hidden>Load more submissions ↓</button></section>
+    <section id="view-collection" class="view" hidden><div class="page-heading"><h1>Collection</h1></div><div class="collection-toolbar"><div class="filters" role="group" aria-label="Collection status"><wa-button data-collection-filter="all" class="filter-chip active" size="xs" appearance="plain" aria-pressed="true">All submissions</wa-button><wa-button data-collection-filter="approved" class="filter-chip" size="xs" appearance="plain" aria-pressed="false">Approved</wa-button><wa-button data-collection-filter="pending" class="filter-chip" size="xs" appearance="plain" aria-pressed="false">In review</wa-button><wa-button data-collection-filter="rejected" class="filter-chip" size="xs" appearance="plain" aria-pressed="false">Needs changes</wa-button></div><a href="/studio" class="button primary collection-create"><svg class="ui-icon" aria-hidden="true"><use href="#icon-plus"></use></svg>Create a Flare</a></div><p id="collection-status" class="form-footnote" role="status"></p><div id="my-collection" class="cosmetic-grid"></div><button id="collection-more" class="button subtle load-more" hidden>Load more submissions ↓</button></section>
     <section id="view-account" class="view" hidden><div class="page-heading"><h1>Account</h1></div><div id="account-content"></div></section>
     <section id="view-analytics" class="view" hidden><div class="page-heading"><h1>Insights</h1></div><div id="insights-content"></div></section>
     <section id="view-moderation" class="view" hidden><div class="page-heading moderation-heading"><div><h1>Moderation</h1></div></div><div id="moderation-content"></div></section>
@@ -610,7 +609,25 @@ POST /resolve</pre><a class="button subtle" href="/api/v1/cosmetics" target="_bl
         <p class="donate-foot">Donations are voluntary gifts. They don’t unlock anything on Nameflare, and every Flare stays free.</p>
       </section>
     </section>
+    <section id="view-notfound" class="view notfound" hidden aria-labelledby="notfound-title">
+      <div class="notfound-stage" aria-hidden="true"><strong id="notfound-name">404</strong></div>
+      <h1 id="notfound-title">Page not found</h1>
+      <p>Nothing lives at <code id="notfound-path"></code>. The link may be old, or the address has a typo.</p>
+      <div class="notfound-actions"><wa-button class="button primary" variant="brand" appearance="filled" href="/discover">Go to Discover</wa-button><wa-button id="notfound-search" class="button subtle" appearance="outlined"><svg slot="start" class="ui-icon" aria-hidden="true"><use href="#icon-search"></use></svg>Search Nameflare</wa-button></div>
+    </section>
   </main>
+  <footer class="site-footer">
+    <div class="sf-brand">
+      <a class="sf-mark" href="/discover"><img src="/logo.svg" width="22" height="22" alt="">nameflare</a>
+      <p>Name cosmetics anyone can make and wear in chat. Independent of streaming platforms.</p>
+    </div>
+    <nav class="sf-links" aria-label="Footer">
+      <div><h2>Explore</h2><a href="/discover">Discover</a><a href="/profiles">Creators</a><a href="/artists">Artists</a><a href="/studio">Studio</a></div>
+      <div><h2>Learn</h2><a href="/guide">Guide</a><a href="/integrations">API &amp; overlays</a><a href="/guide/privacy">Privacy</a></div>
+      <div><h2>Project</h2><a href="/donate">Support Nameflare</a><a href="https://github.com/b-x-n-e/nameflare" target="_blank" rel="noopener">Source code<svg class="ui-icon" aria-hidden="true"><use href="#icon-external"></use></svg></a><a href="https://chat.bxne.dev" target="_blank" rel="noopener">Banechat<svg class="ui-icon" aria-hidden="true"><use href="#icon-external"></use></svg></a></div>
+    </nav>
+    <p class="sf-legal">© 2026 Owned by B_X_N_E · <a href="/license" target="_blank" rel="noopener">AGPL-3.0</a> · No warranty</p>
+  </footer>
   </div>
   <aside class="right-rail" aria-label="Community highlights">
     <section class="rail-panel rail-identity" id="rail-identity" hidden aria-labelledby="rail-identity-title">
@@ -634,7 +651,7 @@ POST /resolve</pre><a class="button subtle" href="/api/v1/cosmetics" target="_bl
       <div class="rail-heading"><h2>People to follow</h2><a href="/profiles">See all <svg class="ui-icon" aria-hidden="true"><use href="#icon-arrow"></use></svg></a></div>
       <div id="rail-creators" class="rail-creators" aria-label="People to follow"><div class="rail-loading">Finding creators…</div></div>
     </section>
-    <footer class="rail-footer"><p class="rail-stats"><strong id="rail-public-count">0</strong> public Flares · <strong id="rail-creator-count">0</strong> creators</p><nav aria-label="Site links"><a href="/guide">Guide</a><a href="/integrations">API</a><a href="https://github.com/b-x-n-e/nameflare" target="_blank" rel="noopener">Source</a><a href="/guide/privacy">Privacy</a><a href="/donate">Support</a><span>© 2026 Nameflare</span></nav></footer>
+    <footer class="rail-footer"><p class="rail-stats"><strong id="rail-public-count">0</strong> public Flares · <strong id="rail-creator-count">0</strong> creators</p></footer>
   </aside>
 </div>
 </div>
