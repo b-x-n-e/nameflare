@@ -1,0 +1,31 @@
+[Unit]
+Description=Nameflare Node API and creator studio
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/nameflare
+EnvironmentFile=/home/ubuntu/nameflare-private/.env
+# Safe only with the same-host Nginx template that overwrites X-Real-IP.
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=3000 DATA_DIR=/home/ubuntu/nameflare-data TRUST_PROXY_LOOPBACK=true
+# Measured: ~120 MB resident under sustained load with 50k accounts. The heap
+# and unit caps leave headroom inside the E2.1.Micro's 1 GB beside Nginx and the OS.
+ExecStart=/home/ubuntu/nameflare-runtime/bin/node --max-old-space-size=192 /home/ubuntu/nameflare/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/nameflare-data
+MemoryHigh=320M
+MemoryMax=384M
+TasksMax=64
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

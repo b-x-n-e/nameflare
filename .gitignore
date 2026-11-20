@@ -1,0 +1,36 @@
+# Secrets and private configuration: never commit.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+ssh-key-*.key
+ssh-key-*.key.pub
+*.pem
+*.key
+
+# Runtime data (accounts, sessions, uploads).
+data/
+data-demo/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Local tooling, logs and scratch output.
+node_modules/
+.wrangler/
+coverage/
+*.log
+*.pid
+.tmp-*/
+.tmp-*
+.DS_Store
+.freebuff/
+.claude/
+.cloud-attachments/
+screenshots/
+
+# Precompressed static files (scripts/precompress.js)
+public/**/*.br
+public/**/*.gz
+backups/

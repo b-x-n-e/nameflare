@@ -1,0 +1,695 @@
+/* ==========================================================================
+   Nameflare — calm (2026.7)
+   A system-wide declutter, after Linear's 2026 refresh ("structure should be
+   felt, not seen"; secondary chrome recedes) and Vercel/Geist's control
+   language. Loaded last. Rules here change components, never theme colours,
+   so every theme keeps its own ramp.
+
+   1. Structure comes from surface steps and spacing, not outlines: panels,
+      inputs and secondary buttons lose their borders.
+   2. One quiet secondary button: filled with the next surface step.
+   3. Counts, filler subtitles and repeated actions recede or go.
+   ========================================================================== */
+
+/* Nothing functional renders below 11px. */
+:root { --calm-radius: 10px; --text-2xs: 11px; }
+
+/* ---- Controls ----------------------------------------------------------- */
+/* Secondary Web Awesome buttons: filled, borderless. Follow, Equip and the
+   stage pills keep their own deliberate styles. */
+wa-button:not(.follow-button):not(.equip-button):not(.ph-wearing)::part(button),
+wa-button:not(.follow-button):not(.equip-button):not(.ph-wearing)::part(base) {
+  border-color: transparent; box-shadow: none; border-radius: var(--calm-radius);
+}
+wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button)::part(button),
+wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button)::part(base) {
+  background: var(--surface-2); border-color: transparent;
+}
+wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button):not([disabled])::part(button):hover,
+wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button):not([disabled])::part(base):hover {
+  background: var(--surface-3); border-color: transparent;
+}
+/* Native buttons share the same language. */
+.button, .btn { border-color: transparent; box-shadow: none; border-radius: var(--calm-radius); }
+.button:hover, .btn:hover { border-color: transparent; }
+.button.primary, .btn[data-variant="primary"] { box-shadow: none; }
+.button.subtle { background: var(--surface-2); border-color: transparent; }
+.button.subtle:hover { background: var(--surface-3); border-color: transparent; }
+
+/* Fields: a filled well that gains an outline only on hover and focus. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea, select {
+  background-color: var(--surface-2); border-color: transparent; border-radius: var(--calm-radius);
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):hover,
+textarea:hover, select:hover { border-color: var(--line-strong); }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):focus,
+textarea:focus, select:focus { background-color: var(--surface); }
+label { color: var(--muted); font-weight: 520; letter-spacing: 0; }
+
+/* Badges: one soft pill, no outline. */
+.badge, .equipped-chip, .count-pill { border-color: transparent; box-shadow: none; }
+
+/* ---- Surfaces ----------------------------------------------------------- */
+/* Panels are a surface step; the outline went. Nested info cards flatten. */
+.panel { border-color: transparent; box-shadow: none; border-radius: 16px; }
+.info-card { border-color: transparent; }
+.panel .panel { background: var(--surface-2); }
+
+/* ---- Page rhythm -------------------------------------------------------- */
+.page-heading { padding: 30px 0 14px; margin-bottom: 16px; border-bottom: 0; }
+.page-heading h1 { font-size: clamp(24px, 2.4vw, 28px); letter-spacing: -.025em; }
+.page-heading > p, .page-heading > div > p { max-width: 60ch; margin-top: 4px; color: var(--muted); font-size: var(--text-sm); }
+.section-heading h2, .account-section-title, .insights-section-heading h2 { font-size: 18px; letter-spacing: -.02em; }
+.section-heading p, .insights-section-heading p { color: var(--faint); font-size: var(--text-xs); }
+
+/* Running counts ("8 Flares", "4 Flares · 4 approved …") stay for screen
+   readers as live regions but leave the page. */
+:is(#catalog-status, #collection-status, #following-status, #profile-status, #artist-status, .created-flares > .form-footnote[role="status"]) {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ---- Header ------------------------------------------------------------- */
+/* The demo badge was a warning-yellow pill; it is a state, not an alert. */
+.demo-banner { color: var(--muted); background: var(--surface-2); }
+#demo-switch { color: var(--ink); background: var(--surface-3); font-weight: 600; }
+#demo-switch:hover { background: var(--surface-4); }
+
+/* ---- Discover ----------------------------------------------------------- */
+/* The invitation line repeats what the Trending row and cards already show. */
+#feed-description { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Follow lives on profiles and in the details dialog; one per card was noise. */
+#catalog .post-head wa-button.follow-button, #following-feed .post-head wa-button.follow-button { display: none; }
+/* Style lens swatches: smaller, so the stage leads. */
+.rail-swatch { width: 26px; height: 26px; }
+
+/* Flare details. */
+.detail-note { color: var(--faint); font-size: var(--text-xs); }
+wa-button.detail-download { margin-left: auto; }
+wa-button.detail-download .ui-icon { width: 16px; height: 16px; }
+
+/* ---- Following ---------------------------------------------------------- */
+#following-feed:not(:empty) { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+#following-feed .cosmetic-card { padding: 0; }
+#following-feed .equip-stat { display: none; }
+#following-feed .cosmetic-card .card-preview { aspect-ratio: 16 / 10; max-height: none; min-height: 0; }
+#following-feed .cosmetic-card .card-preview strong { font-size: clamp(22px, 14cqw, 46px); }
+
+/* ---- Collection --------------------------------------------------------- */
+.collection-status { gap: 6px; }
+.collection-status .card-note:last-child { display: none; }
+.cosmetic-card .card-note { color: var(--faint); font-size: var(--text-2xs); }
+/* "Reviewed by …" repeats the Approved badge; the review note itself stays. */
+.cosmetic-card .card-meta > p.card-note { display: none; }
+
+/* ---- Account ------------------------------------------------------------ */
+.account-actions wa-button[appearance="outlined"]::part(button),
+.account-actions wa-button[appearance="outlined"]::part(base) { background: transparent; color: var(--muted); }
+.account-actions wa-button[appearance="outlined"]:not([disabled])::part(button):hover,
+.account-actions wa-button[appearance="outlined"]:not([disabled])::part(base):hover { background: var(--surface-2); color: var(--ink); }
+.equipped-head { padding-bottom: 0; border-bottom: 0; }
+.equipped-head h2 { font-size: 18px; letter-spacing: -.02em; }
+
+/* ---- Insights ----------------------------------------------------------- */
+.insight-kpis > * { border-color: transparent; box-shadow: none; }
+.insight-chart-empty { border: 0; background: var(--surface-2); }
+
+/* ---- Moderation --------------------------------------------------------- */
+.moderation-checklist { border-color: transparent; background: var(--surface); }
+.review-keys { color: var(--faint); }
+
+/* ---- Guide -------------------------------------------------------------- */
+.guide-index { padding: 0; background: transparent; border: 0; box-shadow: none; }
+.guide-index a { border-radius: 8px; }
+
+/* ---- Studio ------------------------------------------------------------- */
+/* The outline and inspector are surfaces, not boxes; the section dividers
+   inside them already give structure. */
+.st-outline, .st-inspector, .st-group { border-color: transparent; }
+
+/* ---- Feed controls ------------------------------------------------------ */
+.feed-tabs { border-color: transparent; }
+
+/* ==========================================================================
+   One shape system (2026.7b)
+   Before, there were six unrelated pill styles: cream page tabs, outlined
+   chips, a boxed toggle, red outline Equip/Follow pills, outlined badges, and
+   orange rank circles. Now there are three, plus one sizing rule.
+     · Page tabs (feed, account, moderation): text with a 2px ink underline.
+     · Toggles (filters, This week / Most worn, status tabs): 8px rounded
+       rectangles; active is a quiet ink tint, not a fill.
+     · Badges: 6px tinted labels, no outline.
+   Controls are 8–10px radius. Full pills are kept only for count dots and
+   avatars.
+   ========================================================================== */
+:root { --ctl-r: 8px; --badge-r: 6px; --tint-1: color-mix(in srgb, var(--ink) 6%, transparent); --tint-2: color-mix(in srgb, var(--ink) 10%, transparent); --tint-3: color-mix(in srgb, var(--ink) 14%, transparent); }
+
+/* ---- Page tabs: underline ----------------------------------------------- */
+.feed-tabs, .account-tabs {
+  gap: 22px !important; padding: 0 !important; width: fit-content;
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+}
+.feed-tabs > wa-button.feed-tab, .account-tabs .feed-tab {
+  min-height: 36px !important; padding: 0 !important; border-radius: 0 !important;
+  color: var(--muted) !important; background: transparent !important; box-shadow: none !important;
+}
+.feed-tab::part(base), .feed-tab::part(button) {
+  min-height: 36px; padding: 0 !important; border-radius: 0 !important;
+  font-size: 14px; font-weight: 560; letter-spacing: -.005em;
+  color: inherit; background: transparent !important; box-shadow: none !important;
+  transition: color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+.feed-tab:hover::part(base), .feed-tab:hover::part(button) { background: transparent !important; }
+.feed-tab:hover { color: var(--ink) !important; }
+.feed-tab.active, .feed-tab[aria-pressed="true"], a.feed-tab.active, a.feed-tab[aria-current="page"] { color: var(--ink) !important; background: transparent !important; box-shadow: none !important; }
+.feed-tab.active::part(button), .feed-tab[aria-pressed="true"]::part(button),
+.feed-tab.active::part(base), .feed-tab[aria-pressed="true"]::part(base) {
+  color: var(--ink) !important; background: transparent !important; box-shadow: inset 0 -2px 0 var(--ink) !important;
+}
+a.feed-tab { display: inline-flex; align-items: center; transition: color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+a.feed-tab.active, a.feed-tab[aria-current="page"] { box-shadow: inset 0 -2px 0 var(--ink) !important; }
+.account-tabs { margin-bottom: 22px; box-shadow: inset 0 -1px 0 var(--line) !important; width: 100%; }
+.account-tabs .feed-tab .ui-icon { display: none; }
+.tab-count { min-width: 0; height: auto; margin-left: 6px; padding: 0; background: transparent; color: var(--faint); font-family: var(--font-ui); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+/* Moderation's section bar already used an underline; it now uses ink like the others. */
+.moderation-nav-link::after { background: var(--ink) !important; }
+.moderation-nav-link[aria-current="page"] .ui-icon { color: var(--ink); }
+
+/* ---- Toggles: quiet rounded rectangles ---------------------------------- */
+.filters, .showcase-tabs, .review-status-tabs, .audit-filters, .segmented, .account-status-filters {
+  gap: 2px; padding: 0; background: transparent; border: 0; box-shadow: none;
+}
+.filter-chip, .filter-chip::part(base), .filter-chip::part(button) { border-radius: var(--ctl-r) !important; }
+.filter-chip::part(button), .filter-chip::part(base),
+.showcase-tabs button, .review-status-tab, .audit-filter, .segmented button {
+  min-height: 30px; padding: 0 11px; border: 0; border-radius: var(--ctl-r); box-shadow: none;
+  color: var(--muted); background: transparent;
+  font-size: 13px; font-weight: 550; letter-spacing: -.005em;
+}
+.filter-chip:hover::part(button), .filter-chip:hover::part(base),
+.showcase-tabs button:hover, .review-status-tab:hover, .audit-filter:hover, .segmented button:hover { color: var(--ink); background: var(--tint-1); }
+.filter-chip.active::part(button), .filter-chip[aria-pressed="true"]::part(button),
+.filter-chip.active::part(base), .filter-chip[aria-pressed="true"]::part(base),
+.showcase-tabs button[aria-pressed="true"], .review-status-tab[aria-pressed="true"], .audit-filter[aria-pressed="true"], .segmented button[aria-pressed="true"] {
+  color: var(--ink); background: var(--tint-2); box-shadow: none;
+}
+.account-status-filters wa-button::part(button), .account-status-filters wa-button::part(base) { min-height: 30px; padding: 0 11px; border-radius: var(--ctl-r); background: transparent; color: var(--muted); font-size: 13px; font-weight: 550; }
+.account-status-filters wa-button:is(.active, [aria-pressed="true"])::part(button),
+.account-status-filters wa-button:is(.active, [aria-pressed="true"])::part(base) { background: var(--tint-2); color: var(--ink); }
+.review-count { border: 0; background: transparent; color: var(--faint); padding: 0; font-family: var(--font-ui); }
+
+/* ---- Badges: small tinted labels ---------------------------------------- */
+.badge, .count-pill, .equipped-chip, .review-reason-chip, .workspace-chip, .moderator-badge, .artist-badge, .live-chip {
+  padding: 2px 7px; border: 0 !important; border-radius: var(--badge-r);
+  font-size: 11px; font-weight: 600; letter-spacing: 0; line-height: 1.5;
+}
+.moderator-badge .ui-icon, .artist-badge .ui-icon { width: 11px; height: 11px; }
+.count-pill { color: var(--muted); background: var(--tint-1); }
+/* "1 wearing" in card actions is a fact, not a badge. */
+.equip-stat { padding: 0 0 0 6px; border: 0; background: transparent; color: var(--faint); letter-spacing: 0; }
+
+/* ---- Card buttons: Equip and Follow --------------------------------------- */
+wa-button.equip-button::part(button), wa-button.equip-button::part(base) {
+  min-height: 30px; padding: 0 13px; border: 0; border-radius: var(--ctl-r);
+  color: var(--ink); background: var(--tint-2);
+  font-size: 12.5px; font-weight: 600; letter-spacing: 0;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+wa-button.equip-button::part(button):hover, wa-button.equip-button::part(base):hover { color: var(--accent-ink); background: var(--accent); transform: none; }
+
+wa-button.follow-button::part(button), wa-button.follow-button::part(base) {
+  min-height: 28px; padding: 0 11px; border: 0; border-radius: var(--ctl-r);
+  color: var(--ink); background: var(--tint-2);
+  font-size: 12px; font-weight: 600;
+}
+wa-button.follow-button:not([disabled])::part(button):hover, wa-button.follow-button:not([disabled])::part(base):hover { background: var(--tint-3); }
+wa-button.follow-button[aria-pressed="true"]::part(button), wa-button.follow-button[aria-pressed="true"]::part(base) { color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+
+/* ---- Small tags on stages ------------------------------------------------ */
+.showcase-rank {
+  top: 10px; left: 10px; padding: 2px 7px; border: 0; border-radius: var(--badge-r);
+  color: rgba(255, 255, 255, .9); background: rgba(0, 0, 0, .55);
+  font-family: var(--font-ui); font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.showcase-item:first-child .showcase-rank { color: #fff; background: rgba(0, 0, 0, .55); box-shadow: inset 0 -2px 0 var(--accent); }
+.cc-wearing { border-radius: var(--badge-r); }
+wa-button.ph-wearing::part(base), wa-button.ph-wearing::part(button) { border-radius: var(--ctl-r); }
+.plat-link { border-radius: var(--ctl-r); }
+.plat-logo { border-radius: 6px; }
+.cc-plat .plat-logo { border-radius: 4px; }
+.demo-banner { border-radius: var(--ctl-r); padding: 3px 3px 3px 9px; }
+#demo-switch { border-radius: 6px; padding: 3px 8px; }
+.icon-toggle { border-radius: var(--ctl-r); }
+
+/* ==========================================================================
+   Spacing (2026.7b): one rhythm. 4px steps, with 8/12/16 inside groups and
+   24/32 between them; more space above a section than inside it.
+   ========================================================================== */
+.showcase { gap: 14px; padding: 0 0 32px; }
+.showcase-track { gap: 14px; }
+.showcase-meta { padding: 11px 14px 13px; gap: 2px; }
+.discover-tools { gap: 12px 16px; }
+.catalog-filter-row { margin-top: 4px; }
+#view-discover[data-layout="grid"] #catalog.cosmetic-grid { gap: 18px; margin-top: 18px; }
+#view-discover[data-layout="feed"] #catalog.cosmetic-grid { gap: 18px; margin-top: 18px; }
+.cosmetic-grid:not(#catalog), .profile-created-flares .cosmetic-grid, #following-feed:not(:empty) { gap: 18px; }
+
+/* Card body: 16px inset, a clear title, actions on their own line. */
+.cosmetic-card .post-head, #view-discover[data-layout="grid"] .cosmetic-card .post-head { padding: 14px 16px 0; }
+.cosmetic-card .card-meta, #view-discover[data-layout="grid"] .cosmetic-card .card-meta { padding: 8px 16px 0; gap: 3px; }
+.collection-card .card-meta { padding-top: 14px; gap: 4px; }
+.cosmetic-card .post-actions, #view-discover[data-layout="grid"] .cosmetic-card .post-actions { padding: 12px 14px 14px 10px; }
+.cosmetic-card .card-actions { padding: 10px 14px 14px 10px; margin: auto -16px 0; }
+.collection-status { margin-top: 6px; }
+
+/* Companion column. */
+.rail-panel { padding-block: 22px; }
+.rail-panel:first-child { padding-top: 0; }
+
+/* Page sections. */
+.section-heading, .account-section-title, .insights-section-heading { margin-top: 32px; margin-bottom: 14px; }
+.created-flares, .profile-created-flares { margin-top: 36px; }
+.account-tab-content > * + * { margin-top: 24px; }
+.panel { padding: 24px; }
+.account-tabs { justify-content: flex-start !important; }
+.account-tabs .feed-tab { flex: 0 0 auto !important; }
+@media (max-width: 640px) {
+  .feed-tabs { gap: 0 !important; width: 100%; box-shadow: inset 0 -1px 0 var(--line) !important; }
+  .feed-tabs > wa-button.feed-tab { flex: 1 1 0 !important; }
+  .account-tabs { display: flex !important; gap: 18px !important; overflow-x: auto; }
+  .account-tabs .feed-tab { padding: 0 !important; }
+}
+/* Mobile tab bar: the current tab is ink with a short bar above it, not a filled peach pill. */
+.mobile-tabbar a.active, .mobile-tabbar a[aria-current="page"] { position: relative; color: var(--ink); background: transparent; }
+.mobile-tabbar a.active::before, .mobile-tabbar a[aria-current="page"]::before { content: ""; position: absolute; top: 0; left: 50%; width: 22px; height: 2px; translate: -50% 0; border-radius: 0 0 2px 2px; background: var(--accent); }
+
+/* ==========================================================================
+   Equipping (2026.7d)
+   Colour belongs to the Flare, so the moment uses the Flare's own palette,
+   not a system green:
+     · the button turns into "Wearing", tinted with the Flare's colour, and its
+       check draws itself in that colour;
+     · the stage's palette ribbon fills left to right and glows once, and the
+       name gets a soft light lift;
+     · the rail identity fades in, sharp, wearing it.
+   The update is optimistic, so there is no spinner and no wait.
+   ========================================================================== */
+wa-button.equip-button { min-width: 108px; }
+wa-button.equip-button::part(base), wa-button.equip-button::part(button) { width: 100%; justify-content: center; gap: 6px; }
+:is(wa-button.equip-button, wa-button.detail-equip) .check-icon {
+  width: 13px; height: 13px; margin: 0; color: var(--paint-color, var(--ink));
+}
+/* Wearing: a glass of the Flare's colour over the surface, a hairline of it,
+   ink text. Calm at rest; no hover fill, since there is nothing to do. */
+:is(wa-button.equip-button, #detail-dialog wa-button.detail-equip)[aria-pressed="true"]::part(base),
+:is(wa-button.equip-button, #detail-dialog wa-button.detail-equip)[aria-pressed="true"]::part(button),
+:is(wa-button.equip-button, #detail-dialog wa-button.detail-equip)[aria-pressed="true"]::part(button):hover {
+  color: var(--ink) !important;
+  background: color-mix(in srgb, var(--paint-color, var(--ink)) 14%, var(--surface-2)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paint-color, var(--ink)) 42%, transparent) !important;
+  cursor: default;
+}
+wa-button.detail-equip { min-width: 128px; }
+wa-button.detail-equip::part(base), wa-button.detail-equip::part(button) { justify-content: center; gap: 6px; }
+
+/* The worn card keeps a slightly thicker palette ribbon, nothing else. */
+.cosmetic-card.is-equipped { border-color: var(--line); }
+.cosmetic-card .card-preview::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 2; pointer-events: none;
+  background: linear-gradient(90deg, var(--paint-color, var(--accent)), var(--paint-secondary, var(--paint-color, var(--accent))));
+  transform: scaleX(0); transform-origin: left center; opacity: 0;
+}
+.cosmetic-card.is-equipped .card-preview::after { transform: none; opacity: 1; }
+
+@keyframes nf-wear-ribbon {
+  0% { transform: scaleX(0); opacity: 1; box-shadow: 0 0 0 0 transparent; }
+  55% { transform: scaleX(1); opacity: 1; box-shadow: 0 -6px 22px 2px color-mix(in srgb, var(--paint-color, var(--accent)) 55%, transparent); }
+  100% { transform: scaleX(1); opacity: 1; box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes nf-wear-lift {
+  0% { filter: brightness(1); }
+  40% { filter: brightness(1.35) saturate(1.15); }
+  100% { filter: brightness(1); }
+}
+@keyframes nf-wear-check { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes nf-wear-fill { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes nf-reveal { from { opacity: 0; filter: blur(4px); transform: translateY(4px); } to { opacity: 1; filter: none; transform: none; } }
+
+.cosmetic-card.just-equipped .card-preview::after { animation: nf-wear-ribbon 900ms var(--ease-out) both; }
+.cosmetic-card.just-equipped .card-preview > strong { animation: nf-wear-lift 900ms var(--ease-out); }
+wa-button.just-equipped .check-icon { animation: nf-wear-check 420ms 120ms var(--ease-out) both; }
+#rail-identity-stage.is-revealing > * { animation: nf-reveal 480ms var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cosmetic-card.just-equipped .card-preview::after, .cosmetic-card.just-equipped .card-preview > strong,
+  wa-button.just-equipped .check-icon, #rail-identity-stage.is-revealing > *, .toast { animation: none !important; }
+}
+:root[data-motion="reduced"] :is(.cosmetic-card.just-equipped .card-preview > strong, wa-button.just-equipped .check-icon, #rail-identity-stage.is-revealing > *, .toast) { animation: none !important; }
+:root[data-motion="reduced"] .cosmetic-card.just-equipped .card-preview::after { animation: none !important; }
+
+/* ---- Toasts: a calm bar at the bottom centre, never over the rail ------- */
+.toast-stack { left: 50%; right: auto; translate: -50% 0; width: auto; max-width: min(460px, calc(100vw - 32px)); justify-items: center; }
+.toast {
+  gap: 10px; padding: 10px 10px 10px 14px; width: max-content; max-width: 100%;
+  border: 0; border-left: 0; border-radius: 12px;
+  color: var(--ink); background: var(--surface-3);
+  box-shadow: 0 16px 40px -14px rgba(0, 0, 0, .7), inset 0 0 0 1px var(--line);
+  animation: nf-toast-in 260ms var(--ease-out);
+}
+.toast.error { border-left: 0; }
+.toast-icon { flex-shrink: 0; width: 15px; height: 15px; color: var(--success); }
+.toast.error .toast-icon { color: var(--danger); }
+.toast.is-leaving { transform: translateY(8px) scale(.98); }
+@keyframes nf-toast-in { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+
+/* The toast stack is a manual popover: drop the UA popover box. */
+.toast-stack[popover] { inset: auto auto 20px 50%; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: inherit; }
+.toast-stack[popover]:not(:popover-open) { display: none; }
+.toast-stack[popover]:popover-open { display: grid; }
+@media (max-width: 1000px) { .toast-stack[popover] { bottom: calc(var(--tabbar-h, 64px) + 16px); } }
+/* Phones: Equip keeps its fixed width so Like and Share keep their room. */
+@media (max-width: 640px) {
+  .cosmetic-card wa-button.equip-button { width: auto !important; flex: 0 0 auto; margin-left: auto; }
+  .cosmetic-card .post-buttons { flex: 0 0 auto; width: auto; margin-left: auto; }
+  .cosmetic-card .post-actions { flex-wrap: nowrap; }
+}
+/* The save runs in the background; the button never looks disabled meanwhile. */
+:is(wa-button.equip-button, wa-button.detail-equip)[disabled] { opacity: 1; }
+:is(wa-button.equip-button, wa-button.detail-equip)[disabled]::part(base),
+:is(wa-button.equip-button, wa-button.detail-equip)[disabled]::part(button) { opacity: 1 !important; cursor: default; }
+:is(wa-button.equip-button, wa-button.detail-equip)[disabled][aria-pressed="true"]::part(button) { color: var(--ink) !important; }
+
+/* ==========================================================================
+   Flow (2026.8): orientation and next steps
+   ========================================================================== */
+/* First visit, signed out: three steps in one line, then out of the way. */
+.first-run {
+  display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap;
+  margin: 0 0 22px; padding: 10px 10px 10px 16px; border-radius: 12px;
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line);
+}
+.first-run[hidden] { display: none; }
+.first-run-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.first-run-steps li { display: block; color: var(--muted); font-size: var(--text-sm); line-height: 1.5; counter-increment: step; }
+.first-run-steps li::before {
+  content: counter(step); display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; vertical-align: 1px; border-radius: 6px;
+  color: var(--ink); background: var(--tint-2); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.first-run-steps strong { color: var(--ink); font-weight: 650; }
+.first-run-try {
+  min-height: 32px; padding: 0 14px; border: 0; border-radius: var(--ctl-r); cursor: pointer;
+  color: var(--bg); background: var(--ink); font: inherit; font-size: 13px; font-weight: 650;
+}
+.first-run-try:hover { filter: brightness(.92); }
+.first-run-close { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--ctl-r); cursor: pointer; color: var(--faint); background: transparent; }
+.first-run-close:hover { color: var(--ink); background: var(--tint-1); }
+.first-run-close .ui-icon { width: 14px; height: 14px; }
+@media (max-width: 640px) {
+  .first-run { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 8px; padding: 14px; align-items: start; }
+  .first-run-steps { flex-direction: column; gap: 8px; }
+  .first-run-close { grid-column: 2; grid-row: 1; margin: -6px -6px 0 0; }
+  .first-run-try { grid-column: 1 / -1; width: 100%; min-height: 38px; }
+}
+
+/* Account: who sees the Flare you wear. */
+.where-it-shows { display: block; max-width: 46ch; margin: 16px 0 0; color: var(--muted); font-size: var(--text-xs); line-height: 1.6; }
+.where-it-shows .ui-icon { display: inline-block; width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; color: var(--faint); }
+.where-it-shows-link { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.where-it-shows-link:hover { text-decoration-color: currentColor; }
+
+/* Collection: the reviewer's note reads as a note, and Revise is the next step. */
+.collection-note { display: grid; gap: 2px; margin: 8px 0 0; padding: 8px 10px; border: 0; border-left: 0; border-radius: 8px; color: var(--ink-2); background: var(--danger-soft); font-size: var(--text-xs); line-height: 1.5; }
+.collection-note-label { color: var(--danger); font-size: 11px; font-weight: 650; }
+wa-button.revise-button { min-width: 108px; }
+wa-button.revise-button::part(base), wa-button.revise-button::part(button) {
+  min-height: 30px; padding: 0 13px; border: 0 !important; border-radius: var(--ctl-r);
+  color: var(--accent-ink) !important; background: var(--accent) !important; font-size: 12.5px; font-weight: 650; justify-content: center;
+}
+wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(button) { filter: brightness(1.08); }
+
+/* ==========================================================================
+   Refine (2026.11): let the Flare carry more of each card and tile, and
+   finish the small controls around it.
+   ========================================================================== */
+
+/* Trending: the name fills more of its stage, and a soft edge says the row
+   continues instead of slicing a tile in half. */
+.showcase-stage strong { font-size: clamp(24px, calc(var(--name-scale, 12) * 1.05cqw), 60px); }
+.showcase-tile:hover .showcase-stage strong, .showcase-tile:focus-visible .showcase-stage strong { filter: brightness(1.12); }
+.showcase-stage strong { transition: filter var(--normal) var(--ease); }
+.showcase-track {
+  --fade-before: 0px; --fade-after: 0px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade-before), #000 calc(100% - var(--fade-after)), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 var(--fade-before), #000 calc(100% - var(--fade-after)), transparent);
+}
+.showcase-track[data-more-before] { --fade-before: 48px; }
+.showcase-track[data-more-after] { --fade-after: 64px; }
+/* #1 is marked by colour, not an underline that read as a stray bar. */
+.showcase-item:first-child .showcase-rank { color: var(--accent); box-shadow: none; }
+
+/* Grid cards: the name scales with its length, so short names grow and long
+   ones still fit. */
+#view-discover[data-layout="grid"] .cosmetic-card .card-preview strong { font-size: clamp(22px, calc(var(--name-scale, 12) * 1cqw), 56px); }
+
+/* Like counts are numbers in the card's own type, not a code value. */
+.like-count { font-family: var(--font-ui); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Icons are Phosphor (regular weight). A few symbols also carry the fill
+   weight; these two custom properties swap to it for "on" states. */
+.ui-icon.is-solid,
+.feed-tab[aria-pressed="true"] .ui-icon,
+.mobile-tabbar a.active .ui-icon, .mobile-tabbar a[aria-current="page"] .ui-icon { --i-line: none; --i-solid: inline; }
+
+/* Support (2026.11) — a letter, the projects it funds, then the wallets.
+   Read-mode page: one calm column, addresses set in mono so every character
+   can be checked, QR codes always black on white for scanners. */
+.donate { max-width: 940px; }
+.donate-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+.donate-letter, .donate-projects, .wallet { background: var(--surface); border-radius: 16px; }
+.donate-letter { padding: 30px 32px 28px; }
+.donate-letter p { max-width: 62ch; color: var(--muted); font-size: var(--text-md); line-height: 1.68; }
+.donate-letter p + p { margin-top: 14px; }
+.donate-letter .donate-lede { color: var(--ink); font-family: var(--font-display); font-size: clamp(19px, 1.7vw, 22px); font-weight: 650; line-height: 1.32; letter-spacing: -.018em; text-wrap: balance; }
+.donate-letter .donate-lede + p { margin-top: 18px; }
+.donate-sign { padding-top: 6px; color: var(--muted); }
+.donate-sign strong { color: var(--ink); font-weight: 650; }
+.donate-projects { padding: 22px; }
+.donate-projects h2, .donate-wallets h2 { font-size: var(--text-md); font-weight: 650; letter-spacing: -.01em; }
+.donate-projects ul { display: grid; gap: 16px; margin: 16px 0 0; padding: 0; list-style: none; }
+.donate-projects li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; }
+.donate-projects li img, .donate-project-mark { width: 28px; height: 28px; border-radius: 8px; }
+.donate-project-mark { display: grid; place-items: center; background: var(--surface-3); color: var(--ink-2); font-size: var(--text-sm); font-weight: 700; }
+.donate-projects strong { display: block; font-size: var(--text-base); font-weight: 650; }
+.donate-projects strong a { color: inherit; text-decoration: none; }
+.donate-projects strong a:hover { color: var(--accent); }
+.donate-projects span:not(.donate-project-mark) { display: block; margin-top: 2px; color: var(--muted); font-size: var(--text-sm); line-height: 1.45; }
+
+.donate-wallets { margin-top: 36px; }
+.donate-wallets-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; margin-bottom: 14px; }
+.donate-warning { display: inline-flex; align-items: flex-start; gap: 8px; max-width: 58ch; padding: 8px 12px; border-radius: 10px; background: var(--warning-soft); color: var(--warning); font-size: var(--text-sm); line-height: 1.45; }
+.donate-warning .ui-icon { flex: none; width: 16px; height: 16px; margin-top: 1px; vertical-align: 0; }
+.wallet-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.wallet { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; padding: 20px 20px 20px 22px; }
+.wallet-body { display: grid; gap: 14px; justify-items: start; min-width: 0; }
+.wallet-head { display: flex; align-items: center; gap: 12px; }
+.wallet-head h3 { font-size: var(--text-md); font-weight: 650; letter-spacing: -.01em; }
+.wallet-head p { margin-top: 1px; color: var(--muted); font-size: var(--text-sm); }
+.wallet-mark { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; color: #fff; }
+.wallet-mark .ui-icon { width: 20px; height: 20px; vertical-align: 0; }
+.wallet-mark-btc { background: #f7931a; }
+.wallet-mark-eth { background: #627eea; }
+.wallet-mark-sol { background: linear-gradient(135deg, #9945ff, #14f195); }
+.wallet-address { display: block; width: 100%; padding: 11px 13px; border-radius: 10px; background: var(--surface-2); color: var(--ink); font-family: var(--font-mono); font-size: 14px; line-height: 1.5; letter-spacing: .02em; overflow-wrap: anywhere; user-select: all; }
+.wallet-copy { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; }
+.wallet-copy .ui-icon { width: 16px; height: 16px; vertical-align: 0; }
+.wallet-copy[data-state="copied"] { background: var(--success-soft); color: var(--success); }
+.wallet-copy[data-state="failed"] { background: var(--danger-soft); color: var(--danger); }
+.wallet-qr { width: 132px; aspect-ratio: 1; overflow: hidden; border-radius: 10px; background: #fff; }
+.wallet-qr[hidden] { display: none; }
+.wallet-qr svg { display: block; width: 100%; height: 100%; }
+.donate-foot { margin-top: 18px; color: var(--faint); font-size: var(--text-sm); }
+@media (max-width: 860px) {
+  .donate-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .donate-letter { padding: 22px 20px; }
+  .wallet { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px; }
+  .wallet-qr { width: 148px; }
+  .wallet-address { font-size: 13px; }
+}
+.donate-projects-note { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: var(--text-sm); line-height: 1.55; }
+
+/* Safety and data (2026.11): report dialog, the moderation Reports queue,
+   Account → Your data, and relay rooms. Same surfaces and type scale as the
+   panels around them; danger colour only on irreversible actions. */
+.report-dialog { width: min(560px, calc(100% - 32px)); }
+.report-dialog h2 { margin: 12px 0 8px; }
+.report-dialog form > p { color: var(--muted); font-size: var(--text-sm); }
+.report-reasons { display: grid; gap: 6px; margin: 18px 0 14px; padding: 0; border: 0; }
+.report-reasons legend { margin-bottom: 8px; font-size: var(--text-sm); font-weight: 650; }
+.report-reasons label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); cursor: pointer; transition: background var(--fast, .15s) var(--ease); }
+.report-reasons label:hover { background: var(--surface-3); }
+.report-reasons label:has(input:checked) { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.report-reasons input { margin-top: 3px; accent-color: var(--accent); }
+.report-reasons strong { display: block; font-size: var(--text-base); font-weight: 600; }
+.report-reasons small { display: block; margin-top: 1px; color: var(--muted); font-size: var(--text-sm); }
+.report-details { display: grid; gap: 6px; font-size: var(--text-sm); font-weight: 600; }
+.report-details textarea { width: 100%; }
+.report-dialog .confirmation-actions { margin-top: 16px; }
+.detail-report .ui-icon, .ph-report .ui-icon { width: 17px; height: 17px; }
+
+.review-flag { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--warning-soft); color: var(--warning); font-size: var(--text-sm); }
+.review-flag .ui-icon { flex: none; width: 15px; height: 15px; vertical-align: 0; }
+.review-flag .text-button { color: inherit; text-decoration: underline; }
+.review-block { margin-top: 10px; font-size: var(--text-sm); }
+
+.report-list { display: grid; gap: 12px; }
+.report-card { display: grid; gap: 14px; padding: 18px 20px; border-radius: 16px; background: var(--surface); }
+.report-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.report-subject { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; min-width: 0; }
+.report-subject-text { display: grid; min-width: 0; }
+.report-subject-text strong { font-size: var(--text-md); font-weight: 650; }
+.report-subject-text small, .report-subject > small { color: var(--muted); font-size: var(--text-sm); }
+.report-stage { display: grid; place-items: center; min-width: 120px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); font-size: 18px; }
+.report-count { flex: none; padding: 4px 10px; border-radius: var(--radius-pill); background: var(--danger-soft); color: var(--danger); font-size: var(--text-sm); font-weight: 650; white-space: nowrap; }
+.report-items { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.report-items li { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+.report-item-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.report-item-head strong { font-size: var(--text-sm); font-weight: 650; }
+.report-item-head small { color: var(--faint); font-size: var(--text-xs); }
+.report-items p { margin-top: 4px; color: var(--ink-2); font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.report-items .report-resolution { color: var(--muted); }
+.report-actions { display: grid; gap: 10px; padding-top: 4px; }
+.report-note { display: grid; gap: 6px; font-size: var(--text-sm); font-weight: 600; }
+.report-note textarea { width: 100%; }
+.report-actions .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.data-panel { display: grid; gap: 12px; }
+.data-panel + .data-panel { margin-top: 12px; }
+.data-panel h2 { font-size: var(--text-lg); font-weight: 650; letter-spacing: -.015em; }
+.data-panel h3 { font-size: var(--text-md); font-weight: 650; }
+.data-panel > p { max-width: 64ch; color: var(--ink-2); font-size: var(--text-base); line-height: 1.6; }
+.data-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 14px 16px; border-radius: 12px; background: var(--surface-2); }
+.data-row > div { max-width: 60ch; }
+.data-row .button { display: inline-flex; align-items: center; gap: 8px; }
+.data-row .ui-icon { width: 16px; height: 16px; vertical-align: 0; }
+.retention-list { display: grid; margin: 0; }
+.retention-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.retention-list > div:last-child { border-bottom: 0; }
+.retention-list dt { color: var(--ink-2); }
+.retention-list dd { margin: 0; color: var(--muted); text-align: right; }
+.data-danger { box-shadow: inset 0 0 0 1px var(--danger-soft); }
+.data-danger label { display: grid; gap: 6px; max-width: 360px; font-size: var(--text-sm); font-weight: 600; }
+.data-danger .button.danger { justify-self: start; }
+
+.relay-rooms { display: grid; gap: 12px; margin-top: 4px; }
+.relay-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.relay-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+.relay-row > div:first-child { display: grid; min-width: 0; }
+.relay-row strong { font-size: var(--text-base); font-weight: 600; }
+.relay-row small { color: var(--muted); font-size: var(--text-xs); }
+.relay-row .card-actions { display: flex; gap: 6px; }
+.relay-create { display: flex; gap: 8px; }
+.relay-create input { flex: 1; min-width: 0; }
+.relay-secrets { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: var(--accent-wash); box-shadow: inset 0 0 0 1px var(--accent-soft); }
+.relay-secrets h3 { font-size: var(--text-md); font-weight: 650; }
+.relay-secret { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+.relay-secret > span { grid-column: 1 / -1; font-size: var(--text-xs); font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.relay-secret code { padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
+.relay-example { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 560px) {
+  .report-head { flex-direction: column; }
+  .relay-create { flex-direction: column; }
+}
+.data-panel .text-link { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.report-details .form-footnote { margin-left: 6px; font-weight: 400; }
+.data-row .button .ui-icon { margin-right: 6px; }
+
+/* Caution, restyled (2026.11). Yellow text on a yellow wash was hard to read,
+   worst on the light themes. Notes are now a neutral surface with readable
+   text; yellow stays as an accent: a bar, a dot or an icon. */
+.status-note, .moderation-notice, .donate-warning, .review-flag, .review-feedback {
+  color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line);
+  box-shadow: inset 3px 0 0 var(--warning); border-radius: 10px;
+}
+.status-note { padding: 9px 12px 9px 14px; font-size: var(--text-xs); }
+.moderation-notice { padding: 14px 16px 14px 18px; }
+.moderation-notice strong { color: var(--ink); }
+.donate-warning { padding: 9px 12px 9px 14px; }
+.review-flag { padding: 8px 10px 8px 13px; }
+.review-feedback { padding: 10px 12px 10px 14px; }
+.donate-warning .ui-icon, .review-flag .ui-icon { color: var(--warning); }
+.review-flag .text-button { color: var(--ink); }
+/* Status badges: a quiet pill with a coloured dot. */
+.badge.pending, .badge.approved, .badge.rejected {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-2); background: var(--surface-2); border-color: var(--line);
+}
+.badge.pending::before, .badge.approved::before, .badge.rejected::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); }
+.badge.approved::before { background: var(--success); }
+.badge.rejected::before { background: var(--danger); }
+.demo-banner { color: var(--ink-2); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.demo-banner::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); }
+.demo-detail { color: var(--muted); }
+
+/* Appearance → Custom theme editor. */
+.custom-theme { display: grid; gap: 10px; margin: -8px 0 20px; padding: 14px; border-radius: 12px; background: var(--surface-2); }
+.custom-theme[hidden] { display: none; }
+.custom-theme-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.custom-theme-fields label { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-sm); font-weight: 600; }
+.custom-theme-fields input[type="color"] { width: 36px; height: 36px; padding: 0; border: 1px solid var(--line-strong); border-radius: 9px; background: none; cursor: pointer; }
+.custom-theme-fields code { color: var(--muted); font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 400; }
+.custom-theme-fields .button { margin-left: auto; }
+.custom-theme-note { color: var(--muted); font-size: var(--text-sm); }
+.custom-theme-note[data-warn="true"] { color: var(--ink-2); padding-left: 10px; box-shadow: inset 3px 0 0 var(--warning); }
+.theme-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Accounts table (2026.11): one column grid for every row, so names,
+   platforms, role, status, dates and the Manage menu line up. */
+.moderation-accounts { overflow: visible; }
+.account-row {
+  display: grid; align-items: center; gap: 4px 16px;
+  grid-template-columns: minmax(180px, 1.6fr) minmax(140px, 1.4fr) 104px 92px 112px 108px;
+  padding: 12px 18px; border-bottom: 1px solid var(--line);
+}
+.account-row:last-child { border-bottom: 0; }
+.account-row:not(.account-head):hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.account-row.is-banned { background: color-mix(in srgb, var(--danger) 4%, transparent); }
+.account-head { padding-block: 10px; color: var(--faint); font-size: var(--text-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.account-cell { min-width: 0; }
+.account-person { display: flex; align-items: center; gap: 10px; }
+.account-name { display: grid; min-width: 0; }
+.account-name strong, .account-name .profile-link { overflow: hidden; color: var(--ink); font-size: var(--text-base); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.account-name small { overflow: hidden; color: var(--faint); font-family: var(--font-mono); font-size: var(--text-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.account-platforms { display: flex; flex-wrap: wrap; gap: 6px; }
+.account-platform { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 9px 3px 7px; border-radius: var(--radius-pill); background: var(--surface-2); color: var(--ink-2); font-size: var(--text-xs); }
+.account-platform span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-platform svg { width: 12px; height: 12px; flex: none; fill: currentColor; }
+.role-chip { display: inline-flex; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--surface-2); color: var(--ink-2); font-size: var(--text-xs); font-weight: 600; }
+.role-owner { background: var(--accent-soft); color: var(--accent); }
+.account-joined { color: var(--muted); font-size: var(--text-sm); }
+.account-actions { justify-self: end; }
+.account-actions .form-footnote { font-size: var(--text-xs); }
+.account-ban-note { grid-column: 1 / -1; margin: 6px 0 2px 46px; color: var(--ink-2); font-size: var(--text-sm); }
+.account-ban-note small { color: var(--faint); }
+.row-menu { position: relative; }
+.row-menu > summary { list-style: none; cursor: pointer; }
+.row-menu > summary::-webkit-details-marker { display: none; }
+.row-menu-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; min-width: 190px; padding: 6px; border-radius: 12px; background: var(--surface-3); box-shadow: var(--shadow-pop); }
+.row-menu-panel .menu-item { justify-content: flex-start; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--ink); font-size: var(--text-sm); text-align: left; cursor: pointer; }
+.row-menu-panel .menu-item:hover, .row-menu-panel .menu-item:focus-visible { background: var(--surface-4); }
+.row-menu-panel .menu-item.danger { color: var(--danger); }
+@media (max-width: 900px) {
+  .account-head { display: none; }
+  .account-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "person actions" "platforms platforms" "meta meta"; row-gap: 10px; }
+  .account-person { grid-area: person; } .account-actions { grid-area: actions; } .account-platforms { grid-area: platforms; }
+  .account-role, .account-status, .account-joined { grid-area: meta; }
+  .account-role { justify-self: start; } .account-status { justify-self: center; } .account-joined { justify-self: end; }
+  .account-ban-note { margin-left: 0; }
+}
+
+/* One-line names on profile cards (fitName in app.js shrinks them to fit). */
+.fit-line { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cc-name, .ph-name, .artist-card .profile-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cc-text, .ph-identity, .artist-card .profile-heading { min-width: 0; }
+.cc-name > :not(.fit-line), .ph-name > :not(.fit-line), .artist-card .profile-name-row > :not(.fit-line) { flex: none; }

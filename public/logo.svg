@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 259" role="img" aria-labelledby="title description">
+  <title id="title">Nameflare</title>
+  <desc id="description">A navy N above a sweeping crimson, orange, and golden flame, on a transparent background.</desc>
+  <defs>
+    <linearGradient id="navy" x1="46" y1="24" x2="221" y2="174" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07162f"/><stop offset="1" stop-color="#0b213e"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="29" y1="233" x2="263" y2="86" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c91f21"/><stop offset=".48" stop-color="#f15a20"/><stop offset="1" stop-color="#ffc52c"/>
+    </linearGradient>
+    <linearGradient id="ember" x1="42" y1="223" x2="207" y2="165" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c51e25"/><stop offset="1" stop-color="#ee691f"/>
+    </linearGradient>
+    <clipPath id="flame-clip">
+      <path d="M4 242C21 197 53 158 111 156C98 163 85 176 93 183C108 195 130 170 145 154C152 147 160 144 169 145C153 157 145 175 160 176C189 178 217 143 211 114C222 125 226 138 219 153C237 140 238 124 241 110C244 95 251 85 269 80C250 94 258 111 260 132C262 147 257 160 246 167C259 167 267 157 273 147C276 173 253 188 231 195C216 199 216 207 226 210C235 212 245 207 252 200C242 224 222 232 196 229C181 227 158 213 152 223C145 235 179 242 204 239C173 258 142 247 111 237C78 226 48 217 4 242Z"/>
+    </clipPath>
+  </defs>
+  <path fill="url(#navy)" d="M46 172V24H85L181 144V24H227V136C222 122 212 109 203 102C205 126 194 151 178 161C167 169 160 171 160 166C161 160 171 150 179 144C162 136 146 141 132 151L91 102V151C73 155 58 163 46 172Z"/>
+  <g clip-path="url(#flame-clip)">
+    <path fill="url(#flame)" d="M0 75H280V259H0Z"/>
+    <path fill="#ff8c20" d="M30 227C48 187 85 166 115 160C83 176 63 191 76 201C96 214 137 195 156 179C187 182 215 151 218 123C243 162 204 195 167 205C123 216 78 204 30 227Z"/>
+    <path fill="#ffb52b" d="M173 191C211 169 234 146 240 115C246 93 251 85 269 80C256 94 251 114 253 133C253 158 228 185 192 197C199 187 202 178 203 169C194 181 184 188 173 191Z"/>
+    <path fill="url(#ember)" d="M4 242C25 214 48 193 75 177C65 196 71 206 93 205C133 208 177 197 203 169C201 191 180 207 159 217C138 230 159 241 204 239L217 259H0Z"/>
+  </g>
+</svg>

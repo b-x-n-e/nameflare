@@ -1,0 +1,18 @@
+services:
+  nameflare:
+    build: .
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATA_DIR: /app/data
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - nameflare-data:/app/data
+    stop_grace_period: 10s
+volumes:
+  nameflare-data:

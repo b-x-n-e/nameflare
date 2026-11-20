@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WA smoke test</title>
+<link rel="stylesheet" href="/vendor/webawesome/styles/themes/default.css">
+<style>
+  :root {
+    --wa-color-brand-50: #16140f;
+    --wa-color-brand-60: #16140f;
+    --wa-font-family-body: Georgia, serif;
+  }
+  body { padding: 40px; font-family: system-ui; background: #f5f1e8; }
+  wa-button::part(button) { border-radius: 8px; }
+  .row { display: flex; gap: 12px; align-items: center; margin: 16px 0; }
+</style>
+<script type="module" src="/vendor/webawesome/webawesome.loader.js"></script>
+</head>
+<body>
+  <h1>Web Awesome smoke test</h1>
+  <div class="row">
+    <wa-button variant="brand" appearance="filled">Filled brand</wa-button>
+    <wa-button appearance="outlined">Outlined</wa-button>
+    <wa-button appearance="plain">Plain</wa-button>
+    <wa-button size="small">Small</wa-button>
+  </div>
+  <div class="row">
+    <wa-input placeholder="Search Flares…" style="width:260px" with-clear></wa-input>
+    <wa-switch>Motion</wa-switch>
+    <wa-badge variant="brand">12</wa-badge>
+    <wa-avatar initials="NF" label="Nameflare"></wa-avatar>
+  </div>
+  <div class="row">
+    <wa-dropdown>
+      <wa-button slot="trigger" appearance="outlined">Sort <wa-icon slot="end" name="chevron-down" library="system"></wa-icon></wa-button>
+      <wa-dropdown-item type="checkbox" checked>Newest first</wa-dropdown-item>
+      <wa-dropdown-item type="checkbox">Most liked</wa-dropdown-item>
+    </wa-dropdown>
+    <wa-tooltip content="Notifications"><wa-button appearance="plain"><wa-icon name="bell" library="system"></wa-icon></wa-button></wa-tooltip>
+    <wa-icon name="heart" library="system"></wa-icon>
+    <wa-skeleton style="width:120px;height:16px"></wa-skeleton>
+    <wa-spinner></wa-spinner>
+  </div>
+  <wa-tab-group>
+    <wa-tab slot="nav" panel="a" active>For you</wa-tab>
+    <wa-tab slot="nav" panel="b">Trending</wa-tab>
+    <wa-tab-panel name="a">Panel A</wa-tab-panel>
+    <wa-tab-panel name="b">Panel B</wa-tab-panel>
+  </wa-tab-group>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "name": "nameflare",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nameflare: design animated name cosmetics (Flares) and wear them in stream chat. Open source, with one official hosted API.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/b-x-n-e/nameflare.git"
+  },
+  "homepage": "https://nameflare.bxne.dev",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "demo": "node --env-file-if-exists=.env server.js --demo",
+    "test": "node --test test/*.test.js",
+    "check": "node --check server.js && node --check lib/store.js && node --check lib/cosmetics.js && node --check lib/oauth.js && node --check lib/images.js && node --check lib/image-worker.js && node --check lib/media.js && node --check lib/backup.js && node --check scripts/backup.js && node --check scripts/restore.js && node --check scripts/loadtest.js && node --check public/donate.js && node --check scripts/precompress.js && node --check scripts/edge-test.mjs && node --check public/app.js && node --check public/routes.js && node --check public/likes.js && node --check public/renderer.js && node --check public/paints.js && node --check public/editor.js && node --check public/fonts.js && node --check public/social.js && node --check public/preferences.js && node --check public/insights.js && node --check public/rail.js && node --check public/experience.js && node --check public/theme-init.js && node --check scripts/update-google-fonts.js && node --check public/client.js && node --check public/overlay.js && node --check cloudflare/store.js && node --check cloudflare/worker.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js",
+    "loadtest": "node scripts/loadtest.js",
+    "precompress": "node scripts/precompress.js",
+    "edgetest": "node scripts/edge-test.mjs",
+    "fonts:update": "node scripts/update-google-fonts.js",
+    "cf:dev": "wrangler dev --env local --ip 127.0.0.1 --port 8787",
+    "cf:check": "wrangler deploy --env='' --dry-run --outdir .wrangler/build",
+    "cf:migrate:local": "wrangler d1 migrations apply nameflare-local --env local --local"
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "wrangler": "^4.148.0"
+  }
+}

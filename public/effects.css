@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: MIT OR AGPL-3.0-only
+ * Copyright (c) 2026 Nameflare contributors. See SDK-LICENSE.md for the MIT option. */
+@property --nameflare-phase{syntax:'<number>';inherits:true;initial-value:0}
+.nameflare-name{position:relative;display:inline-block;isolation:isolate;background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent;font-weight:800;line-height:1.4;white-space:pre}
+.nameflare-name::before{content:attr(data-text);position:absolute;inset:0;z-index:-1;background:none;color:transparent;-webkit-text-fill-color:transparent;-webkit-text-stroke:0;text-shadow:var(--nameflare-shadows,none);pointer-events:none}
+.nameflare-complex{background-image:none!important}
+.nameflare-paint-layer{position:absolute;inset:0;pointer-events:none;background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent;white-space:inherit;line-height:inherit;font:inherit;letter-spacing:inherit;-webkit-text-stroke:inherit}
+.nameflare-paint-layer::after{content:attr(data-text);white-space:inherit}
+.nameflare-name[data-animation=flow]{animation:nameflare-flow var(--nameflare-speed,4s) linear infinite}
+.nameflare-name[data-animation=shimmer]{animation:nameflare-shimmer var(--nameflare-speed,4s) linear infinite}
+.nameflare-name[data-animation=pulse]{animation:nameflare-pulse var(--nameflare-speed,4s) ease-in-out infinite}
+.nameflare-name[data-animation=spectrum]{animation:nameflare-spectrum var(--nameflare-speed,4s) linear infinite}
+.nameflare-name[data-animation],.nameflare-name[data-animation]>.nameflare-paint-layer{animation-direction:var(--nameflare-direction,normal)}
+.nameflare-name[data-paused=true],.nameflare-name[data-paused=true]>.nameflare-paint-layer{animation-play-state:paused}
+.nameflare-name[data-offscreen],.nameflare-name[data-offscreen]>.nameflare-paint-layer{animation-play-state:paused}
+@keyframes nameflare-flow{from{--nameflare-phase:0}to{--nameflare-phase:1}}
+@keyframes nameflare-shimmer{from{--nameflare-phase:0}to{--nameflare-phase:1}}
+@keyframes nameflare-pulse{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes nameflare-spectrum{from{filter:var(--nameflare-filter) hue-rotate(0deg)}to{filter:var(--nameflare-filter) hue-rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.nameflare-name,.nameflare-paint-layer{animation:none!important}}

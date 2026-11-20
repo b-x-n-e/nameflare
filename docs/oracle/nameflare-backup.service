@@ -1,0 +1,22 @@
+# Nightly Nameflare backup (see docs/OPERATIONS.md). Installed with
+# nameflare-backup.timer; run once by hand with: sudo systemctl start nameflare-backup
+[Unit]
+Description=Nameflare backup (database and images)
+After=nameflare.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+ExecStart=/home/ubuntu/nameflare-runtime/bin/node /home/ubuntu/nameflare/scripts/backup.js --data /home/ubuntu/nameflare-data --out /home/ubuntu/nameflare-backups --keep 14
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Reading a WAL database writes its shared-memory index, so the data
+# directory must be writable even for a backup.
+ReadWritePaths=/home/ubuntu/nameflare-data /home/ubuntu/nameflare-backups
+MemoryMax=256M

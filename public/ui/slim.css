@@ -1,0 +1,194 @@
+/* ==========================================================================
+   Nameflare — Slim (2026.6)
+   One quieter pass over the whole frame, loaded last:
+   - one surface per card: the Flare stage runs edge to edge, no box-in-a-box
+   - smaller page titles and a single control row on Discover
+   - a flat companion column separated by hairlines instead of three cards
+   - a 56px header with one active-state cue, not two
+   - tactile press feedback on every control
+   ========================================================================== */
+
+:root { --topbar-h: 56px; --card-radius: 14px; --press: scale(.97); }
+
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
+.app-rail { gap: 18px; background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); }
+.brand { gap: 8px; }
+@media (min-width: 641px) { .brand { font-size: 17px; } }
+.brand-symbol { width: 24px; height: 24px; }
+.primary-nav a, .resource-menu > summary { height: 32px; padding: 0 11px; border-radius: 9px; font-size: 13px; }
+.primary-nav a[aria-current="page"]::after, .primary-nav a.active::after { display: none; }
+.primary-nav a[aria-current="page"], .primary-nav a.active { background: var(--surface-3); }
+wa-button.topbar-search { flex-basis: 220px; }
+wa-button.topbar-search::part(base), wa-button.topbar-search::part(button) { min-height: 32px; border-radius: 9px; background: var(--surface); }
+.topbar-key { height: 18px; }
+.rail-notify { width: 32px; height: 32px; border-radius: 9px; }
+wa-button.rail-create::part(base), wa-button.rail-create::part(button) { min-height: 32px; padding: 0 12px 0 10px; border-radius: 9px; font-size: 13px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22); }
+#signin-button { min-height: 32px; border-radius: 9px; }
+.account-button > .avatar, .account-button wa-avatar { --size: 28px; width: 28px; height: 28px; font-size: 12px; }
+.demo-banner { padding: 2px 3px 2px 8px; }
+
+/* --------------------------------------------------------------------------
+   Page titles: present, not shouting
+   -------------------------------------------------------------------------- */
+.page-heading { padding: 28px 0 0; margin-bottom: 20px; border-bottom: 0; gap: 4px 20px; }
+.page-heading h1, .discover-head h1 { font-size: clamp(26px, 2.2vw, 30px); font-weight: 700; font-stretch: 92%; letter-spacing: -.03em; line-height: 1.1; }
+.page-heading > p, .page-heading > div:first-child p { margin-top: 4px; font-size: var(--text-base); color: var(--faint); }
+
+/* Discover header: title + one line, preview field on the right. */
+.discover-head { padding: 28px 0 18px; gap: 14px 24px; align-items: center; }
+.discover-head p { margin-top: 4px; font-size: var(--text-base); color: var(--faint); max-width: none; }
+.discover-head .discover-meta { display: none; }
+.personalize-copy { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.discover-personalize wa-input { width: 220px; }
+.discover-personalize wa-input::part(base), .discover-personalize wa-input::part(input-wrapper) { min-height: 34px; border-radius: 10px; border-color: var(--line); }
+
+/* --------------------------------------------------------------------------
+   Discover controls: one toolbar, one chip row
+   -------------------------------------------------------------------------- */
+.discover-tools { padding-top: 0; border-top: 0; gap: 8px; }
+.feed-tabs { padding: 3px; gap: 0; background: var(--surface); border-radius: 11px; box-shadow: none; }
+.feed-tabs > wa-button.feed-tab { flex: 0 0 auto !important; min-height: 28px !important; padding: 0 !important; border-radius: 8px !important; }
+.feed-tab::part(base), .feed-tab::part(button) { min-height: 28px; padding: 0 12px !important; border-radius: 8px !important; font-size: 13px; }
+.feed-tab.active::part(button), .feed-tab[aria-pressed="true"]::part(button) { box-shadow: none; }
+.tab-count { min-width: 16px; height: 16px; margin-left: 5px; }
+wa-input.catalog-search::part(base), wa-input.catalog-search::part(input-wrapper) { min-height: 36px; border-radius: 10px; }
+.sort-trigger::part(base), .sort-trigger::part(button) { min-width: 0; min-height: 36px; padding: 0 10px 0 12px; border-radius: 10px; font-size: 13px; }
+.filter-toggle::part(base), .filter-toggle::part(button) { width: 36px; height: 36px; min-height: 36px; border-radius: 10px; }
+
+.browse-panel { margin-top: 10px; }
+.catalog-filter-row { flex-wrap: nowrap; gap: 10px; }
+.catalog-filter-row.is-open { flex-wrap: wrap; }
+.catalog-filter-row > .filters { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
+.catalog-filter-row > .filters::-webkit-scrollbar { display: none; }
+.filter-chip { flex-shrink: 0; }
+.filter-chip::part(button) { min-height: 28px; padding: 0 11px; border-color: transparent; background: transparent; font-size: 13px; }
+.filter-chip:hover::part(button) { border-color: transparent; background: var(--surface-2); }
+.filter-chip.active::part(button), .filter-chip[aria-pressed="true"]::part(button) { border-color: transparent; background: var(--surface-3); color: var(--ink); }
+.feed-view-controls { order: 2; display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.feed-view-controls .layout-toggle { margin-left: 0; border: 0; padding: 2px; border-radius: 9px; }
+.feed-view-controls .layout-toggle button { width: 28px; height: 24px; }
+.icon-toggle {
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  color: var(--faint); background: transparent; border: 0; border-radius: 8px; cursor: pointer;
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+.icon-toggle:hover { color: var(--ink); background: var(--surface-2); }
+.icon-toggle[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.icon-toggle .ui-icon { width: 15px; height: 15px; }
+.feed-summary { margin: 10px 0 12px; min-height: 0; }
+.feed-summary:not(:has(.filter-pill)) .catalog-status { color: var(--faint); }
+@media (max-width: 640px) { .feed-view-controls .layout-toggle { display: none; } }
+
+/* --------------------------------------------------------------------------
+   Trending showcase: compact strip
+   -------------------------------------------------------------------------- */
+.showcase { gap: 10px; padding: 0 0 22px; }
+.showcase-head h2 { font-size: 17px; font-weight: 680; letter-spacing: -.02em; }
+.showcase-tabs { border: 0; border-radius: 9px; }
+.showcase-tabs button { min-height: 26px; border-radius: 7px; }
+.showcase-nav .st-icon { width: 28px; height: 28px; border-radius: 8px; border-color: transparent; background: var(--surface); }
+.showcase-track { grid-auto-columns: minmax(210px, calc((100% - 30px) / 3.4)); gap: 10px; }
+.showcase-tile { border-radius: var(--card-radius); }
+.showcase-stage { aspect-ratio: 16 / 8; padding: 14px; }
+.showcase-stage strong { font-size: clamp(22px, calc(var(--name-scale, 12) * .85cqw), 48px); }
+.showcase-meta { padding: 9px 12px 11px; gap: 1px; }
+.showcase-meta strong { font-size: var(--text-base); }
+.showcase-meta small { font-size: var(--text-xs); }
+
+/* --------------------------------------------------------------------------
+   Flare cards: one surface, stage edge to edge
+   -------------------------------------------------------------------------- */
+.cosmetic-card {
+  padding: 0; overflow: hidden; gap: 0;
+  border-radius: var(--card-radius); border-color: var(--line);
+  box-shadow: none;
+  transition: border-color var(--normal) var(--ease), transform var(--normal) var(--ease-out), box-shadow var(--normal) var(--ease);
+}
+.cosmetic-card:hover, .cosmetic-card:focus-within { transform: translateY(-2px); box-shadow: 0 14px 34px -18px rgba(0, 0, 0, .8); }
+.cosmetic-card .card-preview,
+#catalog .cosmetic-card .card-preview, #following-feed .cosmetic-card .card-preview,
+#view-discover[data-layout="grid"] .cosmetic-card .card-preview {
+  order: 1; margin: 0; padding: 16px;
+  aspect-ratio: 16 / 9; min-height: 0; max-height: none;
+  border: 0; border-radius: 0;
+}
+#view-discover[data-layout="grid"] .cosmetic-card .card-preview { aspect-ratio: 16 / 10; }
+.cosmetic-card .card-preview > strong, #view-discover[data-layout="grid"] .cosmetic-card .card-preview strong { font-size: clamp(24px, calc(var(--name-scale, 12) * .9cqw), 76px); }
+#view-discover[data-layout="grid"] .cosmetic-card .card-preview strong { font-size: clamp(22px, 14cqw, 46px); }
+.cosmetic-card:hover .card-preview { filter: brightness(1.08); }
+.cosmetic-card .corner-label, .cosmetic-card .card-footer, .cosmetic-card .preview-palette { display: none; }
+.preview-open-arrow { width: 26px; height: 26px; padding: 6px; right: 10px; bottom: 10px; }
+
+.cosmetic-card .post-head, #view-discover[data-layout="grid"] .cosmetic-card .post-head { order: 2; margin: 0; padding: 12px 14px 0; gap: 8px; }
+.post-author { gap: 8px; }
+.post-author .avatar, #view-discover[data-layout="grid"] .cosmetic-card .post-head .avatar { width: 22px; height: 22px; font-size: 10px; }
+.post-author-copy { display: flex; align-items: baseline; gap: 6px; }
+.post-author-copy strong { font-size: var(--text-xs); color: var(--muted); font-weight: 600; }
+.post-sub { font-size: var(--text-2xs); }
+wa-button.follow-button::part(button) { min-height: 24px; padding: 0 9px; font-size: var(--text-2xs); }
+.post-more::part(button) { width: 26px; min-height: 26px; }
+
+.cosmetic-card .card-meta, #view-discover[data-layout="grid"] .cosmetic-card .card-meta { order: 3; margin: 0; padding: 6px 14px 0; gap: 2px; }
+.collection-card .card-meta { order: 3; padding-top: 12px; }
+.cosmetic-card .card-meta h3, .collection-card .card-meta h3, #view-discover[data-layout="grid"] .cosmetic-card .card-meta h3 { font-size: 15px; font-weight: 650; letter-spacing: -.015em; }
+.cosmetic-card .post-copy { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; font-size: var(--text-xs); color: var(--faint); line-height: 1.5; }
+
+.cosmetic-card .post-actions, #view-discover[data-layout="grid"] .cosmetic-card .post-actions {
+  order: 4; margin-top: auto; padding: 8px 10px 10px 8px; gap: 6px; border-top: 0; flex-wrap: nowrap;
+}
+.post-social { flex: 1 1 auto; gap: 0; min-width: 0; overflow: hidden; }
+wa-button.like-button::part(button), .post-social .button.ghost { min-height: 28px; padding: 0 8px; }
+.post-social .button.ghost { font-size: var(--text-2xs); }
+.equip-stat { padding-left: 6px; font-size: var(--text-2xs); white-space: nowrap; }
+#view-discover[data-layout="grid"] .equip-stat { display: none; }
+wa-button.equip-button::part(button) { min-height: 28px; padding: 0 12px; font-size: var(--text-2xs); }
+.collection-status { gap: 6px; }
+.collection-status .badge { font-size: var(--text-2xs); }
+.card-note { font-size: var(--text-2xs); }
+
+/* Grids: room for more Flares per row. */
+#view-discover[data-layout="grid"] #catalog.cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+#view-discover[data-layout="feed"] #catalog.cosmetic-grid { gap: 14px; }
+#view-discover[data-layout="feed"] #catalog .cosmetic-card .card-preview { aspect-ratio: 21 / 9; }
+#view-discover[data-layout="grid"] .cosmetic-card { padding: 0; }
+.cosmetic-grid:not(#catalog), .profile-created-flares .cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+#profile-results.profile-detail-grid { grid-template-columns: minmax(0, 1fr); }
+.cosmetic-card .card-actions, .cosmetic-card .card-actions-end { border-top: 0; padding-top: 0; }
+.cosmetic-card .card-actions { padding: 4px 10px 10px 8px; margin: auto -14px 0 -14px; flex-wrap: nowrap; }
+.collection-card .card-actions-end { flex-wrap: nowrap; min-width: 0; width: 100%; }
+.collection-card .card-actions-end .post-social { margin-right: auto; }
+
+/* --------------------------------------------------------------------------
+   Companion column: flat sections, hairline separators
+   -------------------------------------------------------------------------- */
+@media (min-width: 1181px) {
+  .right-rail:not([hidden]) { gap: 0; padding-top: 22px; }
+}
+.rail-panel { padding: 16px 0; background: none; border: 0; border-radius: 0; border-top: 1px solid var(--line); }
+.right-rail > .rail-panel:first-child, .right-rail > .rail-panel[hidden] + .rail-panel { border-top: 0; padding-top: 6px; }
+.rail-heading { margin-bottom: 10px; }
+.rail-heading h2 { font-size: 13px; font-weight: 650; letter-spacing: -.005em; color: var(--ink-2); }
+.rail-heading > a { min-height: 24px; font-size: var(--text-2xs); }
+.rail-identity-stage, .identity-canvas { border-radius: 12px; }
+.rail-tryon-note { display: none; }
+.rail-footer { padding-top: 14px; border-top: 1px solid var(--line); }
+
+/* --------------------------------------------------------------------------
+   Account / profile surfaces: fewer frames
+   -------------------------------------------------------------------------- */
+.profile-full .creator-cover { height: 28px; }
+.account-shortcut { padding: 12px 14px; }
+.panel { border-radius: var(--card-radius); }
+
+/* --------------------------------------------------------------------------
+   Tactile feedback
+   -------------------------------------------------------------------------- */
+:is(button, .button, a.button, .icon-toggle, .feed-tab, .filter-chip, wa-button):not([disabled]):active { transform: var(--press); }
+:is(button, .button, .icon-toggle) { transition-property: color, background-color, border-color, box-shadow, transform, opacity; }
+.cosmetic-card:active:not(:has(button:active, wa-button:active, a:active)) { transform: translateY(0) scale(.995); }
+@media (prefers-reduced-motion: reduce) {
+  :is(button, .button, a.button, .icon-toggle, .feed-tab, .filter-chip, wa-button):active { transform: none; }
+  .cosmetic-card:hover, .cosmetic-card:focus-within { transform: none; }
+}

@@ -1,0 +1,63 @@
+/* ==========================================================================
+   Nameflare — the Flare stage (2026.5)
+   One material behind every Flare preview, replacing the blurred colour
+   washes: a deep neutral surface, a faint top light, a fine dot grid that
+   fades toward the edges, and a crisp 2px ribbon of the Flare's own colours
+   along the bottom edge. The Flare supplies all of the colour; the stage
+   never fogs it. Loaded last so it governs every stage.
+   ========================================================================== */
+
+:root {
+  --stage-base: #0c0c0f;
+  --stage-grid: rgba(255, 255, 255, .055);
+  --stage-light: rgba(255, 255, 255, .045);
+}
+
+:is(
+  .card-preview, .showcase-stage, #detail-content > .detail-stage, .detail-stage,
+  .equipped-stage, .profile-equipped, .identity-canvas, .rail-identity-stage,
+  .review-preview, .pub-preview, .studio-name-stage, .profile-stage
+):not(.light):not(.transparent) {
+  --ribbon-a: var(--paint-color, var(--canvas-accent, transparent));
+  --ribbon-b: var(--paint-secondary, var(--canvas-secondary, var(--ribbon-a)));
+  background:
+    linear-gradient(90deg, var(--ribbon-a), var(--ribbon-b)) left bottom / 100% 2px no-repeat,
+    radial-gradient(120% 90% at 50% 120%, rgba(0, 0, 0, .55), transparent 60%),
+    linear-gradient(180deg, var(--stage-light), transparent 45%),
+    radial-gradient(circle at center, var(--stage-grid) 1px, transparent 1.4px) 0 0 / 18px 18px,
+    var(--stage-base);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+/* The old dot-grid overlay on feed cards is now part of the background. */
+.card-preview::before { display: none; }
+/* The Studio stage is a work surface: same material, no ribbon, wider grid. */
+.studio-name-stage:not(.light):not(.transparent) { --ribbon-a: transparent; background-size: auto, auto, auto, 22px 22px, auto; }
+
+/* Small tiles get the same surface without a grid that would read as noise. */
+:is(.rail-swatch, .review-item-preview, .preset-stage) {
+  background:
+    linear-gradient(180deg, var(--stage-light), transparent 60%),
+    var(--stage-base);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+.rail-swatch { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), inset 0 -2px 0 var(--paint-color, transparent); }
+
+/* Creator profile cover: a quiet surface with the creator's accent as a hairline. */
+.profile-full .creator-cover {
+  background:
+    linear-gradient(90deg, var(--profile-color, var(--accent)), transparent 85%) left bottom / 100% 2px no-repeat,
+    linear-gradient(180deg, var(--stage-light), transparent),
+    var(--surface);
+}
+
+/* Light-backdrop toggles keep their own clean surface. */
+:is(.card-preview, .detail-stage, .review-preview).light { background: radial-gradient(circle at center, rgba(0, 0, 0, .07) 1px, transparent 1.4px) 0 0 / 18px 18px, #f6f6f7; }
+/* The ribbon already shows the palette; the corner dots repeated it. */
+.card-preview .preview-palette { display: none; }
+
+/* Horizontally scrolling rows clip vertically too. Give lifted cards and their
+   shadows room inside the row, and pull the row out by the same amount so the
+   layout does not move. */
+.showcase-track { padding: 10px 8px 26px; margin: -10px -8px -16px; scroll-padding-inline: 8px; }
+.preset-gallery { padding: 8px 6px 22px; margin: -8px -6px -14px; scroll-padding-inline: 6px; }
+.st-canvas { padding-bottom: 6px; }

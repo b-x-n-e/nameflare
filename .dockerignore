@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+data
+data-demo
+.git
+.freebuff
+node_modules
+.wrangler
+.dev.vars
+.dev.vars.*
+coverage
+*.log
+# Never send server access credentials to the build context.
+ssh-key-*.key
+ssh-key-*.key.pub
+*.pem
