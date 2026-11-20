@@ -170,7 +170,7 @@ test('local demo serves every effect control and creator → owner review → eq
     const fontCatalog=await request('/google-fonts.json');assert.equal(fontCatalog.status,200);assert.match(fontCatalog.headers.get('Content-Type'),/application\/json/);assert.ok((await fontCatalog.json()).families.length>1900);
     const csp=fontCatalog.headers.get('Content-Security-Policy');assert.match(csp,/style-src[^;]*https:\/\/fonts.googleapis.com/);assert.match(csp,/font-src 'self' https:\/\/fonts.gstatic.com/);assert.match(csp,/script-src 'self';/);
     assert.ok(appSource.includes("preserveFeedScroll($('.feed-tabs'),$('#view-discover'))"));assert.equal(appSource.includes("previousView!==state.view || previousFeed!==state.feed ||"),false);
-    assert.ok(html.includes('href="/guide/shortcuts"'));assert.ok(html.includes('id="guide-shortcuts"'));assert.ok(html.includes('Full keyboard shortcut guide'));const shortcutGuide=html.split('id="guide-shortcuts"')[1].split('<article id="guide-accounts"')[0];
+    assert.ok(html.includes('href="/guide/shortcuts"'));assert.ok(html.includes('id="guide-shortcuts"'));assert.ok(html.includes('Full keyboard shortcut guide'));const shortcutGuide=html.split('id="guide-shortcuts"')[1].split('</article>')[0];
     for(const text of ['Undo','Redo','Save a draft','Duplicate','Backspace','percentage point','10-point','Pause','previous / next layer','5 preview pixels','20 pixels','Text inputs','Home','End'])assert.ok(shortcutGuide.includes(text),`Guide missing ${text}`);
     assert.equal((await request('/guide/shortcuts')).status,200);
     const config=await (await request('/api/config')).json();assert.equal(config.name,'Nameflare');assert.equal(config.demo,true);

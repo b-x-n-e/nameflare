@@ -2059,7 +2059,11 @@ function syncViewRoute() {
   $('.topbar').classList.toggle('discovery-topbar',state.view==='discover');
   document.title=`${$('#page-label').textContent} · Nameflare`;
   for(const item of document.querySelectorAll('.guide-index a')) {
-    if(item.pathname===currentRoute())item.setAttribute('aria-current','location');else item.removeAttribute('aria-current');
+    if(item.pathname===currentRoute()){
+      item.setAttribute('aria-current','location');
+      // On narrow screens the chapters are one scrolling row: bring this one into view.
+      const index=item.parentElement;if(index.scrollWidth>index.clientWidth)index.scrollLeft+=item.getBoundingClientRect().left-index.getBoundingClientRect().left-16;
+    }else item.removeAttribute('aria-current');
   }
   return {previousView,previousFeed,previousRoute,requested,chapter};
 }
@@ -2127,7 +2131,8 @@ function syncConnectivity(){const banner=$('#offline-banner');if(!banner)return;
 window.addEventListener('online',syncConnectivity);window.addEventListener('offline',syncConnectivity);syncConnectivity();
 let gPrefix=false,gTimer;
 document.addEventListener('keydown',event=>{
-  if(event.metaKey||event.ctrlKey||event.altKey)return;
+  // A page's own shortcut (such as N or / in the review queue) wins.
+  if(event.defaultPrevented||event.metaKey||event.ctrlKey||event.altKey)return;
   if(isTyping(event)||document.querySelector('dialog[open]'))return;
   if(event.key==='?'){event.preventDefault();openShortcuts();return;}
   if(event.key.toLowerCase()==='t'){const next=cycleTheme();toast(`${next.name} theme applied.`);return;}
@@ -2136,7 +2141,7 @@ document.addEventListener('keydown',event=>{
   if(event.key.toLowerCase()==='n'){event.preventDefault();navigate('/studio');}
 });
 document.addEventListener('keydown',event=>{
-  if(event.key!=='/'||isTyping(event)||document.querySelector('dialog[open]'))return;
+  if(event.key!=='/'||event.defaultPrevented||isTyping(event)||document.querySelector('dialog[open]'))return;
   event.preventDefault();
   if(state.view==='discover'){$('#catalog-search').focus();return;}
   navigate('/discover');setTimeout(()=>$('#catalog-search')?.focus({preventScroll:true}),350);
