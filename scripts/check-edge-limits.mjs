@@ -2,7 +2,7 @@
 // Checks the edge rate limits in docs/oracle/nameflare.nginx.conf against a
 // real nginx (Docker) in front of a real Nameflare server.
 //
-//   node scripts/edge-test.mjs [--image nginx:1.26]
+//   node scripts/check-edge-limits.mjs [--image nginx:1.26]
 //
 // The production config is used as-is except for TLS (plain HTTP on a local
 // port) and one test-only line: nginx takes the client address from an

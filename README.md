@@ -102,7 +102,7 @@ lib/             store.js (SQLite), images.js (upload decoder), media.js (scanne
                  backup.js, oauth.js, cosmetics.js (validation)
 public/          the web app: app.js, editor.js (studio), renderer.js + effects.css
                  (how Flares are drawn), client.js (SDK), overlay.*, ui/*.css
-scripts/         backup, restore, precompress, loadtest, edge-test, font catalog update
+scripts/         backup, restore, precompress, loadtest, edge limit check, font catalog update
 test/            node:test suites
 docs/            guides above, plus oracle/ (nginx, systemd units)
 cloudflare/      optional Workers + D1 port
