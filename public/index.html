@@ -415,11 +415,13 @@ POST /resolve</pre><a class="button subtle" href="/api/v1/cosmetics" target="_bl
     <span class="dialog-kicker">MODERATION ACTION</span><h2 id="moderation-dialog-title"></h2><p id="moderation-dialog-description"></p>
     <div id="moderation-dialog-account" class="confirmation-account"></div>
     <label id="moderation-reason-label">Reason for permanent ban<textarea id="moderation-reason" name="reason" rows="3" minlength="3" maxlength="400" placeholder="Describe the policy violation. This is saved in the audit trail."></textarea></label>
+    <label id="moderation-duration-label" class="moderation-duration" hidden>How long<select id="moderation-duration"><option value="">Permanent ban</option><option value="1">Suspend for 1 day</option><option value="3">Suspend for 3 days</option><option value="7">Suspend for 7 days</option><option value="30">Suspend for 30 days</option></select><small>Suspensions end by themselves and keep the account’s Flares. Permanent bans revoke them.</small></label>
     <label id="moderation-ack-label" class="checkbox-label"><input id="moderation-ack" type="checkbox"> I understand this ban has no expiry, revokes this account’s Flares for everyone, and blocks the networks it used for 90 days.</label>
     <p id="moderation-dialog-error" class="form-error" role="alert" hidden></p>
     <div class="confirmation-actions"><button id="moderation-cancel" type="button" class="button subtle">Cancel</button><button id="moderation-confirm" type="submit" class="button danger"></button></div>
   </form>
 </dialog>
+<dialog id="notes-dialog" class="notes-dialog" aria-labelledby="notes-title"><button class="dialog-close" id="close-notes" aria-label="Close staff notes">×</button><span class="dialog-kicker">STAFF NOTES</span><h2 id="notes-title">Notes</h2><p>Private to moderators and the owner. Deleted with the account.</p><div id="notes-body"></div></dialog>
 <dialog id="report-dialog" class="report-dialog" aria-labelledby="report-title" aria-describedby="report-description">
   <form id="report-form">
     <span class="dialog-kicker">REPORT</span><h2 id="report-title">Report this Flare</h2>

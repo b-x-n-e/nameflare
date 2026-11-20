@@ -13,7 +13,7 @@ const $ = selector => document.querySelector(selector);
 const searchValue = () => String($('#catalog-search')?.value ?? '');
 const previewName = () => String($('#catalog-name')?.value ?? $('#catalog-name')?.getAttribute('value') ?? '').trim();
 const heroName = () => String($('#hero-preview-name')?.value ?? $('#hero-preview-name')?.getAttribute('value') ?? '').trim();
-const state = { config:null,user:null,csrf:null,bootstrapped:false,likedIds:new Set(),followingIds:new Set(),followingCosmetics:[],followingNext:null,followingLoaded:false,likedOnly:false,feed:'discover',catalogLoaded:false,likedTotal:0,cosmetics:[],next:null,filter:'all',view:'discover',catalogPaused:false,collectionFilter:'all',mine:[],pendingEquip:null,reviewStatus:'pending',reviewQuery:'',reviewOffset:0,userQuery:'',userOffset:0,userStatus:'all',banQuery:'',banOffset:0,profileQuery:'',profileOffset:0,artistQuery:'',artistOffset:0,artistPaused:false,unread:0,notifications:[],notificationsNext:null,reportStatus:'open' };
+const state = { config:null,user:null,csrf:null,bootstrapped:false,likedIds:new Set(),followingIds:new Set(),followingCosmetics:[],followingNext:null,followingLoaded:false,likedOnly:false,feed:'discover',catalogLoaded:false,likedTotal:0,cosmetics:[],next:null,filter:'all',view:'discover',catalogPaused:false,collectionFilter:'all',mine:[],pendingEquip:null,reviewStatus:'pending',reviewQuery:'',reviewOffset:0,userQuery:'',userOffset:0,userStatus:'all',banQuery:'',banOffset:0,profileQuery:'',profileOffset:0,artistQuery:'',artistOffset:0,artistPaused:false,unread:0,notifications:[],notificationsNext:null,reportStatus:'open',reviewFilter:'all',reviewSort:'oldest',bulk:new Set(),liveSince:null,claims:[],decided:new Map(),knownPending:null,claimTarget:null,reportsStale:false };
 history.scrollRestoration = 'manual';
 // Web Awesome owns the interactive primitives. The helpers below create real
 // custom elements so every generated control keeps the framework's semantics,
@@ -150,7 +150,7 @@ async function api(path,data,signal) {
       const after=Number(response.headers.get('Retry-After'));await wait(Math.min(8000,Number.isFinite(after) && after>0?after*1000:1000*(attempt+1)),signal);continue;
     }
     let result;try{result=await response.json();}catch{result={};}
-    if(!response.ok){const error=new Error(result.error || (response.status===429?'Lots of activity right now. Try again in a moment.':'Request failed.'));error.status=response.status;throw error;}
+    if(!response.ok){const error=new Error(result.error || (response.status===429?'Lots of activity right now. Try again in a moment.':'Request failed.'));error.status=response.status;error.conflict=result.conflict;throw error;}
     return result;
   }
 }
@@ -1488,23 +1488,33 @@ function reviewCard(cosmetic) {
   for(const identity of cosmetic.creator_identities || [])facts.append(fact(providerNames[identity.provider],`${identity.display_name} · ${identity.provider_id}`));
   const inspection=node('details','recipe-details');inspection.append(node('summary','','Submission & account details'),facts);meta.append(node('p','card-note',`Submitted ${date(cosmetic.created_at)} · ${cosmetic.listed?'Public listing':'Unlisted'}`),inspection);
   if(cosmetic.reason)meta.append(node('p','review-feedback',`Decision note: ${cosmetic.reason}`));
-  const recipe=node('details','recipe-details');recipe.append(node('summary','','Inspect full Flare recipe'),node('pre','',JSON.stringify(cosmetic.recipe,null,2)));meta.append(recipe);
+  const recipe=node('details','recipe-details');recipe.append(node('summary','','Inspect full Flare recipe'),node('pre','',JSON.stringify(cosmetic.recipe,null,2)));meta.append(recipe,creatorPanel(cosmetic));
   if(cosmetic.status!=='rejected' || state.user.role==='owner'){
     const label=node('label','review-note',cosmetic.status==='approved'?'Revocation reason (required)':'Review note (required for disapproval)'),note=node('textarea');note.rows=3;note.maxLength=400;note.placeholder='Leave specific, constructive feedback…';label.append(note);meta.append(label);
-    const suggestions=node('div','review-reason-options');suggestions.setAttribute('role','group');suggestions.setAttribute('aria-label','Suggested review notes');
-    for(const [title,message] of [['Artwork rights','Please provide evidence that you own or have permission to use this artwork.'],['Readability','Please improve text contrast and readability at chat size.'],['Motion safety','Please reduce flashing or rapid motion before resubmitting.']])suggestions.append(action(title,()=>{note.value=message;note.dispatchEvent(new Event('input',{bubbles:true}));note.focus();},'review-reason-chip'));meta.append(suggestions);
+    meta.append(quickNotes(note));
     const actions=node('div','card-actions');
     const decisions=(cosmetic.status==='pending' || cosmetic.status==='rejected')?[['approved','Approve ✓','button primary'],['rejected','Disapprove','button danger']]:[['rejected','Revoke approval','button danger']];
     for(const [status,title,cls] of decisions){
       const button=action(title,async()=>{
         if(status==='rejected'&&note.value.trim().length<3)throw new Error('Add a reason of at least 3 characters.');
         if(cosmetic.status==='approved'){
-          const confirmed=await confirmModeration({title:'Revoke approval?',description:'This Flare will leave the public API and be unequipped for everyone.',label:'Revoke approval',onConfirm:()=>api('/api/admin/review',{id:cosmetic.id,status,reason:note.value.trim()})});
-          if(confirmed){toast('Approval revoked. Equipped assignments cleared.');await refreshModeration();}return;
+          const confirmed=await confirmModeration({title:'Revoke approval?',description:'This Flare will leave the public API and be unequipped for everyone.',label:'Revoke approval',onConfirm:()=>api('/api/admin/review',{id:cosmetic.id,status,reason:note.value.trim(),expect:'approved'})});
+          if(confirmed){toast('Approval revoked. Equipped assignments cleared.',false,null,{action:{label:'Undo',fn:()=>undoDecision(cosmetic)}});await refreshModeration();}return;
         }
         for(const item of actions.querySelectorAll('button'))item.disabled=true;
-        try{await api('/api/admin/review',{id:cosmetic.id,status,reason:note.value.trim()});toast(status==='approved'?`Flare approved${cosmetic.listed?' and listed in Discover':' · unlisted link ready'}.`:'Flare disapproved with feedback.');await loadReviews();await loadAudit();await loadCatalog();}
-        catch(error){for(const item of actions.querySelectorAll('button'))item.disabled=state.user?.role!=='owner' && cosmetic.owner_id===state.user?.id;throw error;}
+        try{
+          // `expect` makes a decision on stale state fail instead of overwriting someone else's.
+          await api('/api/admin/review',{id:cosmetic.id,status,reason:note.value.trim(),expect:cosmetic.status});
+          markDecided(cosmetic.id,{action:status==='approved'?'cosmetic.approved':'cosmetic.rejected',actor:state.user.name,at:new Date().toISOString(),mine:true});
+          if(cosmetic.status==='pending')state.knownPending=Math.max(0,(state.knownPending ?? 1)-1);
+          state.lastDecision=cosmetic;state.catalogLoaded=false;
+          toast(status==='approved'?`Approved “${cosmetic.name}”.`:`Disapproved “${cosmetic.name}” with feedback.`,false,null,{action:{label:'Undo',fn:()=>undoDecision(cosmetic)}});
+          const next=nextOpenIndex(state.reviewIndex);if(next!==null)selectReview(next);else{syncLiveMarks();empty($('#review-detail'),'You’re all caught up.','Everything in this view has a decision. New submissions show up here as they arrive.',null);}
+        }
+        catch(error){
+          if(error.status===409){markDecided(cosmetic.id,{action:'cosmetic.'+(error.conflict?.status==='pending'?'reopened':error.conflict?.status || 'approved'),actor:error.conflict?.reviewer || 'another moderator',at:error.conflict?.reviewed_at || new Date().toISOString(),mine:false});syncLiveMarks();}
+          for(const item of actions.querySelectorAll('button'))item.disabled=state.user?.role!=='owner' && cosmetic.owner_id===state.user?.id;throw error;
+        }
       },cls);button.dataset.decision=status;button.disabled=state.user.role!=='owner' && cosmetic.owner_id===state.user.id;actions.append(button);
     }
     if(state.user.role!=='owner' && cosmetic.owner_id===state.user.id)meta.append(node('p','form-footnote','Another reviewer must decide on your own Flare.'));meta.append(actions);
@@ -1523,6 +1533,7 @@ function reviewCard(cosmetic) {
     } finally {for(const button of buttons)if(button.isConnected)button.disabled=false;}
   },'button danger'));
   if(state.user.role==='owner')meta.append(action(cosmetic.listed?'Make unlisted':'List publicly',async()=>{await api('/api/cosmetics/publication',{id:cosmetic.id,listed:!Boolean(cosmetic.listed)});await loadReviews();await loadAudit();await loadCatalog();}));
+  const live=node('div','review-live');live.hidden=true;meta.prepend(live);
   const stage=node('div','review-stage'),stageBar=node('div','review-stage-bar');stageBar.append(node('span','review-stage-label','Name preview'),controls);const chat=node('p','review-chat-line'),chatName=node('strong','',cosmetic.creator);applyCosmetic(chatName,cosmetic);chat.append(chatName,document.createTextNode(' this one feels like me'));stage.append(stageBar,preview,chat);
   article.append(stage,meta);return article;
 }
@@ -1550,7 +1561,9 @@ function confirmModeration({title,description,label,user,ban=false,reasonLabel='
   $('#moderation-dialog-title').textContent=title;$('#moderation-dialog-description').textContent=description;
   const askReason=ban || Boolean(reasonLabel);$('#moderation-reason-label').firstChild.textContent=reasonLabel || 'Reason for permanent ban';$('#moderation-reason').placeholder=reasonLabel?'Why is this account being deleted? For example: spam account, or the person asked for it.':'Describe the policy violation. This is saved in the audit trail.';
   $('#moderation-confirm').textContent=label;$('#moderation-reason-label').hidden=!askReason;$('#moderation-reason').required=askReason;$('#moderation-reason').value='';
-  $('#moderation-ack-label').hidden=!ban;$('#moderation-ack').required=ban;$('#moderation-ack').checked=false;$('#moderation-dialog-error').hidden=true;
+  const duration=$('#moderation-duration');duration.value='';$('#moderation-duration-label').hidden=!ban;
+  const syncAck=()=>{const permanent=ban && !duration.value;$('#moderation-ack-label').hidden=!permanent;$('#moderation-ack').required=permanent;$('#moderation-confirm').textContent=ban?(permanent?'Permanently ban account':`Suspend for ${duration.value} ${duration.value==='1'?'day':'days'}`):label;};
+  duration.onchange=syncAck;$('#moderation-ack').checked=false;syncAck();$('#moderation-dialog-error').hidden=true;
   const account=$('#moderation-dialog-account');account.replaceChildren();account.hidden=!user;
   if(user){const detail=node('div');detail.append(node('strong','',user.name),node('small','',user.id));account.append(avatar(user),detail);}
   return new Promise(resolve=>{moderationConfirmation={resolve,onConfirm,origin:document.activeElement};moderationDialog.showModal();$('#moderation-cancel').focus();});
@@ -1595,7 +1608,9 @@ function reportCard(group,open) {
     const resolve=(actionName)=>run(async()=>{
       if(actionName!=='dismiss' && note.value.trim().length<3){note.focus();throw new Error('Write a short decision note first.');}
       for(const button of buttons.querySelectorAll('button'))button.disabled=true;
-      try{await api('/api/admin/reports/resolve',{target_type:group.target_type,target_id:group.target_id,action:actionName,note:note.value,...(block?.checked?{block_images:true}:{})});toast(actionName==='dismiss'?'Reports dismissed.':actionName==='remove'?'Flare removed. Reports resolved.':'Account banned. Reports resolved.');await Promise.all([loadReports(),refreshModBadge()]);state.catalogLoaded=false;}
+      // Only the reports this moderator saw are closed; newer ones stay open.
+      try{const result=await api('/api/admin/reports/resolve',{target_type:group.target_type,target_id:group.target_id,action:actionName,note:note.value,seen_through:Math.max(...group.items.map(item=>item.id)),...(block?.checked?{block_images:true}:{})});toast(`${actionName==='dismiss'?'Reports dismissed.':actionName==='remove'?'Flare removed. Reports resolved.':'Account banned. Reports resolved.'}${result.remaining?` ${result.remaining} new ${result.remaining===1?'report':'reports'} arrived meanwhile and ${result.remaining===1?'stays':'stay'} open.`:''}`);releaseClaim();await Promise.all([loadReports(),refreshModBadge()]);state.catalogLoaded=false;}
+      catch(error){if(error.status===409){article.classList.add('is-resolved');run(loadReports);}throw error;}
       finally{for(const button of buttons.querySelectorAll('button'))if(button.isConnected)button.disabled=false;}
     });
     buttons.append(action('Dismiss',()=>resolve('dismiss'),'button subtle'));
@@ -1603,6 +1618,9 @@ function reportCard(group,open) {
     const owner=cosmetic?target.owner_id:target.id;
     if(owner!==state.user.id && !(!cosmetic && target.banned))buttons.append(action(cosmetic?'Ban creator':'Ban account',()=>resolve('ban'),'button danger'));
     form.append(buttons);article.append(form);
+    article.addEventListener('focusin',()=>run(()=>claim(`report:${group.target_type}:${group.target_id}`)));
+    const watchers=claimsOn(`report:${group.target_type}:${group.target_id}`);
+    if(watchers.length)head.append(node('span','report-watch',`${watchers.map(w=>w.name).join(', ')} looking`));
   }
   return article;
 }
@@ -1627,7 +1645,164 @@ async function eraseAccount(user) {
   if(!confirmed)return;toast('Account deleted.');state.catalogLoaded=false;await Promise.all([loadUsers(),loadUsers('banned'),loadAudit()]);
 }
 
+// ---- Moderating together (2026.11) ------------------------------------------
+// Live sync: open moderation pages poll /api/admin/live every few seconds for
+// other moderators' decisions, queue counts and who is looking at what
+// ("claims"). Claims are advisory: they warn, they never lock.
+let liveTimer=null,claimTimer=null;
+function startModerationLive(){if(!liveTimer){liveTimer=setInterval(pollModerationLive,5000);}}
+function stopModerationLive(){clearInterval(liveTimer);liveTimer=null;releaseClaim();}
+async function pollModerationLive(){
+  if(state.view!=='moderation' || !['owner','moderator'].includes(state.user?.role)){stopModerationLive();return;}
+  if(document.hidden)return;
+  try{const result=await api(`/api/admin/live${state.liveSince!==null?`?since=${state.liveSince}`:''}`);state.liveSince=result.last_event;applyLive(result);}catch{}
+}
+function applyLive(result){
+  state.claims=result.claims || [];renderOverview(result.overview);
+  const pendingCount=$('[data-review-status="pending"] .review-count');if(pendingCount && result.overview){pendingCount.textContent=String(result.overview.pending);pendingCount.toggleAttribute('data-zero',!result.overview.pending);}
+  if(result.overview){$('#mod-badge').textContent=String(result.overview.pending+result.overview.open_reports);$('#mod-badge').hidden=!(result.overview.pending+result.overview.open_reports);}
+  for(const event of result.events || []){
+    if(event.actor_id===state.user?.id)continue;
+    if(/^cosmetic\.(approved|rejected|reopened)$/.test(event.action))markDecided(event.target,{action:event.action,actor:event.actor,at:event.created_at,mine:false});
+    if(/^report\./.test(event.action))state.reportsStale=true;
+  }
+  syncLiveMarks();
+  if(state.reportsStale && $('#moderation-reports') && !document.activeElement?.closest?.('.report-card')){state.reportsStale=false;run(loadReports);}
+  const pill=$('#review-new');
+  if(pill && state.reviewStatus==='pending' && state.knownPending!==null){
+    const extra=(result.overview?.pending ?? state.knownPending)-state.knownPending;
+    pill.hidden=extra<=0;if(extra>0)pill.querySelector('span').textContent=`${extra} new ${extra===1?'submission':'submissions'}`;
+  }
+}
+function renderOverview(overview){
+  const strip=$('#mod-overview');if(!strip || !overview)return;
+  const others=[...new Set((state.claims || []).filter(claim=>claim.user_id!==state.user?.id).map(claim=>claim.name))];
+  const chip=(value,label,href,warn)=>{const item=href?link('',href,'mod-stat'):node('span','mod-stat');if(warn)item.classList.add('is-warn');item.append(node('strong','',String(value)),node('span','',label));return item;};
+  const oldest=overview.oldest_pending_at?timeAgo(overview.oldest_pending_at):'';
+  const live=node('span','mod-live');live.append(node('i'),node('span','',others.length?`Live · also here: ${others.join(', ')}`:'Live'));
+  strip.replaceChildren(
+    chip(overview.pending,overview.pending===1?'awaiting review':'awaiting review','/moderation/reviews',overview.pending>0),
+    ...(oldest?[chip(oldest.replace(/ ago$/,''),'oldest wait')]:[]),
+    chip(overview.open_reports,overview.open_reports===1?'open report':'open reports','/moderation/reports',overview.open_reports>0),
+    ...(overview.suspended?[chip(overview.suspended,'suspended','/moderation/settings')]:[]),
+    chip(overview.decided_today,'decided by you today'),live);
+}
+function claimsOn(target){return (state.claims || []).filter(claim=>claim.target===target && claim.user_id!==state.user?.id);}
+async function claim(target){
+  if(state.claimTarget===target && claimTimer)return;
+  clearInterval(claimTimer);state.claimTarget=target;
+  const beat=async()=>{if(state.view!=='moderation' || state.claimTarget!==target){clearInterval(claimTimer);return;}try{const result=await api('/api/admin/claims',{target});state.claims=[...(state.claims || []).filter(item=>item.target!==target || item.user_id===state.user?.id),...result.claims];syncLiveMarks();}catch{}};
+  claimTimer=setInterval(beat,15000);await beat();
+}
+function releaseClaim(){clearInterval(claimTimer);claimTimer=null;const target=state.claimTarget;state.claimTarget=null;if(target)api('/api/admin/claims',{target,active:false}).catch(()=>{});}
+const decisionWords={'cosmetic.approved':'Approved','cosmetic.rejected':'Disapproved','cosmetic.reopened':'Reopened'};
+function markDecided(id,info){state.decided.set(id,info);}
+// Queue items and the open card show who else is looking and who decided what.
+function syncLiveMarks(){
+  for(const item of document.querySelectorAll('.review-item')){
+    const cosmetic=state.reviewItems?.[Number(item.dataset.index)];if(!cosmetic)continue;
+    const decided=state.decided.get(cosmetic.id),watchers=claimsOn(`cosmetic:${cosmetic.id}`);
+    item.classList.toggle('is-decided',Boolean(decided && decided.action!=='cosmetic.reopened'));
+    let mark=item.querySelector('.review-item-live');if(!mark){mark=node('span','review-item-live');item.querySelector('.review-item-text')?.append(mark);}
+    mark.textContent=decided?`${decisionWords[decided.action] || 'Changed'} by ${decided.mine?'you':decided.actor}`:watchers.length?`${watchers.map(w=>w.name).join(', ')} looking`:'';
+    mark.dataset.kind=decided?'decided':watchers.length?'watching':'';
+  }
+  const card=$('#review-detail .review-card');if(!card)return;
+  const cosmetic=state.reviewItems?.find(item=>item.id===card.dataset.paintId);if(!cosmetic)return;
+  const banner=card.querySelector('.review-live');if(!banner)return;
+  const decided=state.decided.get(cosmetic.id),watchers=claimsOn(`cosmetic:${cosmetic.id}`);
+  banner.replaceChildren();banner.hidden=!(decided || watchers.length);
+  if(decided && !decided.mine && decided.action!=='cosmetic.reopened'){
+    banner.dataset.kind='decided';banner.append(node('span','',`${decisionWords[decided.action]} by ${decided.actor} ${timeAgo(decided.at) || 'just now'}.`));
+    const badge=card.querySelector('.card-meta > .badge');if(badge){badge.className=`badge ${decided.action==='cosmetic.approved'?'approved':'rejected'}`;badge.textContent=decisionWords[decided.action];}
+    const next=nextOpenIndex(state.reviewIndex);if(next!==null)banner.append(action('Next submission',()=>selectReview(next),'button subtle sm'));
+    for(const button of card.querySelectorAll('[data-decision]'))button.disabled=true;
+  } else if(watchers.length){banner.dataset.kind='watching';banner.append(node('span','',`${watchers.map(w=>w.name).join(' and ')} ${watchers.length===1?'is':'are'} also looking at this.`));}
+}
+// Next item nobody has decided and nobody else is looking at.
+function nextOpenIndex(from){
+  const items=state.reviewItems || [];
+  for(let step=1;step<=items.length;step++){const index=(from+step)%items.length,item=items[index];if(!state.decided.has(item.id) && !claimsOn(`cosmetic:${item.id}`).length)return index;}
+  return null;
+}
+// Creator history and staff notes, shown with every submission.
+function creatorPanel(cosmetic){
+  const context=cosmetic.creator_context;if(!context)return node('div');
+  const panel=node('section','creator-panel'),head=node('div','creator-panel-head');
+  head.append(node('strong','',cosmetic.creator),node('small','',`Joined ${joined(context.joined)}${context.role==='artist'?' · Artist':''}`));
+  const stats=node('div','creator-panel-stats');
+  for(const [value,label,warn] of [[context.approved,'approved'],[context.rejected,'disapproved',context.rejected>0],[context.pending,'pending'],[context.reports_against,'open reports',context.reports_against>0]]){const stat=node('span',warn?'is-warn':'');stat.append(node('strong','',String(value)),document.createTextNode(` ${label}`));stats.append(stat);}
+  panel.append(head,stats);
+  if(context.recent_rejections?.length){const list=node('ul','creator-panel-rejections');for(const item of context.recent_rejections){const row=node('li');row.append(node('strong','',item.name),node('span','',` · ${item.reason || 'No note'}`));list.append(row);}panel.append(node('p','creator-panel-label','Recent disapprovals'),list);}
+  panel.append(notesPanel(cosmetic.owner_id,context.notes || []));
+  return panel;
+}
+function notesPanel(userId,notes){
+  const wrap=node('div','notes-panel');
+  const render=list=>{
+    wrap.replaceChildren(node('p','creator-panel-label',`Staff notes${list.length?` · ${list.length}`:''}`));
+    const items=node('ul','notes-list');
+    for(const note of list){
+      const row=node('li'),meta=node('small','',`${note.author} · ${timeAgo(note.created_at) || date(note.created_at)}`);row.append(node('p','',note.body),meta);
+      if(state.user?.role==='owner' || note.author_id===state.user?.id){const remove=node('button','note-delete','Delete');remove.type='button';remove.addEventListener('click',()=>run(async()=>{render((await api('/api/admin/notes/delete',{id:note.id})).notes);}));meta.append(remove);}
+      items.append(row);
+    }
+    if(list.length)wrap.append(items);
+    const form=node('form','notes-form'),input=node('textarea');input.rows=2;input.maxLength=1000;input.placeholder='Add a note for other moderators: warnings, context, follow-ups…';input.setAttribute('aria-label','New staff note');
+    const add=node('button','button subtle sm','Add note');add.type='submit';form.append(input,add);
+    form.addEventListener('submit',event=>{event.preventDefault();run(async()=>{if(!input.value.trim())return;add.disabled=true;try{render((await api('/api/admin/notes',{user:userId,body:input.value})).notes);toast('Note saved for the team.');}finally{add.disabled=false;}});});
+    wrap.append(form);
+  };
+  render(notes);return wrap;
+}
+const notesDialog=$('#notes-dialog');
+$('#close-notes')?.addEventListener('click',()=>notesDialog.close());
+async function openNotes(user){
+  $('#notes-title').textContent=`Notes on ${user.name}`;$('#notes-body').replaceChildren(node('p','form-footnote','Loading…'));notesDialog.showModal();
+  const result=await api(`/api/admin/notes?user=${encodeURIComponent(user.id)}`);$('#notes-body').replaceChildren(notesPanel(user.id,result.notes));
+}
+// Quick notes: built-in ones plus each moderator's own, saved in this browser.
+const QUICK_NOTES_KEY='nameflare.quicknotes.v1';
+const builtInNotes=[['Artwork rights','Please provide evidence that you own or have permission to use this artwork.'],['Readability','Please improve text contrast and readability at chat size.'],['Motion safety','Please reduce flashing or rapid motion before resubmitting.'],['Hateful content','This design contains hateful or harassing imagery, which is not allowed.'],['Impersonation','This copies another creator’s or brand’s look closely enough to mislead people.'],['Duplicate','This is very close to an existing Flare. Please make it more distinct.']];
+function savedNotes(){try{const list=JSON.parse(localStorage.getItem(QUICK_NOTES_KEY) || '[]');return Array.isArray(list)?list.filter(item=>typeof item==='string').slice(0,12):[];}catch{return [];}}
+function storeNotes(list){try{localStorage.setItem(QUICK_NOTES_KEY,JSON.stringify(list.slice(0,12)));}catch{}}
+function quickNotes(note){
+  const group=node('div','review-reason-options');group.setAttribute('role','group');group.setAttribute('aria-label','Suggested review notes');
+  const fill=message=>{note.value=message;note.dispatchEvent(new Event('input',{bubbles:true}));note.focus();};
+  const render=()=>{
+    group.replaceChildren();
+    for(const [title,message] of builtInNotes)group.append(action(title,()=>fill(message),'review-reason-chip'));
+    for(const message of savedNotes()){const chip=node('span','saved-note');const use=node('button','saved-note-use',message.length>28?`${message.slice(0,28)}…`:message);use.type='button';use.title=message;use.addEventListener('click',()=>fill(message));const remove=node('button','saved-note-remove','×');remove.type='button';remove.setAttribute('aria-label','Remove this quick note');remove.addEventListener('click',()=>{storeNotes(savedNotes().filter(item=>item!==message));render();});chip.append(use,remove);group.append(chip);}
+    const save=node('button','saved-note-add','Save as quick note');save.type='button';save.addEventListener('click',()=>{const value=note.value.trim();if(value.length<3){toast('Write the note first, then save it.',true);return;}storeNotes([value,...savedNotes().filter(item=>item!==value)]);render();toast('Saved to your quick notes in this browser.');});group.append(save);
+  };
+  render();return group;
+}
+// Bulk decisions on the pending queue.
+function syncBulkBar(){
+  const bar=$('#review-bulk');if(!bar)return;const count=state.bulk.size;bar.hidden=!count;
+  bar.querySelector('.review-bulk-count').textContent=`${count} selected`;
+  for(const box of document.querySelectorAll('.review-select input'))box.checked=state.bulk.has(box.dataset.id);
+}
+async function bulkDecide(status){
+  const ids=[...state.bulk];if(!ids.length)return;
+  let reason='';
+  if(status==='rejected'){
+    let entered='';const confirmed=await confirmModeration({title:`Disapprove ${ids.length} ${ids.length===1?'Flare':'Flares'}?`,description:'Every creator gets this note. Flares someone else already decided are skipped.',label:'Disapprove all',reasonLabel:'Note sent to each creator',onConfirm:value=>{entered=value;}});
+    if(!confirmed)return;reason=entered;
+  }
+  const result=await api('/api/admin/review/bulk',{ids,status,reason});
+  for(const item of result.results)if(item.ok)markDecided(item.id,{action:status==='approved'?'cosmetic.approved':'cosmetic.rejected',actor:state.user.name,at:new Date().toISOString(),mine:true});
+  state.bulk.clear();syncBulkBar();syncLiveMarks();
+  const skipped=result.results.filter(item=>!item.ok);
+  toast(`${result.done} ${status==='approved'?'approved':'disapproved'}${skipped.length?` · ${skipped.length} skipped: ${skipped[0].error}`:''}`,Boolean(skipped.length));
+  state.knownPending=Math.max(0,(state.knownPending ?? 0)-result.done);
+}
+
 const reviewStatusNames={pending:'Awaiting review',approved:'Approved',rejected:'Disapproved'};
+async function undoDecision(cosmetic){
+  await api('/api/admin/review/undo',{id:cosmetic.id});state.decided.delete(cosmetic.id);state.catalogLoaded=false;
+  toast(`“${cosmetic.name}” is back where it was.`);state.reviewSelected=cosmetic.id;await loadReviews();
+}
 function renderReviewQueue(grid,cosmetics) {
   state.reviewItems=cosmetics;
   const list=node('div','review-queue'),detail=node('div','review-detail');list.setAttribute('role','listbox');list.setAttribute('aria-label',`${reviewStatusNames[state.reviewStatus]} submissions`);detail.id='review-detail';
@@ -1637,19 +1812,23 @@ function renderReviewQueue(grid,cosmetics) {
     const text=node('span','review-item-text');text.append(node('strong','',cosmetic.name),node('small','',`${cosmetic.creator} · ${timeAgo(cosmetic.created_at)}`));
     item.append(swatch,text,node('span',`review-item-status status-${cosmetic.status}`,cosmetic.listed?'Public':'Unlisted'));
     item.addEventListener('click',()=>selectReview(index,{focusItem:false}));
-    return item;
+    if(state.reviewStatus!=='pending')return item;
+    // Pending items can be picked for a bulk decision.
+    const row=node('div','review-row'),pick=node('label','review-select'),box=node('input');box.type='checkbox';box.dataset.id=cosmetic.id;box.checked=state.bulk.has(cosmetic.id);box.setAttribute('aria-label',`Select ${cosmetic.name}`);
+    box.addEventListener('change',()=>{if(box.checked)state.bulk.add(cosmetic.id);else state.bulk.delete(cosmetic.id);syncBulkBar();});pick.append(box);row.append(pick,item);return row;
   });
   list.append(...items);grid.replaceChildren(list,detail);
   const remembered=cosmetics.findIndex(c=>c.id===state.reviewSelected);
   selectReview(remembered>=0?remembered:Math.min(state.reviewIndex || 0,cosmetics.length-1),{focusItem:false,scroll:false});
 }
 function selectReview(index,{focusItem=true,scroll=true}={}) {
-  const items=[...document.querySelectorAll('.review-item')],cosmetic=state.reviewItems?.[index],detail=$('#review-detail');if(!cosmetic || !detail)return;
+  const items=[...document.querySelectorAll('.review-item')].sort((a,b)=>Number(a.dataset.index)-Number(b.dataset.index)),cosmetic=state.reviewItems?.[index],detail=$('#review-detail');if(!cosmetic || !detail)return;
   state.reviewIndex=index;state.reviewSelected=cosmetic.id;
   for(const item of items){const selected=Number(item.dataset.index)===index;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;}
   $('.review-queue')?.setAttribute('aria-activedescendant',`review-item-${index}`);
   const card=reviewCard(cosmetic);card.classList.add('is-entering');detail.replaceChildren(card);
   const position=node('p','review-position',`${index+1} of ${state.reviewItems.length}`);card.prepend(position);
+  run(()=>claim(`cosmetic:${cosmetic.id}`));syncLiveMarks();
   if(focusItem)items[index]?.focus({preventScroll:true});
   if(scroll)items[index]?.scrollIntoView({block:'nearest'});
 }
@@ -1660,20 +1839,28 @@ document.addEventListener('keydown',event=>{
   if(['j','arrowdown'].includes(key)){event.preventDefault();selectReview(Math.min((state.reviewIndex||0)+1,state.reviewItems.length-1));}
   else if(['k','arrowup'].includes(key)){event.preventDefault();selectReview(Math.max((state.reviewIndex||0)-1,0));}
   else if(key==='a'){const approve=$('#review-detail [data-decision="approved"]');if(approve && !approve.disabled){event.preventDefault();approve.click();}}
-  else if(key==='d'){const note=$('#review-detail textarea');if(note){event.preventDefault();note.focus();}}
+  else if(key==='d'){const note=$('#review-detail .review-note textarea');if(note){event.preventDefault();note.focus();}}
+  else if(key==='r'){const note=$('#review-detail .review-note textarea'),reject=$('#review-detail [data-decision="rejected"]');if(!reject || reject.disabled)return;event.preventDefault();if(note && note.value.trim().length<3)note.focus();else reject.click();}
+  else if(key==='n'){const next=nextOpenIndex(state.reviewIndex || 0);if(next!==null){event.preventDefault();selectReview(next);}}
+  else if(key==='x' && state.reviewStatus==='pending'){const item=state.reviewItems[state.reviewIndex];if(item){event.preventDefault();if(state.bulk.has(item.id))state.bulk.delete(item.id);else state.bulk.add(item.id);syncBulkBar();}}
+  else if(key==='u' && state.lastDecision){event.preventDefault();run(()=>undoDecision(state.lastDecision));state.lastDecision=null;}
+  else if(key==='/'){const search=document.querySelector('.review-search input');if(search){event.preventDefault();search.focus();}}
 });
 async function loadReviews() {
   const grid=$('#review-results');if(!grid)return;
   const request=++reviewRequest,userId=state.user?.id;grid.setAttribute('aria-busy','true');
   let result;
-  try{result=await api(`/api/admin/queue?status=${state.reviewStatus}&q=${encodeURIComponent(state.reviewQuery)}&offset=${state.reviewOffset}`);}
+  try{result=await api(`/api/admin/queue?status=${state.reviewStatus}&q=${encodeURIComponent(state.reviewQuery)}&offset=${state.reviewOffset}&filter=${state.reviewFilter}&sort=${state.reviewStatus==='pending'?state.reviewSort:state.reviewSort==='oldest'?'newest':state.reviewSort}`);}
   catch(error){if(request===reviewRequest && grid.isConnected){empty(grid,'Couldn’t load the review queue.',error.message,null);grid.firstChild.append(action('Try again',loadReviews));}throw error;}
   finally{if(request===reviewRequest)grid.setAttribute('aria-busy','false');}
   if(request!==reviewRequest || state.view!=='moderation' || state.user?.id!==userId || $('#review-results')!==grid)return;
   $('#mod-badge').textContent=result.stats.pending;$('#mod-badge').hidden=result.stats.pending===0;
+  state.claims=result.claims || [];state.decided.clear();state.knownPending=result.overview?.pending ?? null;if(state.liveSince===null)state.liveSince=result.last_event;
+  for(const id of [...state.bulk])if(!result.cosmetics.some(item=>item.id===id))state.bulk.delete(id);
+  renderOverview(result.overview);syncBulkBar();if($('#review-new'))$('#review-new').hidden=true;startModerationLive();
   state.config.stats.approved=result.stats.approved;state.config.stats.public=result.stats.public;$('#approved-count').textContent=result.stats.public;
   for(const key of ['pending','approved','rejected']){const count=$(`[data-review-status="${key}"] .review-count`);if(count){count.textContent=String(result.stats[key]);count.toggleAttribute('data-zero',!result.stats[key]);}}
-  if(result.cosmetics.length)renderReviewQueue(grid,result.cosmetics);else{state.reviewItems=[];empty(grid,state.reviewQuery?'No matching submissions.':state.reviewStatus==='pending'?'Inbox zero.':'Nothing here yet.',state.reviewQuery?'Try a different Flare or creator name.':state.reviewStatus==='pending'?'Every submission has a decision. New ones appear here automatically when you refresh.':'Decisions in this status will be listed here.',null);}
+  if(result.cosmetics.length)renderReviewQueue(grid,result.cosmetics);else{releaseClaim();state.reviewItems=[];empty(grid,state.reviewQuery?'No matching submissions.':state.reviewStatus==='pending'?'Inbox zero.':'Nothing here yet.',state.reviewQuery?'Try a different Flare or creator name.':state.reviewStatus==='pending'?'Every submission has a decision. New ones appear here automatically when you refresh.':'Decisions in this status will be listed here.',null);}
   for(const button of document.querySelectorAll('[data-review-status]')){const selected=button.dataset.reviewStatus===state.reviewStatus;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));}
   const paging=$('#review-pagination');paging.replaceChildren(node('span','form-footnote',`Page ${Math.floor(state.reviewOffset/50)+1} · ${result.cosmetics.length} shown`));
   if(state.reviewOffset>0)paging.append(action('← Previous',()=>{state.reviewOffset=Math.max(0,state.reviewOffset-50);return loadReviews();}));
@@ -1692,9 +1879,9 @@ async function changeArtist(user) {
 }
 async function changeBan(user) {
   const banned=!user.banned_at;
-  const confirmed=await confirmModeration({user,ban:banned,title:banned?'Permanently ban account?':'Lift this permanent ban?',description:banned?'All linked identities will be blocked from signing in, and so will the networks (IP addresses) the account used in the last 90 days, for 90 days. Sessions end immediately, their profile is hidden, and their Flares are revoked for everyone. The account ban has no expiry.':'This account can sign in again. Old sessions and revoked Flare approvals will not be restored.',label:banned?'Permanently ban account':'Lift ban',onConfirm:reason=>api('/api/admin/ban',{id:user.id,banned,reason:banned?reason:''})});
+  const confirmed=await confirmModeration({user,ban:banned,title:banned?'Ban or suspend this account?':user.ban_expires_at?'End this suspension early?':'Lift this permanent ban?',description:banned?'All linked identities will be blocked from signing in, and so will the networks (IP addresses) the account used in the last 90 days, for 90 days. Sessions end immediately, their profile is hidden, and their Flares are revoked for everyone. The account ban has no expiry.':'This account can sign in again. Old sessions and revoked Flare approvals will not be restored.',label:banned?'Permanently ban account':'Lift ban',onConfirm:reason=>{const days=Number($('#moderation-duration').value) || null;state.lastBanDays=days;return api('/api/admin/ban',{id:user.id,banned,reason:banned?reason:'',...(banned && days?{days}:{})});}});
   if(!confirmed)return;
-  toast(banned?'Account permanently banned. Sessions ended and Flares revoked.':'Ban lifted. The account can sign in again.');await refreshModeration();
+  toast(banned?(state.lastBanDays?`Suspended for ${state.lastBanDays} ${state.lastBanDays===1?'day':'days'}. It ends by itself.`:'Account permanently banned. Sessions ended and Flares revoked.'):'Ban lifted. The account can sign in again.');await refreshModeration();
 }
 // One row per account, every row on the same column grid (see admin.css
 // "Accounts table"), with every action behind one Manage menu so rows line up.
@@ -1708,13 +1895,14 @@ function accountRow(user,bannedList=false) {
   if(!user.identities.length)platforms.append(node('span','form-footnote','None'));
   const roleNames={owner:'Owner',moderator:'Moderator',artist:'Artist',user:'Member'};
   const role=cell('account-role',user.role==='artist'?artistBadge(user):node('span',`role-chip role-${user.role}`,roleNames[user.role] || user.role));
-  const status=cell('account-status',node('span',`badge ${user.banned_at?'rejected':'approved'}`,user.banned_at?'Banned':'Active'));
+  const status=cell('account-status',node('span',`badge ${user.banned_at?(user.ban_expires_at?'pending':'rejected'):'approved'}`,user.banned_at?(user.ban_expires_at?'Suspended':'Banned'):'Active'));
   const joinedCell=cell('account-joined',node('span','',new Date(user.created_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})));joinedCell.title=date(user.created_at);
   const items=[];
   if(user.role!=='owner'){
     if(!bannedList && state.user.role==='owner' && user.twitch_id && !user.banned_at)items.push(menuItem(user.role==='moderator'?'Remove moderator':'Make moderator',()=>changeModerator(user.twitch_id,user.role!=='moderator')));
     if(!bannedList && state.config.runtime!=='cloudflare' && state.user.role==='owner' && ['user','artist'].includes(user.role) && !user.banned_at)items.push(menuItem(user.role==='artist'?'Remove artist':'Make artist',()=>changeArtist(user)));
-    if(user.id!==state.user.id && (state.user.role==='owner' || ['user','artist'].includes(user.role)))items.push(menuItem(user.banned_at?'Lift ban':'Permanently ban',()=>changeBan(user),!user.banned_at));
+    items.push(menuItem('Staff notes',()=>openNotes(user)));
+    if(user.id!==state.user.id && (state.user.role==='owner' || ['user','artist'].includes(user.role)))items.push(menuItem(user.banned_at?(user.ban_expires_at?'End suspension':'Lift ban'):'Ban or suspend…',()=>changeBan(user),!user.banned_at));
     if(user.id!==state.user.id && state.config.features?.account_deletion && (state.user.role==='owner' || ['user','artist'].includes(user.role)))items.push(menuItem('Delete account',()=>eraseAccount(user),true));
   }
   let actions;
@@ -1724,7 +1912,7 @@ function accountRow(user,bannedList=false) {
     menu.append(summary,panel);actions=cell('account-actions',menu);
   } else actions=cell('account-actions',node('span','form-footnote',user.role==='owner'?'Protected':user.banned_at?'Owner only':'—'));
   article.append(person,platforms,role,status,joinedCell,actions);
-  if(user.banned_at){const note=node('div','account-ban-note');note.append(node('strong','','Ban reason: '),document.createTextNode(user.ban_reason || 'No reason recorded'),node('small','',` · ${date(user.banned_at)} · no expiry${user.networks_blocked?` · ${user.networks_blocked} ${user.networks_blocked===1?'network':'networks'} blocked`:''}`));article.append(note);}
+  if(user.banned_at){const note=node('div','account-ban-note');note.append(node('strong','','Ban reason: '),document.createTextNode(user.ban_reason || 'No reason recorded'),node('small','',` · ${date(user.banned_at)} · ${user.ban_expires_at?`suspended until ${date(user.ban_expires_at)}`:'no expiry'}${user.networks_blocked?` · ${user.networks_blocked} ${user.networks_blocked===1?'network':'networks'} blocked`:''}`));article.append(note);}
   return article;
 }
 function menuItem(label,fn,danger=false) {
@@ -1758,11 +1946,20 @@ async function loadUsers(kind='accounts') {
 }
 async function loadAudit() {
   const panel=$('#moderation-audit');if(!panel)return;const userId=state.user?.id;
-  const audit=await api('/api/admin/audit');
+  const audit=await api(`/api/admin/audit?actor=${encodeURIComponent(state.auditActor || '')}&q=${encodeURIComponent(state.auditQuery || '')}`);
+  const filterBar=$('#audit-toolbar');
+  if(filterBar && !filterBar.dataset.ready){
+    filterBar.dataset.ready='1';const who=node('select'),search=node('input');who.setAttribute('aria-label','Moderator');search.type='search';search.placeholder='Search actions, targets, notes';search.maxLength=80;search.value=state.auditQuery || '';
+    const everyone=node('option','','Everyone');everyone.value='';who.append(everyone);
+    who.addEventListener('change',()=>{state.auditActor=who.value;run(loadAudit);});let timer;search.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>{state.auditQuery=search.value;run(loadAudit);},250);});
+    const mine=node('button','button subtle sm','Only me');mine.type='button';mine.addEventListener('click',()=>{who.value=state.user.id;state.auditActor=state.user.id;run(loadAudit);});
+    filterBar.append(who,search,mine);
+  }
+  const whoSelect=filterBar?.querySelector('select');if(whoSelect){for(const actor of audit.actors || [])if(![...whoSelect.options].some(option=>option.value===actor.id)){const option=node('option','',actor.name);option.value=actor.id;whoSelect.append(option);}whoSelect.value=state.auditActor || '';}
   if(state.view!=='moderation' || state.user?.id!==userId || $('#moderation-audit')!==panel)return;
   panel.replaceChildren();
   if(!audit.entries.length)empty(panel,'A clean slate.','Decisions, permanent bans, and access changes will appear here.',null);
-  const labels={'account.banned':'Permanently banned an account','account.unbanned':'Lifted an account ban','cosmetic.approved':'Approved a Flare','cosmetic.rejected':'Disapproved a Flare','cosmetic.auto_approved':'Automatically approved a staff Flare','moderator.added':'Granted moderator access','moderator.removed':'Removed moderator access','artist.added':'Granted artist role','artist.removed':'Removed artist role','flare.deleted':'Permanently deleted a Flare','flare.publication':'Changed Flare publication','report.actioned':'Acted on a report','report.dismissed':'Dismissed a report','media.blocked':'Blocked images from being uploaded again','upload.blocked':'Stopped a flagged upload','account.deleted':'Deleted an account'};
+  const labels={'account.banned':'Permanently banned an account','account.unbanned':'Lifted an account ban','cosmetic.approved':'Approved a Flare','cosmetic.rejected':'Disapproved a Flare','cosmetic.auto_approved':'Automatically approved a staff Flare','moderator.added':'Granted moderator access','moderator.removed':'Removed moderator access','artist.added':'Granted artist role','artist.removed':'Removed artist role','flare.deleted':'Permanently deleted a Flare','flare.publication':'Changed Flare publication','report.actioned':'Acted on a report','report.dismissed':'Dismissed a report','media.blocked':'Blocked images from being uploaded again','upload.blocked':'Stopped a flagged upload','account.deleted':'Deleted an account','account.suspended':'Suspended an account','cosmetic.reopened':'Undid a decision'};
   if(!audit.entries.length)return;
   const kindOf=action=>/^(cosmetic|flare|report|media|upload)\./.test(action)?'decision':action.startsWith('account.')?'account':'access';
   const filters=node('div','audit-filters');filters.setAttribute('role','group');filters.setAttribute('aria-label','Filter activity');
@@ -1795,7 +1992,8 @@ async function renderModeration() {
   const requested=currentRoute().split('/')[2],section=['reports','accounts','settings','history'].includes(requested)?requested:'reviews';
   container.replaceChildren();const nav=node('nav','moderation-nav');nav.setAttribute('aria-label','Moderation sections');
   for(const [key,title] of [['reviews','Review queue'],...(state.config.features?.reports?[['reports','Reports']]:[]),['accounts','Accounts'],['settings','Bans & team'],['history','Activity log']]){const item=link(title,`/moderation/${key}`,'moderation-nav-link');item.prepend(icon({reviews:'moderation',reports:'flag',accounts:'profiles',settings:'ban',history:'motion'}[key]));if(key===section)item.setAttribute('aria-current','page');nav.append(item);}
-  container.append(nav);
+  const overview=node('div','mod-overview');overview.id='mod-overview';overview.setAttribute('aria-live','polite');
+  container.append(nav,overview);startModerationLive();run(pollModerationLive);
   const workspace=node('div','moderation-workspace');container.append(workspace);
   const refresh=action('Refresh',async()=>{await refreshAccount();if(!['owner','moderator'].includes(state.user?.role))return renderModeration();await refreshModeration();});
   if(section==='reviews'){
@@ -1803,7 +2001,14 @@ async function renderModeration() {
     const toolbar=node('div','moderation-toolbar'),tabs=node('div','review-status-tabs');tabs.setAttribute('role','group');tabs.setAttribute('aria-label','Review status');
     for(const [status,title] of [['pending','Awaiting review'],['approved','Approved'],['rejected','Disapproved']]){const button=node('button','review-status-tab');button.type='button';button.append(node('span','',title),node('span','review-count','–'));button.addEventListener('click',()=>run(()=>{state.reviewStatus=status;state.reviewOffset=0;state.reviewIndex=0;state.reviewSelected=null;return loadReviews();}));button.dataset.reviewStatus=status;button.setAttribute('aria-pressed',String(state.reviewStatus===status));tabs.append(button);}
     const label=node('label','review-search','Search submissions'),search=node('input');search.type='search';search.maxLength=80;search.value=state.reviewQuery;search.placeholder='Flare or creator name';label.append(search);let timer;
-    search.addEventListener('input',()=>{clearTimeout(timer);state.reviewQuery=search.value;state.reviewOffset=0;timer=setTimeout(()=>{if(search.isConnected)run(loadReviews);},250);});const keys=node('p','review-keys');keys.innerHTML='<kbd>J</kbd><kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>D</kbd> write feedback';toolbar.append(tabs,label,keys);workspace.append(toolbar);
+    search.addEventListener('input',()=>{clearTimeout(timer);state.reviewQuery=search.value;state.reviewOffset=0;timer=setTimeout(()=>{if(search.isConnected)run(loadReviews);},250);});const keys=node('p','review-keys');keys.innerHTML='<kbd>J</kbd><kbd>K</kbd> move · <kbd>N</kbd> next free · <kbd>A</kbd> approve · <kbd>R</kbd> disapprove · <kbd>D</kbd> note · <kbd>X</kbd> select · <kbd>U</kbd> undo';
+    const pickers=node('div','review-pickers');
+    const picker=(labelText,key,options)=>{const wrap=node('label','review-picker'),select=node('select');wrap.append(node('span','sr-only',labelText),select);for(const [value,title] of options){const option=node('option','',title);option.value=value;select.append(option);}select.value=state[key];select.addEventListener('change',()=>run(()=>{state[key]=select.value;state.reviewOffset=0;state.reviewIndex=0;state.reviewSelected=null;return loadReviews();}));return wrap;};
+    pickers.append(picker('Show','reviewFilter',[['all','All submissions'],['flagged','Flagged by the scanner'],['reported','Reported'],['images','Uses images'],['returning','Creator had a disapproval']]),picker('Order','reviewSort',[['oldest','Oldest first'],['submitted','Newest first'],['name','By name']]));
+    toolbar.append(tabs,label,pickers,keys);workspace.append(toolbar);
+    const fresh=node('button','review-new');fresh.id='review-new';fresh.type='button';fresh.hidden=true;fresh.append(node('span','','New submissions'),node('small','','Show'));fresh.addEventListener('click',()=>run(loadReviews));
+    const bulk=node('div','review-bulk');bulk.id='review-bulk';bulk.hidden=true;bulk.append(node('strong','review-bulk-count','0 selected'),action('Approve all',()=>bulkDecide('approved'),'button primary sm'),action('Disapprove all…',()=>bulkDecide('rejected'),'button danger sm'),action('Clear',()=>{state.bulk.clear();syncBulkBar();},'button ghost sm'));
+    workspace.append(fresh,bulk);
     const checklist=node('details','moderation-checklist');checklist.append(node('summary','','Review checklist & permissions'),node('p','','Check artwork rights, harmful content, impersonation, flashing, and readability on both backgrounds. Staff submissions are automatically approved. Moderators cannot manually review their own Flares; the owner can. Disapproval requires a reason. Revocation clears everyone’s equipped assignments. Permanent deletion of disapproved Flares removes unshared images; audit history remains.'));workspace.append(checklist);
     const grid=node('div','review-grid review-workspace');grid.id='review-results';grid.setAttribute('aria-live','polite');grid.append(node('p','form-footnote','Loading submissions…'));const paging=node('div','dashboard-pagination');paging.id='review-pagination';workspace.append(grid,paging);await loadReviews();
   }else if(section==='reports'){
@@ -1826,6 +2031,7 @@ async function renderModeration() {
     team.append(link('Manage moderation team →','/moderation/accounts','text-button'));workspace.append(team);await loadUsers('banned');
   }else{
     const panel=moderationSection('Activity log','The latest 100 recorded decisions, bans, deletions, and access changes. Exports include everything kept (two years).');
+    const auditToolbar=node('div','audit-toolbar');auditToolbar.id='audit-toolbar';panel.append(auditToolbar);
     const exports=node('div','audit-exports');for(const [format,label] of [['csv','Export CSV'],['json','Export JSON']]){const item=link(label,`/api/admin/audit/export?format=${format}`,'button subtle sm');item.setAttribute('download','');item.prepend(icon('download'));exports.append(item);}
     exports.append(refresh);panel.firstChild.append(exports);const audit=node('div');audit.id='moderation-audit';panel.append(audit);workspace.append(panel);await loadAudit();
   }
@@ -1873,6 +2079,7 @@ async function renderView() {
     if(state.bootstrapped && chapter){const hash=currentRoute(),readRevision=likes.revision;try{const result=await api(`/api/v1/cosmetics/${encodeURIComponent(chapter)}`);result.cosmetic.like_read_revision=readRevision;if(currentRoute()===hash)await showDetails(result.cosmetic);}catch(error){if(currentRoute()===hash){$('#detail-dialog').close();navigate('/discover');toast('This Flare is unavailable or not approved.',true);}}}
   }
   if(state.view!=='discover' && $('#detail-dialog').open)$('#detail-dialog').close();
+  if(state.view!=='moderation')stopModerationLive();
   if(state.view==='donate')renderDonate($('#view-donate'));
   if(!state.bootstrapped)return;
   if(state.view==='following' && (previousView!=='following' || !state.followingLoaded))await loadFollowing();

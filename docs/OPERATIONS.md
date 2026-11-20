@@ -150,6 +150,27 @@ most-reported first. One decision closes every open report about that target:
 Every decision is in the activity log. Disapproved Flares can also be deleted
 with their images blocked from the review queue.
 
+## Moderating as a team
+
+Several moderators can work at the same time without stepping on each other.
+
+- **No silent overwrites.** Every decision carries the state the moderator was looking at. If someone else changed it first, the decision is refused with who did what and when ("Already approved by nova 2 minutes ago"). Two moderators clicking at the same moment: exactly one wins.
+- **Presence.** Opening a submission or a report tells the others ("nova looking"). It is a hint, never a lock, and fades 45 seconds after the page closes.
+- **Live queues.** Open moderation pages check for news every 5 seconds: others' decisions are marked in your queue (and the open card's buttons switch off), counts update, and new submissions show a "Show" button.
+- **Reports.** A decision closes only the reports the moderator was shown. Reports that arrive meanwhile stay open.
+- **Undo.** Your own approve or disapprove can be undone for 10 minutes, as long as nobody has changed it since; the creator's notification is taken back.
+- **Bulk decisions.** Tick submissions (or press X) and approve or disapprove them together. Each is checked on its own; anything someone else decided first is skipped and listed.
+
+Also on hand:
+
+- **The review card** shows the creator's history (approved, disapproved, pending, open reports, recent disapproval notes) and shared staff notes.
+- **Filters and order:** flagged by the scanner, reported, uses images, creator had a disapproval; oldest first by default.
+- **Quick notes:** six built in, plus each moderator's own, saved in their browser.
+- **Suspensions:** 1, 3, 7 or 30 days. They end by themselves, keep the account's Flares, and appear in the log as "Automatic". Permanent bans still revoke Flares.
+- **Staff notes on any account:** Accounts → Manage → Staff notes. Authors (and the owner) can delete their notes; notes go with the account.
+- **Activity log:** filter by moderator, search, and export.
+- **Keyboard:** J/K move, N next free item, A approve, R disapprove, D note, X select, U undo, / search.
+
 ## Data retention
 
 The server applies these a minute after it starts and every six hours

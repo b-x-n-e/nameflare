@@ -149,6 +149,23 @@ The Flare’s database record/recipe is deleted, stale equips are cleared, and i
 
 No SQLite migration is required for this operation. Update the Oracle application source and restart its Node service.
 
+## Moderation API (moderators)
+
+All same-origin with CSRF for writes.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /api/admin/review` `{ id, status, reason, expect }` | Decide. `expect` is the status you were looking at; if it changed, you get `409` with `{ error, conflict:{ status, reviewer, reviewed_at } }` |
+| `POST /api/admin/review/bulk` `{ ids (≤50), status, reason }` | Decide many pending Flares; returns `{ done, results:[{ id, ok, error?, conflict? }] }` |
+| `POST /api/admin/review/undo` `{ id }` | Undo your own decision within 10 minutes if nobody changed it since |
+| `GET /api/admin/queue?status=&filter=all\|flagged\|reported\|images\|returning&sort=oldest\|submitted\|name` | The queue, with `overview`, `claims` and each item's `creator_context` |
+| `GET /api/admin/live?since=<event id>` | New activity since that event, counts, and who is looking at what. Omit `since` on the first call |
+| `POST /api/admin/claims` `{ target:"cosmetic:<id>" \| "report:<type>:<id>", active }` | Say you are looking at something (send every 15 s), or stop |
+| `POST /api/admin/reports/resolve` `{ …, seen_through }` | Close only reports up to that ID |
+| `POST /api/admin/ban` `{ id, banned, reason, days }` | `days` (1, 3, 7, 30) makes it a suspension that ends by itself |
+| `GET /api/admin/notes?user=`, `POST /api/admin/notes` `{ user, body }`, `POST /api/admin/notes/delete` `{ id }` | Staff notes on an account |
+| `GET /api/admin/audit?actor=&q=&before=` | Filtered activity log |
+
 ## Activity log export (moderators)
 
 `GET /api/admin/audit/export?format=csv|json` downloads the whole retained activity log (two years), oldest first: id, time, action, actor name and ID, target and detail. The CSV is spreadsheet-safe: every cell is quoted, and a cell starting with `=`, `+`, `-` or `@` is prefixed with `'`. The same exports are on Moderation → Activity log.

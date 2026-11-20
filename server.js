@@ -113,6 +113,18 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   }
   const secure = origin.startsWith('https:');
   const rates = new Map();
+  // Who is looking at what in moderation, so two people do not review the
+  // same item. Advisory only (never a lock), kept in memory, expires after 45s
+  // without a heartbeat.
+  const claims = new Map(), CLAIM_TTL = 45000;
+  const activeClaims = () => {
+    const list = [], cutoff = Date.now() - CLAIM_TTL;
+    for (const [target, holders] of claims) {
+      for (const [userId, claim] of holders) if (claim.at < cutoff) holders.delete(userId); else list.push({ target, user_id:userId, name:claim.name, since:new Date(claim.since).toISOString() });
+      if (!holders.size) claims.delete(target);
+    }
+    return list;
+  };
   const images = createImageProcessor(), scanner = createScanner(env);
   const textureFile = id => join(dataDir, 'textures', id);
   const removeTextureFile = id => { if (/^[a-f0-9]{64}\.(gif|png|webp|jpg)$/.test(id)) rmSync(textureFile(id), { force:true }); };
@@ -252,6 +264,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   }
   const cleanup = setInterval(() => {
     store.cleanup();
+    try { store.liftExpiredBans(); } catch (error) { console.error('Lifting suspensions failed:', error.message); }
     for (const [id, entry] of rates) if (entry.reset < Date.now()) rates.delete(id);
   }, 25000).unref();
 
@@ -465,15 +478,19 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         const data = await body(req);
         assert(typeof data.banned === 'boolean',400,'Provide a banned flag.');
         const reason = text(data.reason || '',data.banned ? 3:0,400,'Ban reason');
-        return json(res,200,{ user:store.setBan(session,text(data.id,1,100,'Account ID'),data.banned,reason) });
+        assert(data.days === undefined || data.days === null || Number.isInteger(data.days),400,'Invalid suspension length.');
+        return json(res,200,{ user:store.setBan(session,text(data.id,1,100,'Account ID'),data.banned,reason,{ days:data.banned ? data.days ?? null : null }) });
       }
       if (method === 'GET' && path === '/api/admin/queue') {
         requireMod(req);
         const status = url.searchParams.get('status') || 'pending', offset = Number(url.searchParams.get('offset') || 0);
         assert(['pending','approved','rejected'].includes(status),400,'Invalid review status.');
         assert(Number.isInteger(offset) && offset >= 0 && offset <= 1000000,400,'Invalid pagination.');
-        const cosmetics = store.moderationCatalog({status,offset,limit:51,query:(url.searchParams.get('q') || '').slice(0,80)});
-        return json(res,200,{ cosmetics:cosmetics.slice(0,50), stats:store.stats(), next_offset:cosmetics.length > 50 ? offset+50:null });
+        const sort = url.searchParams.get('sort') || (status === 'pending' ? 'oldest' : 'newest'), review = url.searchParams.get('filter') || 'all';
+        assert(['oldest','newest','submitted','name'].includes(sort),400,'Invalid sort.');
+        const session = requireMod(req);
+        const cosmetics = store.moderationCatalog({status,offset,limit:51,query:(url.searchParams.get('q') || '').slice(0,80),sort,review});
+        return json(res,200,{ cosmetics:cosmetics.slice(0,50), stats:store.stats(), overview:store.moderationOverview(session.id), last_event:store.latestAuditId(), claims:activeClaims(), next_offset:cosmetics.length > 50 ? offset+50:null });
       }
       if (method === 'GET' && path === '/api/admin/analytics') {
         requireMod(req);
@@ -495,14 +512,72 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         res.writeHead(200,{ 'Content-Type':'text/csv; charset=utf-8', 'Content-Disposition':`attachment; filename="nameflare-activity-${day}.csv"` });
         return res.end('\ufeff' + [columns.join(','), ...rows.map(row => columns.map(column => cell(row[column])).join(','))].join('\r\n') + '\r\n');
       }
-      if (method === 'GET' && path === '/api/admin/audit') { requireMod(req); return json(res,200,{ entries:store.auditLog() }); }
+      if (method === 'GET' && path === '/api/admin/audit') {
+        requireMod(req);
+        const before = Number(url.searchParams.get('before') || 0);
+        assert(Number.isInteger(before) && before >= 0,400,'Invalid position.');
+        const entries = store.auditLog({ actor:(url.searchParams.get('actor') || '').slice(0,100), q:(url.searchParams.get('q') || '').slice(0,80), before, limit:101 });
+        return json(res,200,{ entries:entries.slice(0,100), actors:store.auditActors(), next_before:entries.length > 100 ? entries[99].id : null });
+      }
+      // Live moderation: new activity since the caller's last event, counts,
+      // and who is looking at what. Polled every few seconds by open queues.
+      if (method === 'GET' && path === '/api/admin/live') {
+        const session = requireMod(req), since = Number(url.searchParams.get('since') || 0);
+        assert(Number.isInteger(since) && since >= 0,400,'Invalid position.');
+        // No `since` means a first call: just the current position, no backlog.
+        const events = url.searchParams.has('since') ? store.auditSince(since, 50) : [];
+        return json(res,200,{ last_event:events.length ? events.at(-1).id : Math.max(since, store.latestAuditId()), events, overview:store.moderationOverview(session.id), claims:activeClaims() });
+      }
+      if (method === 'POST' && path === '/api/admin/claims') {
+        const session = mutation(req); requireMod(req);
+        const data = await body(req,4096);
+        assert(typeof data.target === 'string' && /^(cosmetic|report|user):[a-zA-Z0-9:_-]{1,120}$/.test(data.target),400,'Invalid claim target.');
+        for (const [target, holders] of claims) if (target !== data.target) holders.delete(session.id);
+        if (data.active === false) claims.get(data.target)?.delete(session.id);
+        else {
+          if (!claims.has(data.target)) { if (claims.size > 5000) claims.clear(); claims.set(data.target, new Map()); }
+          const existing = claims.get(data.target).get(session.id);
+          claims.get(data.target).set(session.id, { name:session.name, at:Date.now(), since:existing?.since || Date.now() });
+        }
+        return json(res,200,{ claims:activeClaims().filter(claim => claim.target === data.target && claim.user_id !== session.id) });
+      }
+      if (method === 'GET' && path === '/api/admin/notes') {
+        requireMod(req);
+        return json(res,200,{ notes:store.modNotes(text(url.searchParams.get('user') || '',1,100,'Account ID')) });
+      }
+      if (method === 'POST' && (path === '/api/admin/notes' || path === '/api/admin/notes/delete')) {
+        const session = mutation(req); requireMod(req);
+        const data = await body(req,8192);
+        if (path.endsWith('delete')) { assert(Number.isInteger(data.id),400,'Invalid note.'); return json(res,200,{ notes:store.deleteModNote(session,data.id) }); }
+        return json(res,201,{ notes:store.addModNote(session,text(data.user || '',1,100,'Account ID'),data.body) });
+      }
       if (method === 'GET' && path === '/api/admin/moderators') { requireOwner(req); return json(res,200,{ moderators:store.moderators() }); }
       if (method === 'POST' && path === '/api/admin/review') {
         const session = mutation(req); requireMod(req);
         const data = await body(req);
         assert(['approved','rejected'].includes(data.status),400,'Invalid review decision.');
         const reason = text(data.reason || '',data.status === 'rejected' ? 3:0,400,'Review note');
-        return json(res,200,{ cosmetic:store.review(session,text(data.id,1,100,'Cosmetic ID'),data.status,reason) });
+        assert(data.expect === undefined || ['pending','approved','rejected'].includes(data.expect),400,'Invalid expected status.');
+        return json(res,200,{ cosmetic:store.review(session,text(data.id,1,100,'Cosmetic ID'),data.status,reason,{ expect:data.expect }) });
+      }
+      // Many decisions at once. Each one is checked on its own, so a Flare that
+      // someone else decided in the meantime is skipped and reported back.
+      if (method === 'POST' && path === '/api/admin/review/bulk') {
+        const session = mutation(req); requireMod(req);
+        const data = await body(req,16384);
+        assert(['approved','rejected'].includes(data.status),400,'Invalid review decision.');
+        assert(Array.isArray(data.ids) && data.ids.length >= 1 && data.ids.length <= 50 && data.ids.every(id => typeof id === 'string' && id.length <= 100),400,'Choose 1–50 Flares.');
+        const reason = text(data.reason || '',data.status === 'rejected' ? 3:0,400,'Review note');
+        const results = [...new Set(data.ids)].map(id => {
+          try { store.review(session,id,data.status,reason,{ expect:'pending' }); return { id, ok:true }; }
+          catch (error) { return { id, ok:false, error:error instanceof HttpError ? error.message : 'Failed.', ...(error.conflict ? { conflict:error.conflict } : {}) }; }
+        });
+        return json(res,200,{ results, done:results.filter(result => result.ok).length });
+      }
+      if (method === 'POST' && path === '/api/admin/review/undo') {
+        const session = mutation(req); requireMod(req);
+        const data = await body(req);
+        return json(res,200,{ cosmetic:store.undoReview(session,text(data.id,1,100,'Flare ID')) });
       }
       if (method === 'POST' && path === '/api/admin/cosmetics/delete') {
         const session = mutation(req); requireMod(req);
@@ -528,7 +603,8 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         const data = await body(req);
         assert(['cosmetic','user'].includes(data.target_type) && typeof data.target_id === 'string',400,'Choose what to resolve.');
         assert(data.block_images === undefined || typeof data.block_images === 'boolean',400,'block_images must be true or false.');
-        return json(res,200,store.resolveReports(session,data));
+        assert(data.seen_through === undefined || Number.isInteger(data.seen_through),400,'Invalid report position.');
+        return json(res,200,store.resolveReports(session,{ ...data, seen_through:data.seen_through ?? null }));
       }
       if (method === 'GET' && path === '/api/account/export') {
         const session = requireUser(req);
@@ -713,7 +789,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
       if (res.headersSent) return res.end();
       if (!(error instanceof HttpError)) console.error('Request failed:',error.message);
       if (error.retryAfter) res.setHeader('Retry-After',String(error.retryAfter));
-      json(res,error.status || 500,{ error:error instanceof HttpError ? error.message:'Something went wrong. Please try again.' });
+      json(res,error.status || 500,{ error:error instanceof HttpError ? error.message:'Something went wrong. Please try again.', ...(error.conflict ? { conflict:error.conflict } : {}) });
     }
   });
   server.headersTimeout = 15000; server.requestTimeout = 20000;
