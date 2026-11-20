@@ -850,7 +850,9 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 :root[data-density="compact"] .retention-list > div { padding: 6px 0; }
 :root[data-density="compact"] .audit-row { padding-block: 6px; }
 /* Controls */
-:root[data-density="compact"] .button { min-height: 30px; padding-block: 4px; }
+/* Not wa-button: padding on its host outweighed kit.css's host reset at rest but
+   not on :hover, so compact buttons shrank 8px under the cursor and flickered. */
+:root[data-density="compact"] .button:not(wa-button) { min-height: 30px; padding-block: 4px; }
 :root[data-density="compact"] wa-button { --wa-form-control-height: 30px; }
 .confirmation-account > div { display: grid; gap: 1px; } .confirmation-account small { color: var(--faint); font-family: var(--font-mono); font-size: var(--text-xs); }
 :root[data-density="compact"] .showcase-track { padding-bottom: 12px; margin-bottom: -10px; }
