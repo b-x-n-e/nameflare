@@ -520,7 +520,7 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 .donate-projects-note { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: var(--text-sm); line-height: 1.55; }
 
 /* Safety and data (2026.11): report dialog, the moderation Reports queue,
-   Account → Your data, and relay rooms. Same surfaces and type scale as the
+   and Account → Your data. Same surfaces and type scale as the
    panels around them; danger colour only on irreversible actions. */
 .report-dialog { width: min(560px, calc(100% - 32px)); }
 .report-dialog h2 { margin: 12px 0 8px; }
@@ -582,66 +582,41 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 .data-danger label { display: grid; gap: 6px; max-width: 360px; font-size: var(--text-sm); font-weight: 600; }
 .data-danger .button.danger { justify-self: start; }
 
-.relay-rooms { display: grid; gap: 12px; margin-top: 4px; }
-.relay-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.relay-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
-.relay-row > div:first-child { display: grid; min-width: 0; }
-.relay-row strong { font-size: var(--text-base); font-weight: 600; }
-.relay-row small { color: var(--muted); font-size: var(--text-xs); }
-.relay-row .card-actions { display: flex; gap: 6px; }
-.relay-create { display: flex; gap: 8px; }
-.relay-create input { flex: 1; min-width: 0; }
-.relay-secrets { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: var(--accent-wash); box-shadow: inset 0 0 0 1px var(--accent-soft); }
-.relay-secrets h3 { font-size: var(--text-md); font-weight: 650; }
-.relay-secret { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
-.relay-secret > span { grid-column: 1 / -1; font-size: var(--text-xs); font-weight: 650; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.relay-secret code { padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
-.relay-example { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-family: var(--font-mono); font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 560px) {
   .report-head { flex-direction: column; }
-  .relay-create { flex-direction: column; }
 }
 .data-panel .text-link { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .report-details .form-footnote { margin-left: 6px; font-weight: 400; }
 .data-row .button .ui-icon { margin-right: 6px; }
 
-/* Callouts (2026.11). One component for every caution note: a tinted icon
-   badge, a calm warm-neutral surface, and body text in the normal ink. No
-   coloured text, no bracket bars. The icon is the theme's warning colour
-   through a mask, so it works on every light and dark theme. */
+/* Callouts (2026.11, second pass). Quiet and current: a hairline surface,
+   one small glyph in the note's tone, and normal reading text. Colour lives
+   only in the glyph, so nothing reads as yellow-on-yellow on any theme.
+   Tones: caution (donation networks, review flags) uses --warning; notes
+   (bans explainer, client support, decision notes) use a neutral glyph. */
 .status-note, .moderation-notice, .donate-warning, .review-flag, .review-feedback {
-  --callout-tone: var(--warning);
-  position: relative; display: flex; align-items: flex-start; gap: 12px;
-  padding: 12px 14px; border: 0; border-radius: 12px; box-shadow: none;
-  color: var(--ink-2); font-size: var(--text-sm); line-height: 1.5;
-  background: linear-gradient(0deg, color-mix(in srgb, var(--callout-tone) 6%, transparent), color-mix(in srgb, var(--callout-tone) 6%, transparent)), var(--surface-2);
+  --callout-tone: var(--muted); --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128%2C24A104%2C104%2C0%2C1%2C0%2C232%2C128%2C104.11%2C104.11%2C0%2C0%2C0%2C128%2C24Zm0%2C192a88%2C88%2C0%2C1%2C1%2C88-88A88.1%2C88.1%2C0%2C0%2C1%2C128%2C216Zm16-40a8%2C8%2C0%2C0%2C1-8%2C8%2C16%2C16%2C0%2C0%2C1-16-16V128a8%2C8%2C0%2C0%2C1%2C0-16%2C16%2C16%2C0%2C0%2C1%2C16%2C16v40A8%2C8%2C0%2C0%2C1%2C144%2C176ZM112%2C84a12%2C12%2C0%2C1%2C1%2C12%2C12A12%2C12%2C0%2C0%2C1%2C112%2C84Z'/%3E%3C/svg%3E");
+  position: relative; display: block; margin: 0;
+  padding: 10px 14px 10px 40px; border: 1px solid var(--line); border-radius: 10px; box-shadow: none;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  color: var(--ink-2); font-size: var(--text-sm); line-height: 1.55;
 }
-.status-note::before, .moderation-notice::before, .donate-warning::before, .review-flag::before, .review-feedback::before {
-  content: ''; flex: none; width: 28px; height: 28px; margin-top: -3px; border-radius: 9px;
-  background: color-mix(in srgb, var(--callout-tone) 16%, transparent);
-}
+.status-note::before, .moderation-notice::before, .donate-warning::before, .review-flag::before, .review-feedback::before { content: none; }
 .status-note::after, .moderation-notice::after, .donate-warning::after, .review-flag::after, .review-feedback::after {
-  content: ''; position: absolute; left: 20px; top: 15px; width: 16px; height: 16px;
-  background: var(--callout-tone); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128%2C24A104%2C104%2C0%2C1%2C0%2C232%2C128%2C104.11%2C104.11%2C0%2C0%2C0%2C128%2C24Zm0%2C192a88%2C88%2C0%2C1%2C1%2C88-88A88.1%2C88.1%2C0%2C0%2C1%2C128%2C216Zm-8-80V80a8%2C8%2C0%2C0%2C1%2C16%2C0v56a8%2C8%2C0%2C0%2C1-16%2C0Zm20%2C36a12%2C12%2C0%2C1%2C1-12-12A12%2C12%2C0%2C0%2C1%2C140%2C172Z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128%2C24A104%2C104%2C0%2C1%2C0%2C232%2C128%2C104.11%2C104.11%2C0%2C0%2C0%2C128%2C24Zm0%2C192a88%2C88%2C0%2C1%2C1%2C88-88A88.1%2C88.1%2C0%2C0%2C1%2C128%2C216Zm-8-80V80a8%2C8%2C0%2C0%2C1%2C16%2C0v56a8%2C8%2C0%2C0%2C1-16%2C0Zm20%2C36a12%2C12%2C0%2C1%2C1-12-12A12%2C12%2C0%2C0%2C1%2C140%2C172Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  content: ''; position: absolute; left: 14px; top: 12px; width: 16px; height: 16px; translate: none;
+  background: var(--callout-tone);
+  -webkit-mask: var(--callout-icon) center / contain no-repeat; mask: var(--callout-icon) center / contain no-repeat;
 }
+.donate-warning, .review-flag { --callout-tone: var(--warning); --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128%2C24A104%2C104%2C0%2C1%2C0%2C232%2C128%2C104.11%2C104.11%2C0%2C0%2C0%2C128%2C24Zm0%2C192a88%2C88%2C0%2C1%2C1%2C88-88A88.1%2C88.1%2C0%2C0%2C1%2C128%2C216Zm-8-80V80a8%2C8%2C0%2C0%2C1%2C16%2C0v56a8%2C8%2C0%2C0%2C1-16%2C0Zm20%2C36a12%2C12%2C0%2C1%2C1-12-12A12%2C12%2C0%2C0%2C1%2C140%2C172Z'/%3E%3C/svg%3E"); }
+.moderation-notice { --callout-tone: var(--accent); --callout-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M208%2C40H48A16%2C16%2C0%2C0%2C0%2C32%2C56v56c0%2C52.72%2C25.52%2C84.67%2C46.93%2C102.19%2C23.06%2C18.86%2C46%2C25.26%2C47%2C25.53a8%2C8%2C0%2C0%2C0%2C4.2%2C0c1-.27%2C23.91-6.67%2C47-25.53C198.48%2C196.67%2C224%2C164.72%2C224%2C112V56A16%2C16%2C0%2C0%2C0%2C208%2C40Zm0%2C72c0%2C37.07-13.66%2C67.16-40.6%2C89.42A129.3%2C129.3%2C0%2C0%2C1%2C128%2C223.62a128.25%2C128.25%2C0%2C0%2C1-38.92-21.81C61.82%2C179.51%2C48%2C149.3%2C48%2C112l0-56%2C160%2C0ZM82.34%2C141.66a8%2C8%2C0%2C0%2C1%2C11.32-11.32L112%2C148.69l50.34-50.35a8%2C8%2C0%2C0%2C1%2C11.32%2C11.32l-56%2C56a8%2C8%2C0%2C0%2C1-11.32%2C0Z'/%3E%3C/svg%3E"); display: grid; gap: 2px; padding: 12px 16px 12px 42px; }
+.moderation-notice::after { left: 16px; top: 14px; }
+.moderation-notice > * { grid-column: auto; }
+.moderation-notice strong { color: var(--ink); font-size: var(--text-base); font-weight: 600; }
+.moderation-notice p { margin: 0; color: var(--muted); }
 .donate-warning > .ui-icon, .review-flag > .ui-icon { display: none; }
-.moderation-notice { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; padding: 14px 16px; }
-.moderation-notice::before { grid-row: 1 / span 2; }
-.moderation-notice::after { left: 22px; top: 17px; }
-.moderation-notice > * { grid-column: 2; }
-.moderation-notice strong { color: var(--ink); font-size: var(--text-base); font-weight: 650; }
-.moderation-notice p { color: var(--muted); }
-.review-flag { align-items: center; flex-wrap: wrap; }
-.review-flag::before { margin-top: 0; }
-.review-flag::after { top: 50%; translate: 0 -50%; }
-.review-flag .text-button { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-.review-feedback { --callout-tone: var(--muted); }
-.status-note { --callout-tone: color-mix(in oklab, var(--info) 72%, var(--ink)); align-items: center; }
-.status-note::before { margin-top: 0; }
-.status-note::after { top: 50%; translate: 0 -50%; }
-.donate-warning { align-items: center; max-width: 60ch; }
-.donate-warning::before { margin-top: 0; }
-.donate-warning::after { top: 50%; translate: 0 -50%; }
+.donate-warning { max-width: 62ch; }
+.review-flag .text-button { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-hard); text-underline-offset: 3px; }
+.review-flag .text-button:hover { text-decoration-color: currentColor; }
 /* Status badges: a quiet pill with a coloured dot. */
 .badge.pending, .badge.approved, .badge.rejected {
   display: inline-flex; align-items: center; gap: 6px;
@@ -717,40 +692,64 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 .cc-name > :not(.fit-line), .ph-name > :not(.fit-line), .artist-card .profile-name-row > :not(.fit-line) { flex: none; }
 
 /* ==========================================================================
-   Compact density (2026.11). Not just smaller padding: more of everything
-   on screen. Wider content column, Discover grid at ~180px cards with
-   shorter previews, denser creator and Flare grids, tighter tables, smaller
-   headings and controls. Flare previews keep their own proportions.
+   Compact density (2026.11, second pass). Designed, not shrunk:
+   - one spacing scale (4 / 8 / 12 / 16) and a 13px base;
+   - Discover grid: ~180px cards, 16:9 previews, one-line titles, an action
+     row of like + Equip only (Share lives on the Flare's page);
+   - Discover list: real rows, preview on the left (112px tall), details
+     and actions on the right, so a screen holds 5–6 Flares instead of 1–2;
+   - wider content column and tighter, but not cramped, page headings.
    ========================================================================== */
 :root[data-density="compact"] {
-  --text-sm: 12px; --text-base: 13px; --text-md: 14px; --text-lg: 15px; --text-xl: 18px;
+  --text-xs: 11px; --text-sm: 12px; --text-base: 13px; --text-md: 14px; --text-lg: 15px; --text-xl: 18px;
   --gutter: 20px; --aside-w: 280px; --radius: 10px; --radius-lg: 12px; --card-radius: 12px;
 }
-:root[data-density="compact"] .app-shell { column-gap: 24px; padding-bottom: 56px; }
+:root[data-density="compact"] .app-shell { column-gap: 28px; padding-bottom: 56px; }
 :root[data-density="compact"] body:not([data-view="discover"]) .app-column { max-width: 1320px; }
-:root[data-density="compact"] .page-heading { padding: 16px 0 4px; margin-bottom: 10px; }
-:root[data-density="compact"] .page-heading h1, :root[data-density="compact"] .discover-head h1 { font-size: 22px; }
-:root[data-density="compact"] .panel { padding: 14px 16px; }
-:root[data-density="compact"] .first-run { padding: 10px 12px; }
-/* Discover */
-:root[data-density="compact"] .discover-head { margin-bottom: 6px; }
-:root[data-density="compact"] .showcase { padding-bottom: 8px; }
-:root[data-density="compact"] .showcase-track { grid-auto-columns: minmax(170px, calc((100% - 30px) / 4.4)); gap: 8px; }
-:root[data-density="compact"] .feed-tabs > wa-button.feed-tab { min-height: 26px !important; }
-:root[data-density="compact"] #view-discover[data-layout="grid"] #catalog.cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 8px; margin-top: 10px; }
+:root[data-density="compact"] .page-heading { padding: 24px 0 4px; margin-bottom: 14px; }
+:root[data-density="compact"] .page-heading h1, :root[data-density="compact"] .discover-head h1 { font-size: 22px; letter-spacing: -.02em; }
+:root[data-density="compact"] .panel { padding: 16px; }
+:root[data-density="compact"] .first-run { padding: 8px 10px 8px 12px; }
+/* Discover: header, showcase, toolbar */
+:root[data-density="compact"] .discover-head { margin-bottom: 8px; }
+:root[data-density="compact"] .showcase-track { grid-auto-columns: minmax(168px, calc((100% - 32px) / 5)); gap: 8px; }
+:root[data-density="compact"] .showcase-tile .showcase-preview, :root[data-density="compact"] .showcase-tile .card-preview { min-height: 0; }
+:root[data-density="compact"] .feed-tabs > wa-button.feed-tab { min-height: 28px !important; }
+/* Discover grid cards */
+:root[data-density="compact"] #view-discover[data-layout="grid"] #catalog.cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 12px; margin-top: 12px; }
 :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .card-preview { aspect-ratio: 16 / 9; }
-:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog.cosmetic-grid { gap: 8px; margin-top: 10px; }
-:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .card-preview,
-:root[data-density="compact"] #following-feed .cosmetic-card .card-preview { aspect-ratio: 3 / 1; min-height: 0; }
-:root[data-density="compact"] .cosmetic-card .post-head, :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-head { padding: 8px 10px 0; }
-:root[data-density="compact"] .cosmetic-card .card-meta, :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .card-meta { padding: 4px 10px 0; gap: 1px; }
-:root[data-density="compact"] .cosmetic-card .post-actions, :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-actions { padding: 6px 8px 8px 6px; }
-:root[data-density="compact"] .cosmetic-card .post-head .avatar { width: 22px; height: 22px; font-size: 10px; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-head { padding: 10px 12px 0; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .card-meta { padding: 4px 12px 0; gap: 0; }
+:root[data-density="compact"] .cosmetic-card .card-meta h3, :root[data-density="compact"] .cosmetic-card .card-meta .post-title { overflow: hidden; font-size: var(--text-base); white-space: nowrap; text-overflow: ellipsis; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 12px 8px; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .post-social { flex: 0 0 auto; overflow: visible; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .post-social > :not(.like-button) { display: none; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .post-actions [data-equip-id] { flex: 0 1 auto; min-width: 0; }
+:root[data-density="compact"] .cosmetic-card .post-head .avatar { width: 20px; height: 20px; font-size: 10px; }
+/* Discover list rows: preview left, details right */
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog.cosmetic-grid { gap: 8px; margin-top: 12px; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card {
+  display: grid; grid-template-columns: minmax(200px, 34%) minmax(0, 1fr); grid-template-rows: auto auto 1fr;
+  grid-template-areas: "preview head" "preview meta" "preview actions"; column-gap: 16px; padding: 0; overflow: hidden;
+}
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .card-preview {
+  grid-area: preview; order: 0; height: 100%; min-height: 112px; max-height: none; aspect-ratio: auto; margin: 0; border-radius: 0; border-right: 1px solid var(--line);
+}
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .card-preview strong { font-size: 34px; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .post-head { grid-area: head; order: 0; padding: 12px 14px 0 0; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .card-meta { grid-area: meta; order: 0; padding: 4px 14px 0 0; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .post-copy { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .post-actions { grid-area: actions; order: 0; align-self: end; padding: 8px 12px 10px 0; margin: 0; }
+:root[data-density="compact"] #following-feed .cosmetic-card .card-preview { aspect-ratio: 16 / 9; min-height: 0; }
 /* Other Flare grids (collections, profiles, following) */
-:root[data-density="compact"] .cosmetic-grid:not(#catalog), :root[data-density="compact"] .profile-created-flares .cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+:root[data-density="compact"] .cosmetic-grid:not(#catalog):not(#profile-results), :root[data-density="compact"] .profile-created-flares .cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 12px; }
+/* Narrow cards everywhere: like + Equip only, one-line titles. */
+:root[data-density="compact"] .cosmetic-grid:not(#catalog) .post-social, :root[data-density="compact"] #view-discover[data-layout="grid"] .post-social { flex: 0 0 auto; overflow: visible; }
+:root[data-density="compact"] .cosmetic-grid:not(#catalog) .post-social > :not(.like-button) { display: none; }
+:root[data-density="compact"] .cosmetic-grid:not(#catalog) .post-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 12px 8px; }
 /* Creators */
-:root[data-density="compact"] #profile-results:not(.profile-detail-grid), :root[data-density="compact"] .followed-creators { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; }
-:root[data-density="compact"] .cc-body { padding: 10px 12px; gap: 8px; }
+:root[data-density="compact"] #profile-results:not(.profile-detail-grid), :root[data-density="compact"] .followed-creators { grid-template-columns: repeat(auto-fill, minmax(min(100%, 236px), 1fr)); gap: 12px; }
+:root[data-density="compact"] .cc-body { padding: 12px; gap: 8px; }
 :root[data-density="compact"] .cc-avatar { width: 32px; height: 32px; }
 :root[data-density="compact"] .ph-stage { height: clamp(120px, 16vw, 180px); }
 /* Tables and moderation */
@@ -759,15 +758,12 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 :root[data-density="compact"] .account-person .avatar { width: 28px; height: 28px; font-size: 11px; }
 :root[data-density="compact"] .report-card { padding: 12px 14px; gap: 10px; }
 :root[data-density="compact"] .report-items li { padding: 7px 10px; }
-:root[data-density="compact"] .relay-row, :root[data-density="compact"] .data-row { padding: 8px 10px; }
+:root[data-density="compact"] .data-row { padding: 8px 10px; }
 :root[data-density="compact"] .retention-list > div { padding: 6px 0; }
 :root[data-density="compact"] .audit-row { padding-block: 6px; }
 /* Controls */
 :root[data-density="compact"] .button { min-height: 30px; padding-block: 4px; }
 :root[data-density="compact"] wa-button { --wa-form-control-height: 30px; }
-:root[data-density="compact"] .status-note, :root[data-density="compact"] .donate-warning, :root[data-density="compact"] .review-flag, :root[data-density="compact"] .review-feedback { padding: 8px 10px; gap: 10px; }
-:root[data-density="compact"] .moderation-notice { padding: 10px 12px; }
-:root[data-density="compact"] .status-note::before, :root[data-density="compact"] .donate-warning::before, :root[data-density="compact"] .review-flag::before, :root[data-density="compact"] .review-feedback::before, :root[data-density="compact"] .moderation-notice::before { width: 24px; height: 24px; border-radius: 8px; }
-:root[data-density="compact"] .status-note::after, :root[data-density="compact"] .donate-warning::after, :root[data-density="compact"] .review-flag::after, :root[data-density="compact"] .review-feedback::after { left: 14px; width: 14px; height: 14px; }
-:root[data-density="compact"] .moderation-notice::after { left: 17px; top: 15px; width: 14px; height: 14px; }
 .confirmation-account > div { display: grid; gap: 1px; } .confirmation-account small { color: var(--faint); font-family: var(--font-mono); font-size: var(--text-xs); }
+:root[data-density="compact"] .showcase-track { padding-bottom: 12px; margin-bottom: -10px; }
+:root[data-density="compact"] .profile-created-flares, :root[data-density="compact"] .created-flares { margin-top: 24px; }

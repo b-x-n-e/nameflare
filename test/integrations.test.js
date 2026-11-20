@@ -22,7 +22,7 @@ test('API index advertises features, limits and timings for client feature detec
     const { status, body } = await get('/api/v1');
     assert.equal(status, 200);
     assert.equal(body.version, 1);
-    assert.deepEqual(Object.keys(body.features).sort(), ['batch', 'changes', 'lookup', 'overlay_relay', 'overlay_rooms', 'resolve', 'stats', 'wearers']);
+    assert.deepEqual(Object.keys(body.features).sort(), ['batch', 'changes', 'lookup', 'resolve', 'stats', 'wearers']);
     assert.equal(body.limits.resolve_ids, 100);
     assert.ok(body.endpoints.includes('GET /api/v1/changes'));
   });

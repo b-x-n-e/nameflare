@@ -1,5 +1,5 @@
 // Upload sanitizing and scanning, abuse reports, account export/deletion,
-// retention and relay rooms.
+// and retention.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
@@ -259,63 +259,6 @@ test('retention removes old records and abandoned uploads, and keeps recent ones
     assert.ok(existsSync(join(dir, 'textures', `${'a'.repeat(64)}.png`)), 'Unknown files get a day of grace');
     assert.ok(store.getCosmetic('demo-pending'), 'Pending Flares are never touched');
     assert.equal(RETENTION.orphan_texture_days, 7);
-  });
-});
-
-async function events(base, query) {
-  const controller = new AbortController(), response = await fetch(`${base}/api/overlay/events?${query}`, { signal:controller.signal });
-  if (response.status !== 200) { controller.abort(); return { status:response.status }; }
-  const reader = response.body.getReader(), decoder = new TextDecoder();
-  let text = '', pending = null;
-  return {
-    status:200,
-    // Reads until one message arrives or `ms` passes. A read still waiting at
-    // the deadline is kept for the next call, so no chunk is lost.
-    async next(ms = 1500) {
-      const deadline = Date.now() + ms;
-      while (!/data: .*\n\n/.test(text) && Date.now() < deadline) {
-        pending ||= reader.read();
-        const chunk = await Promise.race([pending, new Promise(resolve => setTimeout(() => resolve('timeout'), deadline - Date.now()))]);
-        if (chunk === 'timeout') break;
-        pending = null;
-        if (chunk.done) break;
-        text += decoder.decode(chunk.value);
-      }
-      const match = /data: (.*)\n\n/.exec(text);
-      if (match) text = text.slice(match.index + match[0].length);
-      return match ? JSON.parse(match[1]) : null;
-    },
-    close() { controller.abort(); }
-  };
-}
-
-test('relay rooms keep each stream setup separate and rotate their keys', async () => {
-  await withApp({ OVERLAY_ROOM_KEY:'legacy-room-key-123', OVERLAY_INGEST_TOKEN:'legacy-ingest-token' }, async ({ call, base, sessions }) => {
-    const a = (await call('/api/overlay/rooms', { name:'Main stream' }, sessions.creator)).body;
-    const b = (await call('/api/overlay/rooms', { name:'Second' }, sessions.mod)).body;
-    assert.match(a.ingest_token, /^nfr_/);
-    const send = (token, text) => fetch(`${base}/api/overlay/messages`, { method:'POST', headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${token}` }, body:JSON.stringify({ provider:'kick', provider_id:'7', name:'viewer', text }) });
-    assert.equal((await events(base, `room=${a.room.id}&key=wrong`)).status, 403);
-    const listenA = await events(base, `room=${a.room.id}&key=${a.read_key}`), listenB = await events(base, `room=${b.room.id}&key=${b.read_key}`), legacy = await events(base, 'room=legacy-room-key-123');
-    try {
-      assert.equal((await send(a.ingest_token, 'for A')).status, 202);
-      assert.equal((await listenA.next()).text, 'for A');
-      assert.equal(await listenB.next(300), null, 'Other rooms hear nothing');
-      assert.equal(await legacy.next(300), null);
-      assert.equal((await send('legacy-ingest-token', 'for legacy')).status, 202);
-      assert.equal((await legacy.next()).text, 'for legacy');
-      assert.equal((await send('nfr_wrong', 'x')).status, 401);
-      const listed = (await call('/api/overlay/rooms', undefined, sessions.creator)).body.rooms;
-      assert.deepEqual(listed.map(room => [room.name, room.listeners]), [['Main stream', 1]]);
-      assert.equal(JSON.stringify(listed).includes(a.read_key), false, 'Keys are shown once');
-      const rotated = (await call('/api/overlay/rooms/rotate', { id:a.room.id }, sessions.creator)).body;
-      assert.equal((await send(a.ingest_token, 'old token')).status, 401);
-      assert.equal((await events(base, `room=${a.room.id}&key=${a.read_key}`)).status, 403);
-      assert.equal((await send(rotated.ingest_token, 'new token')).status, 202);
-      assert.equal((await call('/api/overlay/rooms/delete', { id:a.room.id }, sessions.mod)).status, 404, 'Only the owner can delete a room');
-      for (const name of ['2', '3']) assert.equal((await call('/api/overlay/rooms', { name }, sessions.creator)).status, 201);
-      assert.equal((await call('/api/overlay/rooms', { name:'4' }, sessions.creator)).status, 429);
-    } finally { listenA.close(); listenB.close(); legacy.close(); }
   });
 });
 

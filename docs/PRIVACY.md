@@ -15,7 +15,6 @@ details next to this.
 | Likes, follows | Your feed and creators' counts | Counts are public; who liked or followed is private |
 | Notifications | Your inbox | You |
 | Reports you send | Moderation | Moderators |
-| Relay rooms | Your overlays | You (keys are stored only as hashes) |
 | Sign-in session | Keeping you signed in | Nobody (stored as a hash; the cookie expires after 7 days) |
 | Networks you sign in or make changes from | Making bans stick: a ban also blocks the networks the banned account used | Nobody. Stored only as a keyed hash of the network (an IPv6 /64 counts as one), never the address, for 90 days |
 | Page views | Insights for creators and the operator | Daily counts per page only: no address, account or device. Off when Do Not Track or Global Privacy Control is on |

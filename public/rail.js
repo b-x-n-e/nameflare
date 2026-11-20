@@ -1,4 +1,4 @@
-import { compactNumber } from './social.js';
+import { compactNumber, avatarImage } from './social.js';
 import { paintPalette } from './paints.js';
 import { applyCosmetic } from './renderer.js';
 
@@ -37,6 +37,9 @@ function avatar(user, cls = '') {
   element.setAttribute('initials', (user.name || '?').slice(0, 1).toUpperCase());
   element.setAttribute('loading', 'lazy');
   element.style.setProperty('--avatar-hue', String(hueFor(user.name)));
+  // The picture was never set here, so rail avatars always showed initials.
+  const image = avatarImage(user);
+  if (image) element.setAttribute('image', image);
   return element;
 }
 

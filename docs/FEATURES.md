@@ -39,7 +39,7 @@ Everything Nameflare does today, in detail. The [README](../README.md) has the s
 
 ## Integrations
 
-- CORS-enabled versioned public API, batch identity resolution, a transparent OBS browser-source overlay, direct public Twitch chat connection, and per-streamer relay rooms for Kick, YouTube or other chat connectors.
+- CORS-enabled versioned public API, batch identity resolution, a transparent OBS browser-source overlay, direct public Twitch chat connection. Kick, YouTube and multi-platform chat overlays are covered by Banechat.
 - On-site creator, OAuth, moderation, OBS, troubleshooting, and API handbook (`/guide` or the Guide navigation item).
 
 ## Hosting
@@ -53,7 +53,6 @@ Everything Nameflare does today, in detail. The [README](../README.md) has the s
 - Report a Flare or a profile; moderators resolve everything reported about it at once (dismiss, remove, ban) from Moderation → Reports.
 - Account → Your data: download everything as JSON, or delete the account and everything in it.
 - Published retention periods enforced by the server, including cleanup of abandoned uploads.
-- Relay rooms: each streamer gets private overlay links and posting tokens for Kick, YouTube or other chats.
 - Per-client edge rate limits in nginx (IPv4 address or IPv6 /64), nightly backups with verified restore, and a load-test tool sized for an Oracle E2.1.Micro.
 
 ## Added in late 2026.11

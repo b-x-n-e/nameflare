@@ -4,7 +4,7 @@ Open-source code and centralized service ownership are compatible. Publish the r
 
 ## Cloudflare-native alternative
 
-The requested Workers/D1/private-R2 runtime is implemented separately from Node. Use [the Cloudflare runbook](CLOUDFLARE.md) for local migration, provider registration, resource bindings, secret storage, deployment prerequisites, and limits. It has been bundled and locally tested, not remotely deployed. The existing Node streaming relay is not ported.
+The requested Workers/D1/private-R2 runtime is implemented separately from Node. Use [the Cloudflare runbook](CLOUDFLARE.md) for local migration, provider registration, resource bindings, secret storage, deployment prerequisites, and limits. It has been bundled and locally tested, not remotely deployed.
 
 ## Oracle Ubuntu setup
 
@@ -30,7 +30,7 @@ Production startup fails without an HTTPS origin and numeric owner ID. Demo mode
 - Do not rewrite the Origin header. App mutations require exact `PUBLIC_BASE_URL` origin plus session-bound CSRF.
 - Cap request bodies at 3 MB; rate-limit uploads, login starts, and public resolves by true client IP at the trusted edge.
 - The Node limiter defaults to socket addresses and ignores forwarded headers. For the same-host Oracle Nginx layout only, enable `TRUST_PROXY_LOOPBACK=true` after configuring Nginx to overwrite `X-Real-IP`/`X-Forwarded-For` with `$remote_addr` and strip `Forwarded` in every upstream location. Node accepts only a single valid IP from an exact loopback socket peer, canonicalizes equivalent IPv6/mapped-IPv4 forms, and falls back to the peer for missing/invalid headers. Keep Node private on loopback. Same-host processes are trusted; do not use this setting for arbitrary container networks or public proxies. Per-IP quotas still group users behind a shared NAT. Trusted CDN real-IP handling requires a separate reviewed configuration.
-- Disable response buffering for `/api/overlay/events`; allow streaming heartbeats. Apply sensible connection limits.
+- Apply sensible connection limits.
 - Avoid logging authorization headers, OAuth codes, cookies, or overlay room query strings.
 - Public recipes and textures have a 15-second freshness window. Do not add longer CDN caching that delays revocation. Do not cache session endpoints, pending textures, or error responses.
 - Serve `/source` and `/license` from this app so users can access license and source information; set `SOURCE_URL` for a live repository link.
@@ -43,7 +43,7 @@ Changing `OWNER_TWITCH_ID` does not revoke a previously persisted owner role; ow
 
 ## Remaining launch work
 
-Done in 2026.11 (see [Operations](OPERATIONS.md)): upload decoding and rebuilding, optional malware and content scanning, abuse reports, account deletion and export, retention, multi-room relay credentials, per-client edge limits, backups with restore, and a load-test tool. Still open:
+Done in 2026.11 (see [Operations](OPERATIONS.md)): upload decoding and rebuilding, optional malware and content scanning, abuse reports, account deletion and export, retention, per-client edge limits, backups with restore, and a load-test tool. Still open:
 
 - A ClamAV host if malware scanning is wanted (clamd does not fit in an E2.1.Micro's memory), and a content classifier you are licensed to use.
 - Off-server backup copies, monitoring and alerting.

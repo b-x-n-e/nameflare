@@ -30,7 +30,7 @@ their own without a subscription:
 |---|---|
 | **Studio** | Up to six layers, 2–12 colour stops per gradient, image fills (GIF, PNG, WebP, JPEG, BMP) with crop and zoom, glow, outline, shadow stacks, 3D extrusion, four motion styles, undo/redo, local drafts, and Flare file import/export |
 | **Community** | Discover with search, filters and trending, likes, follows, creator profiles, an Artists showcase, notifications, creator insights, and eight themes plus your own custom one |
-| **In chat** | A public JSON API (Flares, wearers, live stats, profiles and linked accounts), a change feed, a drop-in browser SDK, an OBS overlay, and relay rooms for Kick, YouTube and other chats |
+| **In chat** | A public JSON API (Flares, wearers, live stats, profiles and linked accounts), a change feed, a drop-in browser SDK, and an OBS overlay for Twitch chat |
 | **Safety** | Moderator review, abuse reports, bans, images decoded and rebuilt on upload, optional malware and content scanning, and an exportable activity log |
 | **Privacy** | No passwords or platform tokens stored, privacy-friendly page counts, published retention periods, and self-service data download and account deletion |
 | **Runs small** | One Node process with SQLite and no runtime dependencies. Sized and load-tested for a 1 GB Oracle Always Free instance |
@@ -60,8 +60,7 @@ npm run check     # syntax check of every script
 
 - **OBS overlay.** Add `/overlay?channel=yourchannel` from this site as a Browser
   Source. It reads public Twitch chat and draws each chatter's Flare.
-- **Relay rooms.** For Kick, YouTube or anything else, create a relay room.
-  Your connector posts chat messages to it, and your private overlay link shows them.
+- **Kick, YouTube and multi-platform chat.** Use [Banechat](https://chat.bxne.dev).
 - **API and SDK.** Approved Flares are public JSON with CORS. Look people up by
   platform ID one at a time or 100 at a time, list who is wearing a Flare, read
   live stats, follow the change feed, and render with the same renderer the site
@@ -97,7 +96,7 @@ lacks the newer safety features and is not used in production
 ## How the code is laid out
 
 ```
-server.js        HTTP server: pages, API, uploads, overlay relay, rate limits
+server.js        HTTP server: pages, API, uploads, rate limits
 lib/             store.js (SQLite), images.js (upload decoder), media.js (scanners),
                  backup.js, oauth.js, cosmetics.js (validation)
 public/          the web app: app.js, editor.js (studio), renderer.js + effects.css

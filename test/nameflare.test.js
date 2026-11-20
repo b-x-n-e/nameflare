@@ -166,7 +166,7 @@ test('OAuth provider adapters verify immutable platform identities (mocked provi
   }finally{globalThis.fetch=original;}
 });
 
-test('HTTP moderation, CSRF, API publication, texture privacy, and overlay guards',async() => {
+test('HTTP moderation, CSRF, API publication, texture privacy, and the removed relay',async() => {
   const dir=mkdtempSync(join(tmpdir(),'nameflare-http-'));const store=new Store();store.seedDemo();
   // Keep public demo history but give this creator room for the tested submission.
   store.db.prepare("UPDATE cosmetics SET owner_id='demo-owner' WHERE owner_id='demo-creator'").run();
@@ -204,12 +204,9 @@ test('HTTP moderation, CSRF, API publication, texture privacy, and overlay guard
     assert.equal((await call('/api/admin/review',{id:cosmetic.id,status:'rejected',reason:'Flashing artwork'},'owner')).status,200);
     assert.equal((await call(`/api/v1/cosmetics/${cosmetic.id}`)).status,404);assert.equal((await call(`/textures/${textureId}`)).status,401);
     assert.equal((await call('/api/v1/cosmetics?limit=NaN')).status,400);assert.equal((await call('/api/v1/resolve',{provider:'twitch',ids:[123]})).status,400);
-    assert.equal((await call('/api/overlay/messages',{provider:'twitch',provider_id:'1002',name:'lumi',text:'hi'})).status,401);
-    assert.equal((await call('/api/overlay/messages',{provider:'kick',provider_id:'5',name:'viewer',text:'hello'},undefined,{Authorization:'Bearer private-ingest'})).status,202);
-    assert.equal((await call('/api/overlay/events?room=bad')).status,403);
-    const streamResponse=await call('/api/overlay/events?room=private-room');assert.equal(streamResponse.status,200);const reader=streamResponse.body.getReader();await reader.read();
-    await call('/api/overlay/messages',{provider:'youtube',provider_id:'UC123',name:'viewer',text:'stream event'},undefined,{Authorization:'Bearer private-ingest'});
-    const event=await reader.read();assert.match(new TextDecoder().decode(event.value),/stream event/);await reader.cancel();
+    // The relay was removed: its endpoints no longer exist.
+    assert.equal((await call('/api/overlay/messages',{provider:'kick',provider_id:'5',name:'viewer',text:'hello'},undefined,{Authorization:'Bearer private-ingest'})).status,404);
+    assert.equal((await call('/api/overlay/events?room=private-room')).status,404);
     const pendingOwn=store.submit('demo-owner','Owner design','',validateRecipe(recipe()));
     assert.equal(pendingOwn.status,'approved');assert.equal((await call('/api/admin/review',{id:pendingOwn.id,status:'approved',reason:''},'owner')).status,200);
     assert.equal((await call('/api/admin/review',{id:pendingOwn.id,status:'rejected',reason:''},'mod')).status,400);

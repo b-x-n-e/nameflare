@@ -288,10 +288,9 @@ The last section of `public/ui/calm.css`.
 
 ## Safety and data surfaces (2026.11)
 
-Reports, moderation of reports, Account → Your data and relay rooms are Operate-mode screens: they reuse the panel surfaces, type scale and button styles around them and add no new colours.
+Reports, moderation of reports and Account → Your data are Operate-mode screens: they reuse the panel surfaces, type scale and button styles around them and add no new colours.
 
 - **Report dialog.** One radio card per reason, each with a one-line example, so people pick by meaning rather than by policy jargon. The selected card takes the accent outline. Details are optional. The copy says who sees the report, and that the person reported is not told who sent it.
 - **Moderation → Reports.** One card per reported Flare or profile, carrying a paused preview, the count, and every report's reason and details. A single decision note serves the whole card. Dismiss is subtle; Remove and Ban are the only danger buttons, and they need a note. An optional checkbox blocks the images too.
 - **Review cards.** Scanner flags and open-report counts appear as a warning strip at the top of the card, so they are seen before the decision buttons.
 - **Your data.** Download comes first, then the retention table, then deletion in its own outlined panel. The delete button stays disabled until the account name is typed exactly.
-- **Relay rooms.** Rooms are listed with their live overlay count. Keys appear once, in an accent-washed box with copy buttons and a ready-to-run `curl` example, and the copy says plainly that they will not be shown again.

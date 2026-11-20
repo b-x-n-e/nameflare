@@ -3,7 +3,7 @@ import { paintPalette } from './paints.js';
 import { currentRoute, navigate, installNavigation, preserveFeedScroll, isAppPath } from './routes.js';
 import { initializeEditor, downloadDesign, presets } from './editor.js';
 import { createLikeController } from './likes.js';
-import { compactNumber, timeAgo, copyText, shareLink } from './social.js';
+import { compactNumber, timeAgo, copyText, shareLink, AVATAR_HOSTS as avatarHosts, avatarImage } from './social.js';
 import { initPreferences, openPreferences, cycleTheme } from './preferences.js';
 import { renderInsights } from './insights.js';
 import { setupDonate, renderDonate } from './donate.js';
@@ -27,7 +27,6 @@ function icon(name,cls='') {
   const use=document.createElementNS('http://www.w3.org/2000/svg','use');use.setAttribute('href',`#icon-${name}`);svg.append(use);return svg;
 }
 const providerNames = { twitch:'Twitch', kick:'Kick', youtube:'YouTube' };
-const avatarHosts = { twitch:['static-cdn.jtvnw.net'], kick:['files.kick.com','kick.com','www.kick.com','pfp.kick.com'], youtube:['yt3.ggpht.com','yt3.googleusercontent.com','lh3.googleusercontent.com'] };
 function avatar(profile, cls='') {
   const name=profile?.name || profile?.display_name || 'N';
   const fallback=name.slice(0,1).toUpperCase();
@@ -35,12 +34,7 @@ function avatar(profile, cls='') {
   element.setAttribute('aria-hidden','true');element.setAttribute('initials',fallback);element.setAttribute('loading','lazy');
   let hue=0;for(const character of name)hue=(hue*31+character.codePointAt(0))%360;
   element.style.setProperty('--avatar-hue',String(hue));
-  try {
-    const url=new URL(profile.avatar_url);
-    if(url.protocol==='https:' && !url.username && !url.password && !url.port && avatarHosts[profile.profile_provider || profile.provider]?.includes(url.hostname)) {
-      element.setAttribute('image',url.href);
-    }
-  } catch {}
+  const image=avatarImage(profile);if(image)element.setAttribute('image',image);
   return element;
 }
 function moderatorBadge(user) {
@@ -1307,7 +1301,7 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
 function renderYourData(content,user) {
   const days=state.config.retention || {};
   const intro=node('section','panel data-panel'),lede=node('p','','Everything Nameflare keeps about your account, and how to take it with you or remove it. ');lede.append(link('How Nameflare handles your data','/guide/privacy','text-link'));intro.append(node('h2','','Your data'),lede);
-  const exportRow=node('div','data-row'),exportText=node('div');exportText.append(node('h3','','Download my data'),node('p','form-footnote','One JSON file with your profile, connected platforms, Flares and their recipes, uploads, likes, follows, notifications, reports you sent and relay rooms. It never includes passwords, tokens or other people’s data.'));
+  const exportRow=node('div','data-row'),exportText=node('div');exportText.append(node('h3','','Download my data'),node('p','form-footnote','One JSON file with your profile, connected platforms, Flares and their recipes, uploads, likes, follows, notifications and reports you sent. It never includes passwords, tokens or other people’s data.'));
   const download=link('Download my data','/api/account/export','button primary');download.setAttribute('download','nameflare-account.json');download.prepend(icon('download'));exportRow.append(exportText,download);intro.append(exportRow);
   const kept=node('section','panel data-panel');kept.append(node('h2','','How long things are kept'));
   const list=node('dl','retention-list');
@@ -1315,43 +1309,11 @@ function renderYourData(content,user) {
   kept.append(list);
   const danger=node('section','panel data-panel data-danger');danger.append(node('h2','','Delete my account'));
   if(user.role==='owner'){danger.append(node('p','form-footnote','The owner account cannot be deleted. Hand ownership to another account first.'));content.append(intro,kept,danger);return;}
-  danger.append(node('p','','This removes your profile, connected platforms, every Flare you made (including ones other people are wearing), your uploaded images, likes, follows, notifications and relay rooms. It happens straight away and cannot be undone.'),node('p','form-footnote','Reports you sent stay, without your name. The moderation log notes that an account was deleted. Nightly backups roll off within 14 days.'));
+  danger.append(node('p','','This removes your profile, connected platforms, every Flare you made (including ones other people are wearing), your uploaded images, likes, follows and notifications. It happens straight away and cannot be undone.'),node('p','form-footnote','Reports you sent stay, without your name. The moderation log notes that an account was deleted. Nightly backups roll off within 14 days.'));
   const label=node('label','',`Type ${user.name} to confirm`),input=node('input');input.autocomplete='off';input.spellcheck=false;input.maxLength=80;label.append(input);
   const remove=action('Delete my account forever',()=>run(async()=>{remove.disabled=true;try{await api('/api/account/delete',{confirm:input.value.trim()});await refreshAccount();editor.accountChanged();navigate('/discover');toast('Your account and everything in it has been deleted.');}finally{if(remove.isConnected)remove.disabled=input.value.trim()!==user.name;}}),'button danger');
   remove.disabled=true;input.addEventListener('input',()=>{remove.disabled=input.value.trim()!==user.name;});
   danger.append(label,remove);content.append(intro,kept,danger);
-}
-let relayRequest=0;
-async function renderRelayRooms() {
-  const container=$('#relay-rooms');if(!container)return;const request=++relayRequest;
-  $('#relay-panel').hidden=!state.config?.features?.overlay_rooms;
-  if(!state.user){container.replaceChildren(node('p','form-footnote','Sign in to create a relay room.'),action('Sign in',openSignIn,'button subtle'));return;}
-  const result=await api('/api/overlay/rooms');if(request!==relayRequest || state.view!=='integrations')return;
-  container.replaceChildren();
-  const list=node('ul','relay-list');
-  for(const room of result.rooms){
-    const row=node('li','relay-row'),text=node('div');text.append(node('strong','',room.name),node('small','',`${room.listeners ? `${room.listeners} overlay${room.listeners===1?'':'s'} connected · `:''}Created ${timeAgo(room.created_at) || date(room.created_at)}`));
-    const buttons=node('div','card-actions');
-    buttons.append(action('New keys',()=>run(async()=>{if(!confirm(`Make new keys for “${room.name}”? The current overlay link and token stop working.`))return;showRoomSecrets(await api('/api/overlay/rooms/rotate',{id:room.id}));}),'button subtle sm'));
-    buttons.append(action('Delete',()=>run(async()=>{if(!confirm(`Delete “${room.name}”? Overlays using it disconnect.`))return;await api('/api/overlay/rooms/delete',{id:room.id});toast('Relay room deleted.');await renderRelayRooms();}),'button ghost sm'));
-    row.append(text,buttons);list.append(row);
-  }
-  if(result.rooms.length)container.append(list);
-  const form=node('form','relay-create'),input=node('input');input.placeholder='Room name, like “Kick stream”';input.maxLength=40;input.required=true;input.setAttribute('aria-label','Room name');
-  const create=node('button','button primary','Create room');create.type='submit';form.append(input,create);
-  form.addEventListener('submit',event=>{event.preventDefault();run(async()=>{create.disabled=true;try{showRoomSecrets(await api('/api/overlay/rooms',{name:input.value}));}finally{create.disabled=false;}});});
-  container.append(form);
-  const secrets=node('div','relay-secrets');secrets.id='relay-secrets';secrets.hidden=true;container.append(secrets);
-}
-function showRoomSecrets(result) {
-  renderRelayRooms().then(()=>{
-    const box=$('#relay-secrets');if(!box)return;box.hidden=false;box.replaceChildren();
-    const overlayUrl=`${location.origin}/overlay?room=${encodeURIComponent(result.room.id)}&key=${encodeURIComponent(result.read_key)}`;
-    const field=(label,value)=>{const wrap=node('div','relay-secret');const code=node('code','',value);code.translate=false;wrap.append(node('span','',label),code,action('Copy',async()=>{toast(await copyText(value)?`${label} copied.`:'Copy failed. Select the text instead.');},'button subtle sm'));return wrap;};
-    box.append(node('h3','',`Keys for “${result.room.name}”`),node('p','form-footnote','Shown only now. Save them before you leave this page; “New keys” makes a fresh pair.'),field('OBS overlay link',overlayUrl),field('Posting token',result.ingest_token));
-    const example=node('pre','relay-example',`curl -X POST ${location.origin}/api/overlay/messages \\\n  -H "Authorization: Bearer ${result.ingest_token}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"provider":"kick","provider_id":"123","name":"viewer","text":"hello chat"}'`);
-    box.append(node('p','form-footnote','Your connector posts each chat message like this:'),example);box.scrollIntoView({block:'nearest',behavior:'smooth'});
-  });
 }
 // The question every wearer asks: who sees it?
 function whereItShows(platformList) {
@@ -1661,7 +1623,7 @@ $('#report-form').addEventListener('submit',event=>{
     .finally(()=>{submit.disabled=false;});
 });
 async function eraseAccount(user) {
-  const confirmed=await confirmModeration({title:'Delete this account?',description:user.banned_at?'Removes the profile, connected platforms, Flares, images, likes, follows and relay rooms. This account is banned, so its platform identities stay banned. This cannot be undone.':'Removes the profile, connected platforms, Flares, images, likes, follows and relay rooms. This is not a ban: the person can sign up again later. This cannot be undone.',label:'Delete account',user,reasonLabel:'Reason (saved in the activity log)',onConfirm:reason=>api('/api/admin/accounts/delete',{id:user.id,confirm:true,reason})});
+  const confirmed=await confirmModeration({title:'Delete this account?',description:user.banned_at?'Removes the profile, connected platforms, Flares, images, likes and follows. This account is banned, so its platform identities stay banned. This cannot be undone.':'Removes the profile, connected platforms, Flares, images, likes and follows. This is not a ban: the person can sign up again later. This cannot be undone.',label:'Delete account',user,reasonLabel:'Reason (saved in the activity log)',onConfirm:reason=>api('/api/admin/accounts/delete',{id:user.id,confirm:true,reason})});
   if(!confirmed)return;toast('Account deleted.');state.catalogLoaded=false;await Promise.all([loadUsers(),loadUsers('banned'),loadAudit()]);
 }
 
@@ -1915,7 +1877,6 @@ async function renderView() {
   if(!state.bootstrapped)return;
   if(state.view==='following' && (previousView!=='following' || !state.followingLoaded))await loadFollowing();
   if(state.view==='artists')await loadArtists();else artistPreviews.clear();
-  if(state.view==='integrations')await run(renderRelayRooms);
   if(state.view==='profiles')await loadProfiles(chapter);
   if(state.view==='guide' && chapter)document.getElementById(`guide-${chapter}`)?.scrollIntoView({block:'start'});
   if(state.view==='collection')await renderCollection();if(state.view==='account')await renderAccount(chapter);if(state.view==='analytics')await renderInsights({container:$('#insights-content'),api,state,signIn:openSignIn,toast});if(state.view==='moderation')await renderModeration();

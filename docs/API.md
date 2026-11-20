@@ -18,7 +18,7 @@ The official origin is configured by the operator in `PUBLIC_BASE_URL`. Until de
 
 These are Node-only. Clients should feature-detect through `GET /api/v1`, or treat a 404 as "unsupported". The SDK does both.
 
-- `GET /api/v1` describes the API: `{version, features:{resolve, batch, lookup, changes, overlay_relay}, endpoints, limits, timing}`.
+- `GET /api/v1` describes the API: `{version, features:{resolve, batch, lookup, changes, stats, wearers}, endpoints, limits, timing}`.
 - `GET /api/v1/cosmetics/batch?ids=a,b,c` returns `{cosmetics:[...]}` for 1–100 comma-separated IDs. Approved Flares are returned whether listed or not; others are omitted. Use it to revalidate many explicit selections in one request.
 - `GET /api/v1/cosmetics/lookup?name=Aurora%20drift` returns `{cosmetics:[...]}`: public Flares whose name matches exactly, ignoring case. Results are ordered by likes, then earliest approval, up to 10. It is for chat commands such as Banechat's `!bc nfpaint <name>`; use `/cosmetics?q=` to search.
 - `GET /api/v1/changes?since=<cursor>&epoch=<epoch>` returns `{epoch, cursor, reset, identities:[{provider, provider_id}], cosmetics:[id], poll_ms}`.
@@ -195,7 +195,7 @@ Moderators:
 - `GET /api/account/export` (signed in) returns everything held about the account as a JSON attachment:
   - the account and its connected identities;
   - every Flare with its recipe and review state;
-  - uploads, likes, follows, notifications, reports sent and relay rooms;
+  - uploads, likes, follows, notifications and reports sent;
   - a count of active sessions.
 
   It never includes session secrets or other people's private data.
@@ -251,32 +251,9 @@ The studio exports and imports Nameflare Flare files (`format: "nameflare-design
 
 - `/overlay?channel=yourchannel` — transparent Twitch IRC read overlay (anonymous public-channel reader; respects CLEARMSG/CLEARCHAT and reconnects). Requires browser WebSocket internet access. Live operation is not provider-verified by unit tests.
 - `/overlay?demo=1` — explicitly labeled sample messages, not live chat.
-- `/overlay?room=ROOM_ID&key=READ_KEY` — a relay room's private overlay link (Integrations → Relay rooms). Never share it publicly.
-- `/overlay?room=PRIVATE_ROOM_KEY` — the operator's server-wide relay room, configured with `OVERLAY_ROOM_KEY`.
 - Options: `&effects=0` disables cosmetics, `&lifetime=45` sets message lifetime (5–300 seconds).
 
-**Relay rooms.**
-
-- **Who and how many:** any signed-in person can make up to three rooms.
-- **Managing them:** `GET /api/overlay/rooms` lists them. `POST /api/overlay/rooms {"name"}` creates one. `POST /api/overlay/rooms/rotate {"id"}` makes new keys. `POST /api/overlay/rooms/delete {"id"}` removes one. All are same-origin with CSRF.
-- **Keys:** create and rotate return `{ room, read_key, ingest_token }` once; only hashes are stored. Rotating or deleting disconnects open overlays.
-
-The operator can also set `OVERLAY_INGEST_TOKEN` and `OVERLAY_ROOM_KEY` for one server-wide room. A connector posts each chat message with the room's token, `nfr_…` (or the operator's token):
-
-```http
-POST /api/overlay/messages
-Authorization: Bearer nfr_YOUR_ROOM_POSTING_TOKEN
-Content-Type: application/json
-
-{"provider":"youtube","provider_id":"UC-channel-id","name":"viewer","text":"hello"}
-```
-
-It answers `202 { "accepted": true, "listeners": 1 }`.
-
-- **Delivery:** only that room's overlays receive it, as JSON server-sent events from `GET /api/overlay/events?room=ROOM_ID&key=READ_KEY`.
-- **Trusted connectors:** messages must come from a connector that verifies the platform user ID, handles chat moderation, and follows provider terms. There is no deletion-event contract yet.
-- **Secrets in URLs:** overlay URLs contain a read secret, so redact query strings from proxy logs. Posting tokens never belong in OBS, a browser extension, source control, or public documentation.
-- **Limits:** 10 overlays per room, 200 in total; posts are limited to 1200 per minute per client.
+Kick, YouTube and multi-platform chat overlays are Banechat's job ([chat.bxne.dev](https://chat.bxne.dev)); Nameflare's earlier relay rooms were removed.
 
 ## Chatterino / third-party clients
 

@@ -112,7 +112,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
     if (loopback) allowedOrigins.add(`${parsed.protocol}//${parsed.hostname === 'localhost' ? '127.0.0.1' : 'localhost'}${port}`);
   }
   const secure = origin.startsWith('https:');
-  const rates = new Map(), streams = new Set(), rooms = new Map();
+  const rates = new Map();
   const images = createImageProcessor(), scanner = createScanner(env);
   const textureFile = id => join(dataDir, 'textures', id);
   const removeTextureFile = id => { if (/^[a-f0-9]{64}\.(gif|png|webp|jpg)$/.test(id)) rmSync(textureFile(id), { force:true }); };
@@ -134,7 +134,6 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   }
   const firstMaintenance = setTimeout(maintenance, 60000).unref();
   const maintenanceTimer = setInterval(maintenance, 6 * 3600000).unref();
-  const closeRoom = id => { for (const response of rooms.get(id) || []) response.end(); rooms.delete(id); };
   const MAX_RATE_ENTRIES = 100000;
   // Public, cookie-independent API answers are shared by every visitor, so each
   // is computed at most once per few seconds and revalidated with an ETag.
@@ -254,7 +253,6 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   const cleanup = setInterval(() => {
     store.cleanup();
     for (const [id, entry] of rates) if (entry.reset < Date.now()) rates.delete(id);
-    for (const response of streams) response.write(': heartbeat\n\n');
   }, 25000).unref();
 
   const server = http.createServer(async (req, res) => {
@@ -280,8 +278,6 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         // Batch identity lookups are reads. An overlay revalidating a busy chat
         // sends one every few seconds; the 40/min write budget starved it.
         else if (method === 'POST' && path === '/api/v1/resolve') rate(req, 'resolve', 240);
-        // Relay connectors post one request per chat message.
-        else if (method === 'POST' && path === '/api/overlay/messages') rate(req, 'ingest', 1200);
         else {
           // Reads match the edge's 10/s per client; one page uses about seven.
           rate(req, method === 'GET' ? 'read':'write', method === 'GET' ? 600 : 40);
@@ -307,7 +303,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8', 'Content-Disposition':'attachment; filename="nameflare-source.json"' });
         return res.end(sourceBundle);
       }
-      if (method === 'GET' && path === '/api/config') return json(res,200,{ name:'Nameflare', owner:'B_X_N_E', demo, officialApi: `${baseUrl}/api/v1`, providers:Object.fromEntries(['twitch','kick','youtube'].map(p => { const c = providerConfig(p,env); return [p,Boolean(c.clientId && c.clientSecret)]; })), stats: stats(), features:{ notifications:true, insights:true, analytics:true, reports:true, account_deletion:true, data_export:true, overlay_rooms:true, scanning:scanner.enabled }, report_reasons:REPORT_REASONS, retention:RETENTION });
+      if (method === 'GET' && path === '/api/config') return json(res,200,{ name:'Nameflare', owner:'B_X_N_E', demo, officialApi: `${baseUrl}/api/v1`, providers:Object.fromEntries(['twitch','kick','youtube'].map(p => { const c = providerConfig(p,env); return [p,Boolean(c.clientId && c.clientSecret)]; })), stats: stats(), features:{ notifications:true, insights:true, analytics:true, reports:true, account_deletion:true, data_export:true, scanning:scanner.enabled }, report_reasons:REPORT_REASONS, retention:RETENTION });
       if (method === 'POST' && path === '/api/views') {
         assert(allowedOrigins.has(req.headers.origin),403,'Requests must come from the official app origin.');
         const data = await body(req), viewPath = text(data.path,1,120,'Path');
@@ -542,9 +538,8 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
       if (method === 'POST' && path === '/api/account/delete') {
         const session = mutation(req), data = await body(req);
         assert(typeof data.confirm === 'string' && data.confirm.trim() === session.name,400,'Type your account name exactly to confirm.');
-        const ownRooms = store.overlayRooms(session.id).map(room => room.id), deleted = store.deleteAccount(session.id);
+        const deleted = store.deleteAccount(session.id);
         for (const id of deleted.files) { try { removeTextureFile(id); } catch {} }
-        for (const id of ownRooms) closeRoom(id);
         res.setHeader('Set-Cookie',cookie('nameflare_session','',0));
         return json(res,200,{ deleted:true, flares:deleted.flares });
       }
@@ -552,26 +547,9 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         const session = mutation(req); requireMod(req);
         const data = await body(req);
         assert(data.confirm === true,400,'Confirm permanent deletion.');
-        const target = text(data.id,1,100,'Account ID'), ownRooms = store.overlayRooms(target).map(room => room.id);
-        const deleted = store.deleteAccount(target,{ actor:session, reason:data.reason });
+        const deleted = store.deleteAccount(text(data.id,1,100,'Account ID'),{ actor:session, reason:data.reason });
         for (const id of deleted.files) { try { removeTextureFile(id); } catch {} }
-        for (const id of ownRooms) closeRoom(id);
         return json(res,200,{ deleted:true, flares:deleted.flares });
-      }
-      if (method === 'GET' && path === '/api/overlay/rooms') {
-        const session = requireUser(req);
-        return json(res,200,{ rooms:store.overlayRooms(session.id).map(room => ({ ...room, listeners:rooms.get(room.id)?.size || 0 })) });
-      }
-      if (method === 'POST' && path === '/api/overlay/rooms') {
-        const session = mutation(req), data = await body(req);
-        return json(res,201,store.createOverlayRoom(session.id,data.name));
-      }
-      if (method === 'POST' && (path === '/api/overlay/rooms/rotate' || path === '/api/overlay/rooms/delete')) {
-        const session = mutation(req), data = await body(req), id = text(data.id,1,40,'Room ID');
-        const result = path.endsWith('rotate') ? store.rotateOverlayRoom(session.id,id) : (store.deleteOverlayRoom(session.id,id), { deleted:true });
-        // Old keys stop working at once: connected overlays must reconnect with the new link.
-        closeRoom(id);
-        return json(res,200,result);
       }
       if (method === 'POST' && path === '/api/admin/artists') {
         const session = mutation(req); requireOwner(req);
@@ -594,7 +572,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         });
       }
       if (method === 'GET' && (path === '/api/v1' || path === '/api/v1/')) {
-        return publicJson(req,res,() => ({ version:1, name:'Nameflare', origin, features:{ resolve:true, batch:true, lookup:true, changes:true, overlay_relay:true, overlay_rooms:true, stats:true, wearers:true },
+        return publicJson(req,res,() => ({ version:1, name:'Nameflare', origin, features:{ resolve:true, batch:true, lookup:true, changes:true, stats:true, wearers:true },
           endpoints:['GET /api/v1/stats','GET /api/v1/cosmetics','GET /api/v1/cosmetics/:id','GET /api/v1/cosmetics/:id/stats','GET /api/v1/cosmetics/:id/wearers','GET /api/v1/cosmetics/batch?ids=','GET /api/v1/cosmetics/lookup?name=','GET /api/v1/profiles','GET /api/v1/profiles/:id','GET /api/v1/profiles/:id/cosmetics','GET /api/v1/profiles/:id/accounts','GET /api/v1/profiles/:id/stats','GET /api/v1/artists','GET /api/v1/users/:provider/:id','GET /api/v1/users/:provider/:id/profile','GET /api/v1/users/:provider/:id/cosmetics','POST /api/v1/resolve','GET /api/v1/changes'],
           limits:{ resolve_ids:100, batch_ids:100, page:100, reads_per_minute:600, resolves_per_minute:240 },
           timing:{ public_cache_s:PUBLIC_TTL/1000, changes_poll_ms:4000, client_refresh_ms:7000, client_expiry_ms:12000 } }));
@@ -717,33 +695,6 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         try { bytes = await readFile(join(dataDir,'textures',id)); } catch { throw new HttpError(404,'Texture not found.'); }
         res.writeHead(200,{'Content-Type':types[`.${id.split('.').pop()}`],'Content-Length':bytes.length}); return res.end(bytes);
       }
-      if (method === 'GET' && path === '/api/overlay/events') {
-        // Each relay room has its own read key (?room=<id>&key=<key>). The
-        // operator's single env-configured room (?room=<OVERLAY_ROOM_KEY>) still works.
-        const roomParam = url.searchParams.get('room'), key = url.searchParams.get('key');
-        let roomId;
-        if (key !== null) { assert(store.overlayRoomReadable(roomParam,key),403,'Invalid overlay room.'); roomId = roomParam; }
-        else { assert(env.OVERLAY_ROOM_KEY && safeEqual(roomParam,env.OVERLAY_ROOM_KEY),403,'Invalid overlay room.'); roomId = 'legacy'; }
-        const listeners = rooms.get(roomId) || new Set();
-        assert(getSession(req)?.role === 'owner' || (streams.size < 200 && listeners.size < 10),503,'Overlay capacity reached.');
-        res.writeHead(200,{'Content-Type':'text/event-stream','Connection':'keep-alive','X-Accel-Buffering':'no'});
-        res.write(': connected\n\n'); rooms.set(roomId,listeners); listeners.add(res); streams.add(res);
-        req.on('close',() => { streams.delete(res); listeners.delete(res); if (!listeners.size && rooms.get(roomId) === listeners) rooms.delete(roomId); });
-        return;
-      }
-      if (method === 'POST' && path === '/api/overlay/messages') {
-        // The bearer token picks the room: a room's own ingest token, or the operator's OVERLAY_INGEST_TOKEN.
-        const authorization = String(req.headers.authorization || ''), bearer = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
-        let roomId = store.overlayRoomForIngest(bearer);
-        if (!roomId && env.OVERLAY_INGEST_TOKEN && safeEqual(authorization,`Bearer ${env.OVERLAY_INGEST_TOKEN}`)) roomId = 'legacy';
-        assert(roomId,401,'Valid overlay ingest token required.');
-        const data = await body(req,8192);
-        assert(['twitch','kick','youtube'].includes(data.provider),400,'Invalid platform.');
-        const message = { provider:data.provider, provider_id:text(data.provider_id,1,100,'User ID'), name:text(data.name,1,80,'Display name'), text:text(data.text,1,1000,'Message') };
-        const listeners = rooms.get(roomId) || [];
-        for (const response of listeners) response.write(`data: ${JSON.stringify(message)}\n\n`);
-        return json(res,202,{ accepted:true, listeners:listeners.size || 0 });
-      }
       if (method === 'GET' || method === 'HEAD') {
         const pages = { '/fonts/BricolageGrotesque.ttf':'fonts/BricolageGrotesque.ttf', '/fonts/OFL.txt':'fonts/OFL.txt', '/fonts/NotoSans-latin.woff2':'fonts/NotoSans-latin.woff2', '/fonts/NotoSans-latin-ext.woff2':'fonts/NotoSans-latin-ext.woff2', '/fonts/NotoSans-OFL.txt':'fonts/NotoSans-OFL.txt', '/fonts/GeistMono-latin.woff2':'fonts/GeistMono-latin.woff2', '/fonts/Geist-OFL.txt':'fonts/Geist-OFL.txt', '/fonts/BricolageGrotesque-latin.woff2':'fonts/BricolageGrotesque-latin.woff2', '/logo.svg':'logo.svg', '/favicon.ico':'logo.svg', '/':'index.html', '/guide':'index.html', '/overlay':'overlay.html', '/index.html':'index.html', '/overlay.html':'overlay.html', '/ui/tokens.css':'ui/tokens.css', '/ui/kit.css':'ui/kit.css', '/ui/shell.css':'ui/shell.css', '/ui/frame.css':'ui/frame.css', '/ui/views.css':'ui/views.css', '/ui/studio.css':'ui/studio.css', '/ui/admin.css':'ui/admin.css', '/ui/stage.css':'ui/stage.css', '/ui/slim.css':'ui/slim.css', '/ui/profiles.css':'ui/profiles.css', '/ui/calm.css':'ui/calm.css', '/icons.js':'icons.js', '/wa-test.html':'wa-test.html', '/app.js':'app.js', '/likes.js':'likes.js', '/style.css':'style.css', '/redesign.css':'redesign.css', '/social.css':'social.css', '/theme-init.js':'theme-init.js', '/social.js':'social.js', '/preferences.js':'preferences.js', '/insights.js':'insights.js', '/rail.js':'rail.js', '/experience.js':'experience.js', '/vendor/basecoat/basecoat.css':'vendor/basecoat/basecoat.css', '/vendor/basecoat/all.min.js':'vendor/basecoat/all.min.js', '/vendor/basecoat/LICENSE.md':'vendor/basecoat/LICENSE.md', '/fonts.js':'fonts.js', '/google-fonts.json':'google-fonts.json', '/renderer.js':'renderer.js', '/overlay.js':'overlay.js', '/overlay.css':'overlay.css', '/effects.css':'effects.css', '/paints.js':'paints.js', '/editor.js':'editor.js', '/client.js':'client.js', '/SDK-LICENSE.md':'SDK-LICENSE.md', '/donate.js':'donate.js', '/vendor/qrcode/qrcode.js':'vendor/qrcode/qrcode.js', '/vendor/qrcode/LICENSE.txt':'vendor/qrcode/LICENSE.txt' };
         const file = isAppPath(path) ? 'index.html' : path==='/routes.js' ? 'routes.js' : pages[path];
@@ -766,7 +717,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
     }
   });
   server.headersTimeout = 15000; server.requestTimeout = 20000;
-  server.on('close',() => { clearInterval(cleanup); clearTimeout(firstMaintenance); clearInterval(maintenanceTimer); images.close(); unsubscribe?.(); for (const response of streams) response.end(); });
+  server.on('close',() => { clearInterval(cleanup); clearTimeout(firstMaintenance); clearInterval(maintenanceTimer); images.close(); unsubscribe?.(); });
   return { server, store, maintenance };
 }
 

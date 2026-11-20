@@ -43,3 +43,16 @@ export async function shareLink({ title, text, url }) {
   }
   return await copyText(url) ? 'copied' : 'failed';
 }
+
+// Profile pictures come only from the platforms' own image hosts (the CSP
+// allows exactly these). Shared by app.js and rail.js.
+export const AVATAR_HOSTS = { twitch:['static-cdn.jtvnw.net'], kick:['files.kick.com','kick.com','www.kick.com','pfp.kick.com'], youtube:['yt3.ggpht.com','yt3.googleusercontent.com','lh3.googleusercontent.com'] };
+export function avatarImage(profile) {
+  try {
+    const url = new URL(profile?.avatar_url);
+    const provider = profile.profile_provider || profile.provider || profile.identities?.[0]?.provider;
+    // Without a known platform, any platform's own image host is still safe.
+    const hosts = provider ? AVATAR_HOSTS[provider] : Object.values(AVATAR_HOSTS).flat();
+    return url.protocol === 'https:' && !url.username && !url.password && !url.port && hosts?.includes(url.hostname) ? url.href : '';
+  } catch { return ''; }
+}

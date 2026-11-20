@@ -1,6 +1,6 @@
 # Cloudflare-native Nameflare
 
-> The Cloudflare runtime is an optional alternative and is not used by the official service. It does not have the 2026.11 safety work: upload decoding and scanning, abuse reports, account deletion and export, retention, relay rooms, artist roles, or the backup tools. Use the Node/SQLite deployment for a public launch.
+> The Cloudflare runtime is an optional alternative and is not used by the official service. It does not have the 2026.11 safety work: upload decoding and scanning, abuse reports, account deletion and export, retention, artist roles, or the backup tools. Use the Node/SQLite deployment for a public launch.
 
 The second runtime is Workers + D1 + private R2 + Workers static assets. No Node server, filesystem, or `node:sqlite` is bundled into the Worker. The original Node backend remains usable locally. Neither this code nor a dry-run deploy has provisioned resources, changed DNS, or enabled a live OAuth app.
 
@@ -97,7 +97,7 @@ The configured owner must sign in with Twitch. First signup and matching display
 - Writes require a same-origin cookie session and CSRF token. Public batch resolve is the documented exception and accepts only bounded public reads.
 - Rate-limit bindings use Cloudflare's trusted `CF-Connecting-IP`. Workers rate limiting is edge-local, not a strict globally consistent quota; account quotas live in D1.
 - Scheduled hourly cleanup deletes expired sessions/state. Configure backups, D1 restore drills, R2 retention/quota monitoring, and privacy policies.
-- Direct anonymous Twitch overlay is supported. The Node SSE relay is **not** ported; relay endpoints return 501. Kick/YouTube account linking does not implement their live chat connectors. Multi-room relay requires Durable Objects or another deliberate streaming architecture.
+- Direct anonymous Twitch overlay is supported. The old overlay relay endpoints return 501 here; the relay has been removed from Node as well. Kick/YouTube account linking does not implement their live chat connectors. Multi-room relay requires Durable Objects or another deliberate streaming architecture.
 - Image validation is still header/dimension validation, not full raster decoding, frame/time/memory limits or scanning. Harden uploads and abuse handling before opening unrestricted public signup.
 - There is no automatic migration of existing SQLite data or image files to D1/R2. Use a separately reviewed import/backup plan; do not import demo accounts to production.
 

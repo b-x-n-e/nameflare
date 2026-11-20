@@ -61,8 +61,5 @@ if(params.get('demo')==='1'){
   const tick=async() => {let cosmetic;try{const response=await fetch('/api/v1/cosmetics?limit=8');const result=await response.json();cosmetic=result.cosmetics?.[i%Math.max(1,result.cosmetics.length)];}catch{}
     enqueue({provider:'twitch',provider_id:'1002',name:['lumi','nova','orbit','moonchild'][i%4],text:sample[i%4]},cosmetic || {recipe:{colors:['#71f5bd','#b798ff'],animation:'flow',speed:4,angle:120,glow:4}});i++;};
   tick();const timer=setInterval(tick,4500);window.addEventListener('pagehide',() => clearInterval(timer));
-}else if(params.has('room')){
-  // Relay rooms use ?room=<id>&key=<key>; the operator's single room is ?room=<key>.
-  const stream=new EventSource(`/api/overlay/events?room=${encodeURIComponent(params.get('room'))}${params.has('key')?`&key=${encodeURIComponent(params.get('key'))}`:''}`);stream.onopen=() => report('');stream.onmessage=event => {try{enqueue(JSON.parse(event.data));}catch{report('Invalid relay message.');}};stream.onerror=() => report('Relay unavailable. Check the room link, or make new keys under Integrations.');window.addEventListener('pagehide',() => stream.close());
 }else if(/^[a-zA-Z0-9_]{1,25}$/.test(params.get('channel') || ''))directTwitch(params.get('channel').toLowerCase());
-else report('Add ?channel=your_twitch_channel, ?room=your_private_room, or ?demo=1.');
+else report('Add ?channel=your_twitch_channel or ?demo=1.');

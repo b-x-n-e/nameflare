@@ -180,7 +180,7 @@ person deletes them or their account.
   - the profile and linked platforms;
   - every Flare the person made, including ones others wear (those people are
     unequipped);
-  - uploads, likes, follows, notifications and relay rooms.
+  - uploads, likes, follows and notifications.
 
   Reports the person filed stay, with the reporter removed. The activity log
   records `account.deleted` with the account ID only.
@@ -197,22 +197,6 @@ person deletes them or their account.
   (14 nights). Restoring an older backup brings it back; delete it again after
   any restore.
 
-## Relay rooms
-
-Any signed-in person can create up to three relay rooms (Integrations → Relay
-rooms). Each room has a read key, used in the OBS overlay link
-`/overlay?room=<id>&key=<key>`, and a posting token (`nfr_…`). Their connector
-sends that token as `Authorization: Bearer` to `POST /api/overlay/messages`.
-
-- **Scope:** messages reach only that room's overlays.
-- **Storage:** keys are stored only as hashes and shown once.
-- **New keys:** replaces both and disconnects open overlays.
-- **Limits:** 10 overlays per room and 200 in total. Rooms stop working while
-  their owner is banned.
-
-The server-wide room configured with `OVERLAY_ROOM_KEY`/`OVERLAY_INGEST_TOKEN`
-still works as before.
-
 ## Edge rate limits (nginx)
 
 `docs/oracle/nameflare.nginx.conf` limits each client before requests reach
@@ -228,8 +212,8 @@ usually get a whole /64, so per-address IPv6 limits would be easy to dodge.
 | Requests in flight | 64 |
 | Pages, scripts, styles, fonts | No rate limit (only the in-flight cap) |
 
-Overlay lookups (`POST /api/v1/resolve`) and relay posts are exempt from the write
-limit; Node gives them their own budgets. Turned-away requests get `429` with
+Overlay lookups (`POST /api/v1/resolve`) are exempt from the write limit; Node
+gives them their own budget. Turned-away requests get `429` with
 `Retry-After` and the same JSON shape as Node's own limits.
 
 `npm run edgetest` runs these rules in a real nginx (Docker) in front of a real
