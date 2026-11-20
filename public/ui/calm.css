@@ -114,6 +114,42 @@ wa-button.detail-download .ui-icon { width: 16px; height: 16px; }
 .insight-kpis > * { border-color: transparent; box-shadow: none; }
 .insight-chart-empty { border: 0; background: var(--surface-2); }
 
+/* ---- Account card ------------------------------------------------------- */
+/* Identity, linked platforms, one primary action, two secondary ones side by
+   side, and sign out set apart at the foot. */
+.account-summary { gap: 18px; padding: 22px; }
+.account-identity-head { min-width: 0; }
+.account-identity-head .profile-heading { min-width: 0; gap: 2px; }
+.account-identity-head .profile-name-row { min-width: 0; }
+.account-identity-head h2 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.account-joined-line { margin: 0; white-space: nowrap; }
+.account-summary .account-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.account-summary .account-actions > :first-child,
+.account-summary .account-actions > :nth-child(2):last-child { grid-column: 1 / -1; }
+.account-summary .account-actions wa-button { width: 100%; }
+.account-summary .account-actions wa-button.subtle::part(base),
+.account-summary .account-actions wa-button.subtle::part(button) { color: var(--ink-2); }
+.account-summary .account-actions wa-button.subtle:not([disabled]):hover::part(base),
+.account-summary .account-actions wa-button.subtle:not([disabled]):hover::part(button) { color: var(--ink); }
+/* Platform chips as an even list: one per row in the narrow sidebar, two up when the card is wide. */
+.account-summary .account-platforms { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.account-summary .account-platforms .plat-link { width: 100%; min-width: 0; }
+.account-summary .account-platforms .plat-link > :last-child { margin-left: auto; }
+.account-summary-foot { margin-bottom: -8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.account-summary-foot wa-button.account-signout { margin-left: -10px; }
+.account-summary-foot wa-button.account-signout::part(base),
+.account-summary-foot wa-button.account-signout::part(button) { min-height: 34px; padding: 0 10px; color: var(--muted); font-weight: 520; }
+.account-summary-foot wa-button.account-signout:not([disabled]):hover::part(base),
+.account-summary-foot wa-button.account-signout:not([disabled]):hover::part(button) { color: var(--ink); }
+.account-signout .ui-icon { width: 15px; height: 15px; }
+
+/* White primary buttons: a quiet neutral hover. The brand variant's brightness
+   filter made the label re-render and visibly shift, and the accent mix tinted
+   the button pink. */
+wa-button.primary:not([disabled])::part(button):hover,
+wa-button.primary:not([disabled])::part(base):hover { filter: none; background: color-mix(in srgb, var(--ink) 88%, var(--bg)); }
+.button.primary:hover, .btn[data-variant="primary"]:hover { background: color-mix(in srgb, var(--ink) 88%, var(--bg)); }
+
 /* ---- Moderation --------------------------------------------------------- */
 .moderation-checklist { border-color: transparent; background: var(--surface); }
 .review-keys { color: var(--faint); }

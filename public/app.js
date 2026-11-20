@@ -1216,13 +1216,17 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
   const summary=node('div','panel account-summary');
   summary.style.setProperty('--profile-color',user.profile_color || '#ff355e');
   const identity=node('div','profile-heading'),nameRow=node('div','profile-name-row');nameRow.append(node('h2','',user.name));const badge=moderatorBadge(user) || artistBadge(user);if(badge)nameRow.append(badge);
-  identity.append(nameRow,node('p','form-footnote',`Member since ${joined(user.created_at)}`));
+  identity.append(nameRow,node('p','form-footnote account-joined-line',`Joined ${joined(user.created_at)}`));
   const identityHead=node('div','account-identity-head');identityHead.append(avatar(user,'avatar-large'),identity);
-  const summaryActions=node('div','profile-actions account-actions');const ownData=link('Download my data','/api/account/export','button subtle');ownData.setAttribute('download','nameflare-account.json');summaryActions.append(link('View public profile',`/profiles/${encodeURIComponent(user.id)}`,'button primary'),link('Insights','/analytics','button subtle'),...(state.config.features?.data_export?[ownData]:[]),action('Sign out',async()=>{await api('/api/logout',{});await refreshAccount();editor.accountChanged();await renderView();toast('Signed out. Your account and Flares are saved.');},'button ghost'));
+  // One clear primary action, two secondary ones side by side, and sign out set apart at the foot.
+  const summaryActions=node('div','profile-actions account-actions');
+  const secondary=[...(state.config.features?.insights!==false?[link('Insights','/analytics','button subtle')]:[]),link(state.config.features?.data_export?'Your data':'Settings',state.config.features?.data_export?'/account/privacy':'/account/settings','button subtle')];
+  summaryActions.append(link('View public profile',`/profiles/${encodeURIComponent(user.id)}`,'button primary'),...secondary);
+  const signOut=action('Sign out',async()=>{await api('/api/logout',{});await refreshAccount();editor.accountChanged();await renderView();toast('Signed out. Your account and Flares are saved.');},'button ghost account-signout');{const glyph=icon('logout');glyph.setAttribute('slot','start');signOut.prepend(glyph);}
   const platforms=node('div','account-platforms');
   for(const item of user.identities)platforms.append(platformLink(item,{cls:'account-plat'}));
   if(!user.identities.length)platforms.append(node('span','form-footnote','No platforms linked yet.'));
-  summary.append(identityHead,platforms,summaryActions);aside.replaceChildren(summary);
+  const summaryFoot=node('div','account-summary-foot');summaryFoot.append(signOut);summary.append(identityHead,platforms,summaryActions,summaryFoot);aside.replaceChildren(summary);
   for(const [key,item] of shell.tabLinks){const current=key===tab;item.classList.toggle('active',current);if(current)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');}
   content.replaceChildren();
   if(tab==='overview') {
