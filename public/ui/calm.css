@@ -716,7 +716,7 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 .role-chip { display: inline-flex; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--surface-2); color: var(--ink-2); font-size: var(--text-xs); font-weight: 600; }
 .role-owner { background: var(--accent-soft); color: var(--accent); }
 .account-joined { color: var(--muted); font-size: var(--text-sm); }
-.account-actions { justify-self: end; }
+.account-row > .account-actions { justify-self: end; }
 .account-actions .form-footnote { font-size: var(--text-xs); }
 .account-ban-note { grid-column: 1 / -1; margin: 6px 0 2px 46px; color: var(--ink-2); font-size: var(--text-sm); }
 .account-ban-note small { color: var(--faint); }
@@ -730,8 +730,9 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 @media (max-width: 900px) {
   .account-head { display: none; }
   .account-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "person actions" "platforms platforms" "meta meta"; row-gap: 10px; }
-  .account-person { grid-area: person; } .account-actions { grid-area: actions; } .account-platforms { grid-area: platforms; }
-  .account-role, .account-status, .account-joined { grid-area: meta; }
+  /* Scoped to the moderation table: the Account page's summary card reuses these class names. */
+  .account-row > .account-person { grid-area: person; } .account-row > .account-actions { grid-area: actions; } .account-row > .account-platforms { grid-area: platforms; }
+  .account-row > .account-role, .account-row > .account-status, .account-row > .account-joined { grid-area: meta; }
   .account-role { justify-self: start; } .account-status { justify-self: center; } .account-joined { justify-self: end; }
   .account-ban-note { margin-left: 0; }
 }

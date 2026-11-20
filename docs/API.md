@@ -219,6 +219,14 @@ Moderators:
 - `POST /api/account/delete` (signed in, same origin, CSRF) takes `{ "confirm": "<the account's name>" }`, deletes the account and everything it owns at once, clears the session cookie and returns `{ "deleted": true, "flares": 3 }`. The owner account cannot be deleted.
 - `POST /api/admin/accounts/delete` (moderators for members and artists; the owner for any account but its own) takes `{ "id": "…", "confirm": true, "reason": "at least 3 characters" }`. It is not a ban. Deleting a banned account keeps a one-way hash of each of its identities so the ban still applies.
 
+## Changing linked accounts (Oracle/Node)
+
+- `GET /auth/:provider?mode=replace` (signed in) switches that platform to another account on it. Twitch is asked to show its account screen (`force_verify`); YouTube always shows Google's account picker. An identity already linked to a different Nameflare account is refused. Without `mode=replace`, linking never overwrites an existing identity.
+- Linking, refreshing and switching return to `/account/platforms?auth=<outcome>&provider=<provider>`, where the outcome is one of `linked`, `refreshed`, `switched`, `same`, `taken`, `occupied`, `owner`, `nochannel`, `banned`, `cancelled`, `expired`, `restart` or `failed`. Sign-ins from a signed-out browser still land on `/account`.
+- `POST /api/account/identities/unlink` (signed in, same origin, CSRF) takes `{ "provider": "kick" }` and returns `{ user }`. The last linked platform cannot be unlinked. The owner's and moderators' Twitch cannot be unlinked, because staff roles are managed by Twitch ID, but it can be switched. If the profile came from the unlinked platform, it moves to another linked one.
+- Both changes publish a change-feed event for the old identity before it stops resolving, and both are written to the activity log (`identity.changed`, `identity.unlinked`).
+- `/api/config` reports `features.identity_changes: true` where this is available.
+
 ## Account moderation and owner access
 
 `GET /api/admin/users?q=artist&offset=0&status=all` is available to moderators and the owner (50 accounts per page), including private ban metadata. Status accepts `all`, `active`, `banned`, or `staff`; filtering happens before pagination. Search accepts a name, platform login, exact platform ID, or exact Nameflare account ID. Banned accounts are ordered by ban date, newest first. Reads remain private and uncached. Role assignment remains owner-only.

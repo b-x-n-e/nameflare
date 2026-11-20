@@ -62,3 +62,4 @@ Everything Nameflare does today, in detail. The [README](../README.md) has the s
 - API: site stats, live wearer lists and counts per Flare, per-Flare and per-creator stats, every account with a total, linked platform accounts, and lookups of a person's profile and Flares by platform ID.
 - Moderators can export the whole activity log as CSV or JSON.
 - An aligned accounts table with one Manage menu per row, one-line names on profile cards, readable caution notes and status badges, automatic retries when the server is busy, and no Discover flash when refreshing another page.
+- Change linked accounts: under Account → Connected platforms, switch a platform to another account on it, refresh it, or unlink it. One platform always stays linked; the owner's and moderators' Twitch stays linked (it can be switched). Integrations are told about the old identity right away, and both changes appear in the activity log.

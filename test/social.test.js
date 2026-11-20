@@ -86,7 +86,7 @@ test('HTTP notifications, view counting, and insights enforce privacy and roles'
   });
   try {
     const config = await (await request('/api/config')).json();
-    assert.deepEqual(config.features, { notifications:true, insights:true, analytics:true, reports:true, account_deletion:true, data_export:true, scanning:{ malware:false, content:false } });
+    assert.deepEqual(config.features, { notifications:true, insights:true, analytics:true, reports:true, account_deletion:true, data_export:true, identity_changes:true, scanning:{ malware:false, content:false } });
 
     assert.equal((await request('/api/notifications')).status, 401);
     assert.equal((await request('/api/my/analytics')).status, 401);

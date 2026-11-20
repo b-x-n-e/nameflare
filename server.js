@@ -316,7 +316,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8', 'Content-Disposition':'attachment; filename="nameflare-source.json"' });
         return res.end(sourceBundle);
       }
-      if (method === 'GET' && path === '/api/config') return json(res,200,{ name:'Nameflare', owner:'B_X_N_E', demo, officialApi: `${baseUrl}/api/v1`, providers:Object.fromEntries(['twitch','kick','youtube'].map(p => { const c = providerConfig(p,env); return [p,Boolean(c.clientId && c.clientSecret)]; })), stats: stats(), features:{ notifications:true, insights:true, analytics:true, reports:true, account_deletion:true, data_export:true, scanning:scanner.enabled }, report_reasons:REPORT_REASONS, retention:RETENTION });
+      if (method === 'GET' && path === '/api/config') return json(res,200,{ name:'Nameflare', owner:'B_X_N_E', demo, officialApi: `${baseUrl}/api/v1`, providers:Object.fromEntries(['twitch','kick','youtube'].map(p => { const c = providerConfig(p,env); return [p,Boolean(c.clientId && c.clientSecret)]; })), stats: stats(), features:{ notifications:true, insights:true, analytics:true, reports:true, account_deletion:true, data_export:true, identity_changes:true, scanning:scanner.enabled }, report_reasons:REPORT_REASONS, retention:RETENTION });
       if (method === 'POST' && path === '/api/views') {
         assert(allowedOrigins.has(req.headers.origin),403,'Requests must come from the official app origin.');
         const data = await body(req), viewPath = text(data.path,1,120,'Path');
@@ -357,22 +357,46 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         const provider = auth[1], session = getSession(req);
         checkNetwork(req, session);
         if (!auth[2]) {
-          const started = beginOAuth(provider,store,session,baseUrl,env);
+          const started = beginOAuth(provider,store,session,baseUrl,env,{ mode:url.searchParams.get('mode') === 'replace' ? 'replace' : '' });
           res.setHeader('Set-Cookie',cookie(`nameflare_oauth_${provider}`,started.binding,600));
           res.writeHead(302,{ Location:started.url }); return res.end();
         }
-        const state = store.consumeState(url.searchParams.get('state'),provider,parseCookies(req)[`nameflare_oauth_${provider}`]);
-        if (state.user_id) assert(session?.id === state.user_id,403,'Account changed during linking. Please start again.');
-        else assert(!session,403,'You signed in during this login attempt. Please start again.');
-        assert(!url.searchParams.has('error'),400,'Authorization was cancelled.');
-        const profile = await finishOAuth(provider,url.searchParams.get('code'),state.verifier,baseUrl,env);
-        const id = store.linkIdentity(profile,state.user_id,env.OWNER_TWITCH_ID);
+        // A failed link or switch goes back to Connected platforms with a short
+        // code the page explains, instead of a bare error.
+        const back = (outcome, signedIn) => {
+          res.setHeader('Set-Cookie',cookie(`nameflare_oauth_${provider}`,'',0));
+          res.writeHead(302,{ Location:signedIn ? `/account/platforms?${new URLSearchParams({ auth:outcome, provider })}` : `/discover?${new URLSearchParams({ auth:outcome, provider })}` });
+          return res.end();
+        };
+        let state;
+        try { state = store.consumeState(url.searchParams.get('state'),provider,parseCookies(req)[`nameflare_oauth_${provider}`]); }
+        catch (error) { if (error instanceof HttpError) return back('expired', Boolean(session)); throw error; }
+        if (state.user_id && session?.id !== state.user_id) return back('restart', Boolean(session));
+        if (!state.user_id && session) return back('restart', true);
+        if (url.searchParams.has('error')) return back('cancelled', Boolean(session));
+        const before = state.user_id ? store.identities(state.user_id).find(item => item.provider === provider) : null;
+        let id, profile;
+        try {
+          profile = await finishOAuth(provider,url.searchParams.get('code'),state.verifier,baseUrl,env);
+          id = store.linkIdentity(profile,state.user_id,env.OWNER_TWITCH_ID,{ replace:state.mode === 'replace' });
+        } catch (error) {
+          if (!(error instanceof HttpError) || !state.user_id) throw error;
+          const code = error.status === 409 ? (/belongs to another/.test(error.message) ? 'taken' : 'occupied')
+            : /owner/.test(error.message) ? 'owner' : /no YouTube channel/.test(error.message) ? 'nochannel' : /banned/.test(error.message) ? 'banned' : 'failed';
+          return back(code, true);
+        }
         const network = networkOf(req);
         if (network && !['owner','moderator'].includes(store.user(id)?.role)) store.recordNetwork(id, network);
         store.revokeSession(parseCookies(req).nameflare_session);
         const created = store.newSession(id);
         res.setHeader('Set-Cookie',[cookie('nameflare_session',created.raw,604800),cookie(`nameflare_oauth_${provider}`,'',0)]);
-        res.writeHead(302,{ Location:'/account' }); return res.end();
+        const outcome = !state.user_id ? '' : !before ? 'linked' : before.provider_id === profile.id ? (state.mode === 'replace' ? 'same' : 'refreshed') : 'switched';
+        res.writeHead(302,{ Location:outcome ? `/account/platforms?${new URLSearchParams({ auth:outcome, provider })}` : '/account' }); return res.end();
+      }
+      if (method === 'POST' && path === '/api/account/identities/unlink') {
+        const session = mutation(req), data = await body(req);
+        assert(['twitch','kick','youtube'].includes(data.provider),400,'Choose a linked platform.');
+        return json(res,200,{ user:store.unlinkIdentity(session.id,data.provider,env.OWNER_TWITCH_ID) });
       }
       if (method === 'POST' && path === '/api/logout') {
         mutation(req); store.revokeSession(parseCookies(req).nameflare_session);

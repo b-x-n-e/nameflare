@@ -1292,11 +1292,61 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
       line.append(node('span','plat-id',`ID ${connected.provider_id}`));detail.append(line);
     } else detail.append(node('p','plat-handle-line',state.config.demo?'Not linked · linking is off in the demo':state.config.providers[provider]?'Not linked':'Not available on this server'));
     const actions=node('div','plat-actions');
-    if(connected){const href=platformUrl(connected);if(href){const open=link('Open channel',href,'button subtle sm');open.setAttribute('target','_blank');open.setAttribute('rel','noopener noreferrer');actions.append(open);}if(!state.config.demo)actions.append(link('Refresh',`/auth/${provider}`,'button ghost sm'));}
+    if(connected){const href=platformUrl(connected);if(href){const open=link('Open channel',href,'button subtle sm');open.setAttribute('target','_blank');open.setAttribute('rel','noopener noreferrer');actions.append(open);}if(!state.config.demo)actions.append(platformMenu(user,provider,title,row,actions));}
     else if(!state.config.demo && state.config.providers[provider])actions.append(link(`Link ${title}`,`/auth/${provider}`,'button primary sm'));
     row.append(logo,detail,actions);list.append(row);
   }
-  content.append(list,node('p','form-footnote plat-foot','Refresh must use the same linked identity. Automatic merging and unlinking are not supported. Never share OAuth callback links or credentials.'));
+  const foot=state.config.features?.identity_changes
+    ? 'Switching takes you to the platform to pick the other account. If it signs you straight back in as the same one, sign out on that site first. An account already linked to another Nameflare account must be unlinked there first. Never share sign-in links.'
+    : 'Refresh must use the same linked identity. Automatic merging and unlinking are not supported. Never share OAuth callback links or credentials.';
+  content.append(list,node('p','form-footnote plat-foot',foot));
+}
+// Change menu for a linked platform: refresh it, switch it to another account
+// on the same platform, or unlink it (after an inline confirmation).
+function platformMenu(user,provider,title,row,actions){
+  const changes=state.config.features?.identity_changes;
+  if(!changes)return link('Refresh',`/auth/${provider}`,'button ghost sm');
+  const menu=node('details','row-menu'),summary=node('summary','button ghost sm','Change');summary.setAttribute('aria-label',`Change linked ${title} account`);
+  const panel=node('div','row-menu-panel');
+  const go=(label,href,hint)=>{const item=node('a','menu-item');item.href=href;item.append(node('span','',label));if(hint)item.append(node('small','',hint));return item;};
+  panel.append(go('Refresh name & picture',`/auth/${provider}`,`Sign in to ${title} again with the same account`),go(`Switch to another ${title} account`,`/auth/${provider}?mode=replace`,'Your Flare moves to the new account'));
+  const staffTwitch=provider==='twitch' && ['owner','moderator'].includes(user.role),only=user.identities.length<2;
+  const why=only?'You need at least one linked platform to sign in':staffTwitch?(user.role==='owner'?'The owner account keeps Twitch linked':'Staff accounts keep Twitch linked'):'';
+  const unlink=node('button','menu-item danger');unlink.type='button';unlink.append(node('span','',`Unlink ${title}`));if(why){unlink.disabled=true;unlink.append(node('small','',why));}
+  unlink.addEventListener('click',()=>{menu.open=false;confirmUnlink(provider,title,row,actions);});
+  panel.append(unlink);menu.append(summary,panel);return menu;
+}
+function confirmUnlink(provider,title,row,actions){
+  const bar=node('div','plat-confirm');bar.setAttribute('role','group');bar.setAttribute('aria-label',`Unlink ${title}`);
+  const text=node('p','',`Unlink ${title}? Your Flare stops showing there, and you can no longer sign in with it.`);
+  const keep=node('button','button ghost sm','Keep it');keep.type='button';
+  const remove=node('button','button danger sm',`Unlink ${title}`);remove.type='button';
+  keep.addEventListener('click',()=>{bar.remove();actions.hidden=false;actions.querySelector('summary')?.focus();});
+  remove.addEventListener('click',()=>run(async()=>{remove.disabled=keep.disabled=true;try{await api('/api/account/identities/unlink',{provider});await refreshAccount();toast(`${title} unlinked.`);if(state.view==='account')await renderAccount('platforms');}finally{if(remove.isConnected)remove.disabled=keep.disabled=false;}}));
+  const buttons=node('div','plat-confirm-actions');buttons.append(keep,remove);bar.append(text,buttons);
+  actions.hidden=true;row.after(bar);remove.focus();
+}
+// Coming back from a platform's sign-in page: say what happened, then tidy the address.
+const authOutcomes={
+  linked:p=>[`${p} linked. Your Flare now shows there too.`],
+  refreshed:p=>[`${p} name and picture refreshed.`],
+  switched:p=>[`Switched to your other ${p} account.`],
+  same:p=>[`That’s the ${p} account already linked. To switch, sign out on ${p} first, then try again.`,true],
+  taken:p=>[`That ${p} account is linked to a different Nameflare account. Sign in to that account and unlink it there first.`,true],
+  occupied:p=>[`You already have a ${p} account linked. Use Change → Switch to replace it.`,true],
+  owner:p=>[`This ${p} account makes you the owner, so it can’t be switched.`,true],
+  nochannel:p=>[`That Google account has no YouTube channel. Create one on YouTube, then try again.`,true],
+  banned:p=>[`That ${p} account is banned from Nameflare.`,true],
+  cancelled:p=>[`${p} sign-in was cancelled. Nothing changed.`],
+  expired:p=>[`That ${p} sign-in took too long or was opened twice. Please try again.`,true],
+  restart:p=>[`You switched Nameflare accounts during the ${p} sign-in. Please start again.`,true],
+  failed:p=>[`${p} couldn’t be linked right now. Please try again.`,true]
+};
+function showAuthOutcome(){
+  const params=new URLSearchParams(location.search),outcome=authOutcomes[params.get('auth')];if(!params.has('auth'))return;
+  const name={twitch:'Twitch',kick:'Kick',youtube:'YouTube'}[params.get('provider')] || 'The platform';
+  params.delete('auth');params.delete('provider');history.replaceState(history.state,'',location.pathname+(params.size?`?${params}`:'')+location.hash);
+  if(outcome){const [message,error]=outcome(name);toast(message,Boolean(error));}
 }
 function renderYourData(content,user) {
   const days=state.config.retention || {};
@@ -1959,7 +2009,7 @@ async function loadAudit() {
   if(state.view!=='moderation' || state.user?.id!==userId || $('#moderation-audit')!==panel)return;
   panel.replaceChildren();
   if(!audit.entries.length)empty(panel,'A clean slate.','Decisions, permanent bans, and access changes will appear here.',null);
-  const labels={'account.banned':'Permanently banned an account','account.unbanned':'Lifted an account ban','cosmetic.approved':'Approved a Flare','cosmetic.rejected':'Disapproved a Flare','cosmetic.auto_approved':'Automatically approved a staff Flare','moderator.added':'Granted moderator access','moderator.removed':'Removed moderator access','artist.added':'Granted artist role','artist.removed':'Removed artist role','flare.deleted':'Permanently deleted a Flare','flare.publication':'Changed Flare publication','report.actioned':'Acted on a report','report.dismissed':'Dismissed a report','media.blocked':'Blocked images from being uploaded again','upload.blocked':'Stopped a flagged upload','account.deleted':'Deleted an account','account.suspended':'Suspended an account','cosmetic.reopened':'Undid a decision'};
+  const labels={'account.banned':'Permanently banned an account','account.unbanned':'Lifted an account ban','cosmetic.approved':'Approved a Flare','cosmetic.rejected':'Disapproved a Flare','cosmetic.auto_approved':'Automatically approved a staff Flare','moderator.added':'Granted moderator access','moderator.removed':'Removed moderator access','artist.added':'Granted artist role','artist.removed':'Removed artist role','flare.deleted':'Permanently deleted a Flare','flare.publication':'Changed Flare publication','report.actioned':'Acted on a report','report.dismissed':'Dismissed a report','media.blocked':'Blocked images from being uploaded again','upload.blocked':'Stopped a flagged upload','account.deleted':'Deleted an account','account.suspended':'Suspended an account','cosmetic.reopened':'Undid a decision','identity.changed':'Switched a linked platform account','identity.unlinked':'Unlinked a platform'};
   if(!audit.entries.length)return;
   const kindOf=action=>/^(cosmetic|flare|report|media|upload)\./.test(action)?'decision':action.startsWith('account.')?'account':'access';
   const filters=node('div','audit-filters');filters.setAttribute('role','group');filters.setAttribute('aria-label','Filter activity');
@@ -2165,7 +2215,7 @@ async function init(){
   $('[data-nav="analytics"]').hidden=!state.config.features?.insights;
   updateNotificationBadge();
   renderCommands();
-  editor.accountChanged();await renderView();initFeedGeometry();initScrollState();wireRailFilters(filter=>run(()=>applyQuickFilter(filter)));loadRail({api,state,followButton});loadShowcase();await resumeLikeIntent();await resumeFollowIntent();
+  editor.accountChanged();await renderView();showAuthOutcome();initFeedGeometry();initScrollState();wireRailFilters(filter=>run(()=>applyQuickFilter(filter)));loadRail({api,state,followButton});loadShowcase();await resumeLikeIntent();await resumeFollowIntent();
   try{const legacy=sessionStorage.getItem('nameflare.equip');if(legacy){sessionStorage.removeItem('nameflare.equip');if(!peekIntent())sessionStorage.setItem(INTENT_KEY,JSON.stringify({kind:'equip',id:legacy,route:'/discover',at:Date.now()}));}await resumeIntent();}catch(error){toast(error.message,true);}
 }
 run(init);
