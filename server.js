@@ -183,10 +183,31 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   const requireUser = req => { const session = getSession(req); assert(session, 401, 'Sign in to continue.'); return session; };
   const requireMod = req => { const session = requireUser(req); assert(['owner','moderator'].includes(session.role), 403, 'Moderator access required.'); return session; };
   const requireOwner = req => { const session = requireUser(req); assert(session.role === 'owner', 403, 'Owner access required.'); return session; };
+  // Bans cover the networks a banned account used: sign-in and changes from
+  // them are refused (reading the site stays open). Loopback is never counted,
+  // so a misconfigured proxy cannot ban the server itself.
+  const networkOf = req => {
+    const address = clientAddress(req,trustLoopbackProxy);
+    return ['127.0.0.1','::1','unknown'].includes(address) ? null : store.networkHash(rateKey(address));
+  };
+  const networkSeen = new Map();
+  const checkNetwork = (req, session) => {
+    if (['owner','moderator'].includes(session?.role)) return;
+    const network = networkOf(req);
+    if (!network) return;
+    assert(!store.networkBanned(network),403,'Signing in and making changes are blocked from this network because of a ban.');
+    if (!session) return;
+    // Remember the network at most once an hour per account.
+    const key = `${session.id}:${network}`;
+    if ((networkSeen.get(key) || 0) > Date.now() - 3600000) return;
+    if (networkSeen.size > 50000) networkSeen.clear();
+    networkSeen.set(key, Date.now()); store.recordNetwork(session.id, network);
+  };
   const mutation = req => {
     assert(allowedOrigins.has(req.headers.origin), 403, 'Requests must come from the official app origin.');
     const session = requireUser(req);
     assert(safeEqual(req.headers['x-csrf-token'], session.csrf), 403, 'Invalid security token. Refresh the page.');
+    checkNetwork(req, session);
     return session;
   };
   // JSON bodies are small except texture uploads; a 2.9 MB allowance on every
@@ -325,6 +346,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
       if (method === 'GET' && auth) {
         assert(!demo,403,'Real account linking is disabled in the isolated demo.');
         const provider = auth[1], session = getSession(req);
+        checkNetwork(req, session);
         if (!auth[2]) {
           const started = beginOAuth(provider,store,session,baseUrl,env);
           res.setHeader('Set-Cookie',cookie(`nameflare_oauth_${provider}`,started.binding,600));
@@ -336,6 +358,8 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         assert(!url.searchParams.has('error'),400,'Authorization was cancelled.');
         const profile = await finishOAuth(provider,url.searchParams.get('code'),state.verifier,baseUrl,env);
         const id = store.linkIdentity(profile,state.user_id,env.OWNER_TWITCH_ID);
+        const network = networkOf(req);
+        if (network && !['owner','moderator'].includes(store.user(id)?.role)) store.recordNetwork(id, network);
         store.revokeSession(parseCookies(req).nameflare_session);
         const created = store.newSession(id);
         res.setHeader('Set-Cookie',[cookie('nameflare_session',created.raw,604800),cookie(`nameflare_oauth_${provider}`,'',0)]);
@@ -525,11 +549,11 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         return json(res,200,{ deleted:true, flares:deleted.flares });
       }
       if (method === 'POST' && path === '/api/admin/accounts/delete') {
-        const session = mutation(req); requireOwner(req);
+        const session = mutation(req); requireMod(req);
         const data = await body(req);
         assert(data.confirm === true,400,'Confirm permanent deletion.');
         const target = text(data.id,1,100,'Account ID'), ownRooms = store.overlayRooms(target).map(room => room.id);
-        const deleted = store.deleteAccount(target,{ actor:session });
+        const deleted = store.deleteAccount(target,{ actor:session, reason:data.reason });
         for (const id of deleted.files) { try { removeTextureFile(id); } catch {} }
         for (const id of ownRooms) closeRoom(id);
         return json(res,200,{ deleted:true, flares:deleted.flares });

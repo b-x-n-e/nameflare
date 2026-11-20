@@ -33,6 +33,8 @@
   - **Account deletion:** it is self-service and immediate. The owner can erase other accounts on request; erasing a banned account keeps hashed identities so the ban persists. Data export is self-service.
   - **Retention:** the server enforces the published retention periods ([Privacy](docs/PRIVACY.md)) and removes abandoned uploads and stray image files.
   - **Relay rooms:** each room has its own read key and posting token, stored hashed and shown once. Messages reach only that room's overlays. Rotation disconnects existing listeners. There are per-room and global listener caps.
+  - **Bans cover networks:** a ban also blocks sign-in, new accounts and changes (not browsing) from the networks the account used in the last 90 days, for 90 days. Networks are stored only as HMAC hashes with a per-database key (an IPv6 /64 counts as one); loopback is never recorded, and the owner and moderators are exempt. Lifting the ban unblocks them. Shared networks (a school, a mobile carrier's NAT) can block innocent people for the 90 days; lift and re-apply a ban to adjust.
+  - **Staff deletion:** moderators can delete member and artist accounts (the owner any but its own) with a reason, without banning; the person can sign up again.
   - **Edge limits:** nginx applies per-client limits (IPv4 address or IPv6 /64) per traffic class, verified by `npm run edgetest`.
 
 ## Known limitations

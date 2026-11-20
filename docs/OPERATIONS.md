@@ -184,10 +184,15 @@ person deletes them or their account.
 
   Reports the person filed stay, with the reporter removed. The activity log
   records `account.deleted` with the account ID only.
-- **Owner erasure requests:** the owner can erase another account under
-  Moderation → Accounts → **Erase account**. Erasing a banned account keeps a
-  one-way hash of each of its platform identities, so the ban still holds if the
-  same platform account signs in again.
+- **Staff deletion:** under Moderation → Accounts → Manage → **Delete account**.
+  Moderators can delete members and artists, and the owner can delete anyone but
+  itself. A reason is required and goes into the activity log. This is not a ban:
+  the person can sign up again. Deleting a banned account keeps a one-way hash of
+  each of its platform identities, so that ban still holds.
+- **Bans and networks:** a ban also blocks sign-in, new accounts and changes from
+  the networks (IP addresses, an IPv6 /64 as one) the account used in the last
+  90 days, for 90 days. Browsing is not blocked. Networks are kept only as keyed
+  hashes; the owner and moderators are exempt.
 - **Backups:** a deleted account is still in older backups until they roll off
   (14 nights). Restoring an older backup brings it back; delete it again after
   any restore.

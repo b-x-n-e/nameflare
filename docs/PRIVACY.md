@@ -17,11 +17,12 @@ details next to this.
 | Reports you send | Moderation | Moderators |
 | Relay rooms | Your overlays | You (keys are stored only as hashes) |
 | Sign-in session | Keeping you signed in | Nobody (stored as a hash; the cookie expires after 7 days) |
+| Networks you sign in or make changes from | Making bans stick: a ban also blocks the networks the banned account used | Nobody. Stored only as a keyed hash of the network (an IPv6 /64 counts as one), never the address, for 90 days |
 | Page views | Insights for creators and the operator | Daily counts per page only: no address, account or device. Off when Do Not Track or Global Privacy Control is on |
 
 Not stored: passwords (there are none), platform access or refresh tokens,
-email addresses, IP addresses (they are used in memory for rate limits only),
-or access logs of the URLs people visit.
+email addresses, IP addresses in readable form (rate limits use them in memory;
+bans use the keyed hashes above), or access logs of the URLs people visit.
 
 ## Uploaded images
 
@@ -34,6 +35,7 @@ uploads for malware and unsafe content (see [Operations](OPERATIONS.md#uploaded-
 | Record | Kept for |
 |---|---|
 | Notifications | 180 days |
+| Network hashes | 90 days after last use; network bans 90 days |
 | Page-view counts | 400 days |
 | Images no Flare uses | 7 days after upload |
 | Disapproved Flares | 1 year after the decision |

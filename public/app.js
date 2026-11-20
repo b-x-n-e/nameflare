@@ -1311,7 +1311,7 @@ function renderYourData(content,user) {
   const download=link('Download my data','/api/account/export','button primary');download.setAttribute('download','nameflare-account.json');download.prepend(icon('download'));exportRow.append(exportText,download);intro.append(exportRow);
   const kept=node('section','panel data-panel');kept.append(node('h2','','How long things are kept'));
   const list=node('dl','retention-list');
-  for(const [label,value] of [['Notifications',`${days.notifications_days || 180} days`],['Page-view counts (no personal data)',`${Math.round((days.page_view_days || 400)/30)} months`],['Disapproved Flares',`${days.rejected_flare_days || 365} days after the decision`],['Uploads no Flare uses',`${days.orphan_texture_days || 7} days`],['Details of closed reports',`${days.closed_report_detail_days || 90} days`],['Moderation history',`${Math.round((days.audit_days || 730)/365)} years`],['Sign-in sessions','7 days']]){const item=node('div');item.append(node('dt','',label),node('dd','',value));list.append(item);}
+  for(const [label,value] of [['Notifications',`${days.notifications_days || 180} days`],['Page-view counts (no personal data)',`${Math.round((days.page_view_days || 400)/30)} months`],['Disapproved Flares',`${days.rejected_flare_days || 365} days after the decision`],['Uploads no Flare uses',`${days.orphan_texture_days || 7} days`],['Details of closed reports',`${days.closed_report_detail_days || 90} days`],['Moderation history',`${Math.round((days.audit_days || 730)/365)} years`],['Sign-in sessions','7 days'],['Network fingerprints (hashed, for bans)',`${days.network_days || 90} days`]]){const item=node('div');item.append(node('dt','',label),node('dd','',value));list.append(item);}
   kept.append(list);
   const danger=node('section','panel data-panel data-danger');danger.append(node('h2','','Delete my account'));
   if(user.role==='owner'){danger.append(node('p','form-footnote','The owner account cannot be deleted. Hand ownership to another account first.'));content.append(intro,kept,danger);return;}
@@ -1548,7 +1548,7 @@ function reviewCard(cosmetic) {
     if(state.user.role!=='owner' && cosmetic.owner_id===state.user.id)meta.append(node('p','form-footnote','Another reviewer must decide on your own Flare.'));meta.append(actions);
   }
   if(cosmetic.media_flags?.length){const flag=node('p','review-flag');flag.append(icon('flag'),node('span','',`The image scanner asked for a closer look at ${cosmetic.media_flags.length===1?'this Flare’s image':`${cosmetic.media_flags.length} of its images`}.`));meta.prepend(flag);}
-  if(cosmetic.open_reports){const flag=node('p','review-flag');flag.append(icon('flag'),node('span','',`${cosmetic.open_reports} open ${cosmetic.open_reports===1?'report':'reports'} · `),link('See reports','/moderation/reports','text-button'));meta.prepend(flag);}
+  if(cosmetic.open_reports){const flag=node('p','review-flag'),text=node('span','',`${cosmetic.open_reports} open ${cosmetic.open_reports===1?'report':'reports'} · `);text.append(link('See reports','/moderation/reports','text-button'));flag.append(text);meta.prepend(flag);}
   const hasImages=(cosmetic.recipe?.layers || []).some(layer=>layer.type==='image') || Boolean(cosmetic.recipe?.textureId);let blockImages=null;
   if(cosmetic.status==='rejected' && hasImages && state.config.features?.reports){const label=node('label','checkbox-label review-block');blockImages=node('input');blockImages.type='checkbox';label.append(blockImages,document.createTextNode(' Also block its images from being uploaded again'));meta.append(label);}
   if(cosmetic.status==='rejected' && state.config.runtime!=='cloudflare')meta.append(action('Permanently delete Flare',async()=>{
@@ -1583,10 +1583,11 @@ $('#moderation-confirm-form').addEventListener('submit',event=>{
     finally{current.busy=false;$('#moderation-confirm').disabled=false;$('#moderation-cancel').disabled=false;}
   });
 });
-function confirmModeration({title,description,label,user,ban=false,onConfirm}) {
+function confirmModeration({title,description,label,user,ban=false,reasonLabel='',onConfirm}) {
   if(moderationDialog.open)return Promise.resolve(false);
   $('#moderation-dialog-title').textContent=title;$('#moderation-dialog-description').textContent=description;
-  $('#moderation-confirm').textContent=label;$('#moderation-reason-label').hidden=!ban;$('#moderation-reason').required=ban;$('#moderation-reason').value='';
+  const askReason=ban || Boolean(reasonLabel);$('#moderation-reason-label').firstChild.textContent=reasonLabel || 'Reason for permanent ban';$('#moderation-reason').placeholder=reasonLabel?'Why is this account being deleted? For example: spam account, or the person asked for it.':'Describe the policy violation. This is saved in the audit trail.';
+  $('#moderation-confirm').textContent=label;$('#moderation-reason-label').hidden=!askReason;$('#moderation-reason').required=askReason;$('#moderation-reason').value='';
   $('#moderation-ack-label').hidden=!ban;$('#moderation-ack').required=ban;$('#moderation-ack').checked=false;$('#moderation-dialog-error').hidden=true;
   const account=$('#moderation-dialog-account');account.replaceChildren();account.hidden=!user;
   if(user){const detail=node('div');detail.append(node('strong','',user.name),node('small','',user.id));account.append(avatar(user),detail);}
@@ -1660,8 +1661,8 @@ $('#report-form').addEventListener('submit',event=>{
     .finally(()=>{submit.disabled=false;});
 });
 async function eraseAccount(user) {
-  const confirmed=await confirmModeration({title:'Erase this account?',description:'For a deletion request. Removes the profile, connected platforms, Flares, images, likes, follows and relay rooms. If the account is banned, its platform identities stay banned. This cannot be undone.',label:'Erase account',user,onConfirm:()=>api('/api/admin/accounts/delete',{id:user.id,confirm:true})});
-  if(!confirmed)return;toast('Account erased.');state.catalogLoaded=false;await Promise.all([loadUsers(),loadUsers('banned'),loadAudit()]);
+  const confirmed=await confirmModeration({title:'Delete this account?',description:user.banned_at?'Removes the profile, connected platforms, Flares, images, likes, follows and relay rooms. This account is banned, so its platform identities stay banned. This cannot be undone.':'Removes the profile, connected platforms, Flares, images, likes, follows and relay rooms. This is not a ban: the person can sign up again later. This cannot be undone.',label:'Delete account',user,reasonLabel:'Reason (saved in the activity log)',onConfirm:reason=>api('/api/admin/accounts/delete',{id:user.id,confirm:true,reason})});
+  if(!confirmed)return;toast('Account deleted.');state.catalogLoaded=false;await Promise.all([loadUsers(),loadUsers('banned'),loadAudit()]);
 }
 
 const reviewStatusNames={pending:'Awaiting review',approved:'Approved',rejected:'Disapproved'};
@@ -1729,7 +1730,7 @@ async function changeArtist(user) {
 }
 async function changeBan(user) {
   const banned=!user.banned_at;
-  const confirmed=await confirmModeration({user,ban:banned,title:banned?'Permanently ban account?':'Lift this permanent ban?',description:banned?'All linked identities will be blocked from signing in. Sessions end immediately, their profile is hidden, and their Flares are revoked for everyone. This ban has no expiry.':'This account can sign in again. Old sessions and revoked Flare approvals will not be restored.',label:banned?'Permanently ban account':'Lift ban',onConfirm:reason=>api('/api/admin/ban',{id:user.id,banned,reason:banned?reason:''})});
+  const confirmed=await confirmModeration({user,ban:banned,title:banned?'Permanently ban account?':'Lift this permanent ban?',description:banned?'All linked identities will be blocked from signing in, and so will the networks (IP addresses) the account used in the last 90 days, for 90 days. Sessions end immediately, their profile is hidden, and their Flares are revoked for everyone. The account ban has no expiry.':'This account can sign in again. Old sessions and revoked Flare approvals will not be restored.',label:banned?'Permanently ban account':'Lift ban',onConfirm:reason=>api('/api/admin/ban',{id:user.id,banned,reason:banned?reason:''})});
   if(!confirmed)return;
   toast(banned?'Account permanently banned. Sessions ended and Flares revoked.':'Ban lifted. The account can sign in again.');await refreshModeration();
 }
@@ -1752,7 +1753,7 @@ function accountRow(user,bannedList=false) {
     if(!bannedList && state.user.role==='owner' && user.twitch_id && !user.banned_at)items.push(menuItem(user.role==='moderator'?'Remove moderator':'Make moderator',()=>changeModerator(user.twitch_id,user.role!=='moderator')));
     if(!bannedList && state.config.runtime!=='cloudflare' && state.user.role==='owner' && ['user','artist'].includes(user.role) && !user.banned_at)items.push(menuItem(user.role==='artist'?'Remove artist':'Make artist',()=>changeArtist(user)));
     if(user.id!==state.user.id && (state.user.role==='owner' || ['user','artist'].includes(user.role)))items.push(menuItem(user.banned_at?'Lift ban':'Permanently ban',()=>changeBan(user),!user.banned_at));
-    if(state.user.role==='owner' && state.config.features?.account_deletion)items.push(menuItem('Erase account',()=>eraseAccount(user),true));
+    if(user.id!==state.user.id && state.config.features?.account_deletion && (state.user.role==='owner' || ['user','artist'].includes(user.role)))items.push(menuItem('Delete account',()=>eraseAccount(user),true));
   }
   let actions;
   if(items.length){
@@ -1761,7 +1762,7 @@ function accountRow(user,bannedList=false) {
     menu.append(summary,panel);actions=cell('account-actions',menu);
   } else actions=cell('account-actions',node('span','form-footnote',user.role==='owner'?'Protected':user.banned_at?'Owner only':'—'));
   article.append(person,platforms,role,status,joinedCell,actions);
-  if(user.banned_at){const note=node('div','account-ban-note');note.append(node('strong','','Ban reason: '),document.createTextNode(user.ban_reason || 'No reason recorded'),node('small','',` · ${date(user.banned_at)} · no expiry`));article.append(note);}
+  if(user.banned_at){const note=node('div','account-ban-note');note.append(node('strong','','Ban reason: '),document.createTextNode(user.ban_reason || 'No reason recorded'),node('small','',` · ${date(user.banned_at)} · no expiry${user.networks_blocked?` · ${user.networks_blocked} ${user.networks_blocked===1?'network':'networks'} blocked`:''}`));article.append(note);}
   return article;
 }
 function menuItem(label,fn,danger=false) {
@@ -1854,7 +1855,7 @@ async function renderModeration() {
     for(const [value,title] of [['all','All accounts'],['active','Active'],['staff','Moderation team']]){const button=action(title,()=>{state.userStatus=value;state.userOffset=0;for(const item of filters.children){item.classList.toggle('active',item===button);item.setAttribute('aria-pressed',String(item===button));}return loadUsers();});button.classList.toggle('active',state.userStatus===value);button.setAttribute('aria-pressed',String(state.userStatus===value));filters.append(button);}panel.append(filters,link('View banned accounts →','/moderation/settings','text-button'));accountSearch(panel);workspace.append(panel);await loadUsers();
   }else if(section==='settings'){
     const panel=moderationSection('Banned accounts','Permanent means no expiry. Bans persist until an authorized reviewer explicitly lifts them.');panel.firstChild.append(refresh);
-    const notice=node('div','moderation-notice');notice.append(node('strong','','Account-wide protection'),node('p','','Every linked identity is blocked from signing in. Sessions are ended, public profiles are hidden, and the account’s Flares are revoked. Lifting a ban never restores old sessions or Flare approvals.'));panel.append(notice,link('Find an account to ban →','/moderation/accounts','text-button'));accountSearch(panel,true);workspace.append(panel);
+    const notice=node('div','moderation-notice');notice.append(node('strong','','Account-wide protection'),node('p','','Every linked identity is blocked from signing in, and so are the networks (IP addresses) the account used in the last 90 days, for 90 days: no sign-in, new accounts or changes from them, though the site can still be browsed. Sessions are ended, public profiles are hidden, and the account’s Flares are revoked. Lifting a ban unblocks its networks but never restores old sessions or Flare approvals.'));panel.append(notice,link('Find an account to ban →','/moderation/accounts','text-button'));accountSearch(panel,true);workspace.append(panel);
     const team=moderationSection('Team & permissions','Moderators can ban regular users. Only the owner can change reviewer access or ban and unban moderators. The owner cannot be banned.');
     if(state.user.role==='owner'){
       const form=node('form','moderator-form'),label=node('label','','Grant reviewer access by Twitch ID'),input=node('input');input.required=true;input.pattern='[0-9]{1,30}';input.inputMode='numeric';input.placeholder='Numeric Twitch user ID';label.append(input);

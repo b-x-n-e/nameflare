@@ -605,21 +605,43 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 .report-details .form-footnote { margin-left: 6px; font-weight: 400; }
 .data-row .button .ui-icon { margin-right: 6px; }
 
-/* Caution, restyled (2026.11). Yellow text on a yellow wash was hard to read,
-   worst on the light themes. Notes are now a neutral surface with readable
-   text; yellow stays as an accent: a bar, a dot or an icon. */
+/* Callouts (2026.11). One component for every caution note: a tinted icon
+   badge, a calm warm-neutral surface, and body text in the normal ink. No
+   coloured text, no bracket bars. The icon is the theme's warning colour
+   through a mask, so it works on every light and dark theme. */
 .status-note, .moderation-notice, .donate-warning, .review-flag, .review-feedback {
-  color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--line);
-  box-shadow: inset 3px 0 0 var(--warning); border-radius: 10px;
+  --callout-tone: var(--warning);
+  position: relative; display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border: 0; border-radius: 12px; box-shadow: none;
+  color: var(--ink-2); font-size: var(--text-sm); line-height: 1.5;
+  background: linear-gradient(0deg, color-mix(in srgb, var(--callout-tone) 6%, transparent), color-mix(in srgb, var(--callout-tone) 6%, transparent)), var(--surface-2);
 }
-.status-note { padding: 9px 12px 9px 14px; font-size: var(--text-xs); }
-.moderation-notice { padding: 14px 16px 14px 18px; }
-.moderation-notice strong { color: var(--ink); }
-.donate-warning { padding: 9px 12px 9px 14px; }
-.review-flag { padding: 8px 10px 8px 13px; }
-.review-feedback { padding: 10px 12px 10px 14px; }
-.donate-warning .ui-icon, .review-flag .ui-icon { color: var(--warning); }
-.review-flag .text-button { color: var(--ink); }
+.status-note::before, .moderation-notice::before, .donate-warning::before, .review-flag::before, .review-feedback::before {
+  content: ''; flex: none; width: 28px; height: 28px; margin-top: -3px; border-radius: 9px;
+  background: color-mix(in srgb, var(--callout-tone) 16%, transparent);
+}
+.status-note::after, .moderation-notice::after, .donate-warning::after, .review-flag::after, .review-feedback::after {
+  content: ''; position: absolute; left: 20px; top: 15px; width: 16px; height: 16px;
+  background: var(--callout-tone); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128%2C24A104%2C104%2C0%2C1%2C0%2C232%2C128%2C104.11%2C104.11%2C0%2C0%2C0%2C128%2C24Zm0%2C192a88%2C88%2C0%2C1%2C1%2C88-88A88.1%2C88.1%2C0%2C0%2C1%2C128%2C216Zm-8-80V80a8%2C8%2C0%2C0%2C1%2C16%2C0v56a8%2C8%2C0%2C0%2C1-16%2C0Zm20%2C36a12%2C12%2C0%2C1%2C1-12-12A12%2C12%2C0%2C0%2C1%2C140%2C172Z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M128%2C24A104%2C104%2C0%2C1%2C0%2C232%2C128%2C104.11%2C104.11%2C0%2C0%2C0%2C128%2C24Zm0%2C192a88%2C88%2C0%2C1%2C1%2C88-88A88.1%2C88.1%2C0%2C0%2C1%2C128%2C216Zm-8-80V80a8%2C8%2C0%2C0%2C1%2C16%2C0v56a8%2C8%2C0%2C0%2C1-16%2C0Zm20%2C36a12%2C12%2C0%2C1%2C1-12-12A12%2C12%2C0%2C0%2C1%2C140%2C172Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.donate-warning > .ui-icon, .review-flag > .ui-icon { display: none; }
+.moderation-notice { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; padding: 14px 16px; }
+.moderation-notice::before { grid-row: 1 / span 2; }
+.moderation-notice::after { left: 22px; top: 17px; }
+.moderation-notice > * { grid-column: 2; }
+.moderation-notice strong { color: var(--ink); font-size: var(--text-base); font-weight: 650; }
+.moderation-notice p { color: var(--muted); }
+.review-flag { align-items: center; flex-wrap: wrap; }
+.review-flag::before { margin-top: 0; }
+.review-flag::after { top: 50%; translate: 0 -50%; }
+.review-flag .text-button { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.review-feedback { --callout-tone: var(--muted); }
+.status-note { --callout-tone: color-mix(in oklab, var(--info) 72%, var(--ink)); align-items: center; }
+.status-note::before { margin-top: 0; }
+.status-note::after { top: 50%; translate: 0 -50%; }
+.donate-warning { align-items: center; max-width: 60ch; }
+.donate-warning::before { margin-top: 0; }
+.donate-warning::after { top: 50%; translate: 0 -50%; }
 /* Status badges: a quiet pill with a coloured dot. */
 .badge.pending, .badge.approved, .badge.rejected {
   display: inline-flex; align-items: center; gap: 6px;
@@ -693,3 +715,59 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 .cc-name, .ph-name, .artist-card .profile-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .cc-text, .ph-identity, .artist-card .profile-heading { min-width: 0; }
 .cc-name > :not(.fit-line), .ph-name > :not(.fit-line), .artist-card .profile-name-row > :not(.fit-line) { flex: none; }
+
+/* ==========================================================================
+   Compact density (2026.11). Not just smaller padding: more of everything
+   on screen. Wider content column, Discover grid at ~180px cards with
+   shorter previews, denser creator and Flare grids, tighter tables, smaller
+   headings and controls. Flare previews keep their own proportions.
+   ========================================================================== */
+:root[data-density="compact"] {
+  --text-sm: 12px; --text-base: 13px; --text-md: 14px; --text-lg: 15px; --text-xl: 18px;
+  --gutter: 20px; --aside-w: 280px; --radius: 10px; --radius-lg: 12px; --card-radius: 12px;
+}
+:root[data-density="compact"] .app-shell { column-gap: 24px; padding-bottom: 56px; }
+:root[data-density="compact"] body:not([data-view="discover"]) .app-column { max-width: 1320px; }
+:root[data-density="compact"] .page-heading { padding: 16px 0 4px; margin-bottom: 10px; }
+:root[data-density="compact"] .page-heading h1, :root[data-density="compact"] .discover-head h1 { font-size: 22px; }
+:root[data-density="compact"] .panel { padding: 14px 16px; }
+:root[data-density="compact"] .first-run { padding: 10px 12px; }
+/* Discover */
+:root[data-density="compact"] .discover-head { margin-bottom: 6px; }
+:root[data-density="compact"] .showcase { padding-bottom: 8px; }
+:root[data-density="compact"] .showcase-track { grid-auto-columns: minmax(170px, calc((100% - 30px) / 4.4)); gap: 8px; }
+:root[data-density="compact"] .feed-tabs > wa-button.feed-tab { min-height: 26px !important; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] #catalog.cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 8px; margin-top: 10px; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .card-preview { aspect-ratio: 16 / 9; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog.cosmetic-grid { gap: 8px; margin-top: 10px; }
+:root[data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card .card-preview,
+:root[data-density="compact"] #following-feed .cosmetic-card .card-preview { aspect-ratio: 3 / 1; min-height: 0; }
+:root[data-density="compact"] .cosmetic-card .post-head, :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-head { padding: 8px 10px 0; }
+:root[data-density="compact"] .cosmetic-card .card-meta, :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .card-meta { padding: 4px 10px 0; gap: 1px; }
+:root[data-density="compact"] .cosmetic-card .post-actions, :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-actions { padding: 6px 8px 8px 6px; }
+:root[data-density="compact"] .cosmetic-card .post-head .avatar { width: 22px; height: 22px; font-size: 10px; }
+/* Other Flare grids (collections, profiles, following) */
+:root[data-density="compact"] .cosmetic-grid:not(#catalog), :root[data-density="compact"] .profile-created-flares .cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+/* Creators */
+:root[data-density="compact"] #profile-results:not(.profile-detail-grid), :root[data-density="compact"] .followed-creators { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; }
+:root[data-density="compact"] .cc-body { padding: 10px 12px; gap: 8px; }
+:root[data-density="compact"] .cc-avatar { width: 32px; height: 32px; }
+:root[data-density="compact"] .ph-stage { height: clamp(120px, 16vw, 180px); }
+/* Tables and moderation */
+:root[data-density="compact"] .account-row { padding: 7px 14px; }
+:root[data-density="compact"] .account-head { padding-block: 7px; }
+:root[data-density="compact"] .account-person .avatar { width: 28px; height: 28px; font-size: 11px; }
+:root[data-density="compact"] .report-card { padding: 12px 14px; gap: 10px; }
+:root[data-density="compact"] .report-items li { padding: 7px 10px; }
+:root[data-density="compact"] .relay-row, :root[data-density="compact"] .data-row { padding: 8px 10px; }
+:root[data-density="compact"] .retention-list > div { padding: 6px 0; }
+:root[data-density="compact"] .audit-row { padding-block: 6px; }
+/* Controls */
+:root[data-density="compact"] .button { min-height: 30px; padding-block: 4px; }
+:root[data-density="compact"] wa-button { --wa-form-control-height: 30px; }
+:root[data-density="compact"] .status-note, :root[data-density="compact"] .donate-warning, :root[data-density="compact"] .review-flag, :root[data-density="compact"] .review-feedback { padding: 8px 10px; gap: 10px; }
+:root[data-density="compact"] .moderation-notice { padding: 10px 12px; }
+:root[data-density="compact"] .status-note::before, :root[data-density="compact"] .donate-warning::before, :root[data-density="compact"] .review-flag::before, :root[data-density="compact"] .review-feedback::before, :root[data-density="compact"] .moderation-notice::before { width: 24px; height: 24px; border-radius: 8px; }
+:root[data-density="compact"] .status-note::after, :root[data-density="compact"] .donate-warning::after, :root[data-density="compact"] .review-flag::after, :root[data-density="compact"] .review-feedback::after { left: 14px; width: 14px; height: 14px; }
+:root[data-density="compact"] .moderation-notice::after { left: 17px; top: 15px; width: 14px; height: 14px; }
+.confirmation-account > div { display: grid; gap: 1px; } .confirmation-account small { color: var(--faint); font-family: var(--font-mono); font-size: var(--text-xs); }

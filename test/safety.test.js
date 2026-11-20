@@ -233,7 +233,7 @@ test('people can export their data and delete their account; banned identities s
     // Owner-side erasure of a banned account keeps the ban on its identities.
     store.setBan(store.user('demo-owner'), 'demo-mod', true, 'Abuse');
     assert.equal((await call('/api/admin/accounts/delete', { id:'demo-mod', confirm:true }, sessions.mod)).status, 401, 'Banned sessions are gone');
-    assert.equal((await call('/api/admin/accounts/delete', { id:'demo-mod', confirm:true }, sessions.owner)).status, 200);
+    assert.equal((await call('/api/admin/accounts/delete', { id:'demo-mod', confirm:true, reason:'Erasure request' }, sessions.owner)).status, 200);
     assert.throws(() => store.linkIdentity({ provider:'twitch', id:'1003', login:'nova', name:'nova' }), /banned/);
     assert.ok(store.linkIdentity({ provider:'twitch', id:'5555', login:'fresh', name:'fresh' }));
     assert.throws(() => store.deleteAccount('demo-owner'), /owner/);
@@ -350,5 +350,46 @@ test('JPEG uploads are decoded, turned upright from EXIF, and re-encoded without
     assert.equal(stored.status, 201); assert.match(stored.body.id, /\.jpg$/);
     const fromBmp = await upload(bmp, 'bmp');
     assert.equal(fromBmp.status, 201); assert.match(fromBmp.body.id, /\.png$/);
+  });
+});
+
+test('bans cover the networks the account used (IPv6 by /64), staff are exempt, and lifting the ban clears them', async () => {
+  await withApp({ TRUST_PROXY_LOOPBACK:'true' }, async ({ call, store, sessions }) => {
+    const other = store.linkIdentity({ provider:'twitch', id:'7777', login:'bystander', name:'bystander' }), bystander = store.newSession(other);
+    const like = (session, ip) => call('/api/cosmetics/like', { id:'demo-1', liked:true }, session, { 'X-Real-IP':ip });
+    assert.equal((await like(sessions.creator, '203.0.113.9')).status, 200);
+    assert.equal((await like(sessions.creator, '2001:db8:5:6::1')).status, 200);
+    assert.equal(store.db.prepare("SELECT COUNT(*) AS n FROM account_networks WHERE user_id='demo-creator'").get().n, 2);
+    assert.equal(store.db.prepare('SELECT COUNT(*) AS n FROM account_networks').get().n, 2, 'Loopback and staff are never recorded');
+    assert.equal(JSON.stringify(store.db.prepare('SELECT * FROM account_networks').all()).includes('203.0.113.9'), false, 'Only keyed hashes are stored');
+    assert.equal((await call('/api/admin/ban', { id:'demo-creator', banned:true, reason:'Ban evasion test' }, sessions.mod)).status, 200);
+    const blocked = await like(bystander, '203.0.113.9');
+    assert.equal(blocked.status, 403); assert.match(blocked.body.error, /network/);
+    assert.equal((await like(bystander, '2001:db8:5:6:abcd::99')).status, 403, 'Same IPv6 /64');
+    assert.equal((await like(bystander, '203.0.113.10')).status, 200, 'Other networks are fine');
+    assert.equal((await call('/auth/twitch', undefined, undefined, { 'X-Real-IP':'203.0.113.9' })).status, 403, 'No new sign-ins either');
+    assert.equal((await call('/api/v1/cosmetics', undefined, undefined, { 'X-Real-IP':'203.0.113.9' })).status, 200, 'Browsing stays open');
+    assert.equal((await like(sessions.mod, '203.0.113.9')).status, 200, 'Staff are exempt');
+    assert.equal(store.adminUsers({ status:'banned' })[0].networks_blocked, 2);
+    assert.equal((await call('/api/admin/ban', { id:'demo-creator', banned:false }, sessions.mod)).status, 200);
+    assert.equal((await like(bystander, '203.0.113.9')).status, 200, 'Lifting the ban unblocks its networks');
+  });
+});
+
+test('moderators can delete member accounts without banning them, with a reason', async () => {
+  await withApp({}, async ({ call, store, sessions }) => {
+    const member = store.linkIdentity({ provider:'twitch', id:'8888', login:'member', name:'member' });
+    const remove = (id, session, reason) => call('/api/admin/accounts/delete', { id, confirm:true, ...(reason === undefined ? {} : { reason }) }, session);
+    assert.equal((await remove(member, sessions.creator, 'Spam')).status, 403);
+    assert.equal((await remove(member, sessions.mod)).status, 400, 'A reason is required');
+    assert.equal((await remove('demo-owner', sessions.mod, 'Nope')).status, 403);
+    assert.equal((await remove(member, sessions.mod, 'Spam account')).status, 200);
+    assert.equal(store.user(member), undefined);
+    assert.ok(store.auditLog().some(entry => entry.action === 'account.deleted' && entry.detail === 'Deleted by staff: Spam account'));
+    assert.ok(store.linkIdentity({ provider:'twitch', id:'8888', login:'member', name:'member' }), 'Not a ban: they can sign up again');
+    const moderator = store.linkIdentity({ provider:'twitch', id:'9999', login:'mod2', name:'mod2' });
+    store.db.prepare("UPDATE users SET role='moderator' WHERE id=?").run(moderator);
+    assert.equal((await remove(moderator, sessions.mod, 'Not allowed')).status, 403, 'Only the owner deletes moderators');
+    assert.equal((await remove(moderator, sessions.owner, 'Owner decision')).status, 200);
   });
 });

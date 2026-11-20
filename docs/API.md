@@ -200,7 +200,7 @@ Moderators:
 
   It never includes session secrets or other people's private data.
 - `POST /api/account/delete` (signed in, same origin, CSRF) takes `{ "confirm": "<the account's name>" }`, deletes the account and everything it owns at once, clears the session cookie and returns `{ "deleted": true, "flares": 3 }`. The owner account cannot be deleted.
-- `POST /api/admin/accounts/delete` (owner only) takes `{ "id": "…", "confirm": true }` for deletion requests. Erasing a banned account keeps a one-way hash of each of its identities so the ban still applies.
+- `POST /api/admin/accounts/delete` (moderators for members and artists; the owner for any account but its own) takes `{ "id": "…", "confirm": true, "reason": "at least 3 characters" }`. It is not a ban. Deleting a banned account keeps a one-way hash of each of its identities so the ban still applies.
 
 ## Account moderation and owner access
 
