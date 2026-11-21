@@ -887,20 +887,33 @@ function showcaseTile(cosmetic,index,kind){
   const meta=node('span','showcase-meta'),title=node('strong','',cosmetic.name),sub=node('small','',`${cosmetic.creator || 'Community'} · ${kind==='popular'?(wearing?`${compactNumber(wearing)} wearing`:'Not worn yet'):(likes?`${compactNumber(likes)} like${likes===1?'':'s'} this week`:'New this week')}`);
   meta.append(title,sub);tile.append(stage,meta);tile.addEventListener('click',()=>openDetails(cosmetic));item.append(tile);return item;
 }
-async function loadShowcase(kind=showcaseKind){
-  const track=$('#showcase-track');if(!track)return;showcaseKind=kind;const request=++showcaseRequest;
+// Trending loads on its own, as soon as config is in, and never depends on the
+// rest of the page: before, it started only after the feed and the first view had
+// rendered, so any failure there (or one dropped request here) left the row as
+// grey placeholders or "quiet" for the whole visit. Failures retry quietly with
+// backoff; after that the row says so and offers Try again.
+let showcaseShown=false,showcaseRetry=0;
+const showcaseSkeletons=()=>Array.from({length:3},()=>node('li','showcase-skeleton'));
+async function loadShowcase(kind=showcaseKind,attempt=0){
+  const track=$('#showcase-track');if(!track)return;showcaseKind=kind;const request=++showcaseRequest;clearTimeout(showcaseRetry);
   for(const b of document.querySelectorAll('[data-showcase]'))b.setAttribute('aria-pressed',String(b.dataset.showcase===kind));
   track.setAttribute('aria-busy','true');
+  if(!showcaseCache.has(kind) && !track.querySelector('.showcase-item,.showcase-skeleton'))track.replaceChildren(...showcaseSkeletons());
   try{
-    if(!showcaseCache.has(kind))showcaseCache.set(kind,await api(`/api/v1/cosmetics?sort=${kind}&limit=8`));
+    if(!showcaseCache.has(kind)){const result=await api(`/api/v1/cosmetics?sort=${kind}&limit=8`);showcaseCache.set(kind,result);}
     if(request!==showcaseRequest)return;
     const list=showcaseCache.get(kind).cosmetics||[];for(const el of showcasePreviews.keys())if(!el.isConnected)showcasePreviews.delete(el);
     if(!list.length){track.replaceChildren(node('li','showcase-empty',kind==='popular'?'Nobody is wearing a Flare yet.':'The first weekly trend is still forming.'));}
     else track.replaceChildren(...list.map((c,i)=>showcaseTile(c,i,kind)));
-    track.scrollLeft=0;syncShowcaseArrows();
-  }catch{if(request===showcaseRequest)track.replaceChildren(node('li','showcase-empty','Trending is quiet right now.'));}
-  finally{if(request===showcaseRequest)track.setAttribute('aria-busy','false');}
+    showcaseShown=true;track.scrollLeft=0;syncShowcaseArrows();track.setAttribute('aria-busy','false');
+  }catch{
+    if(request!==showcaseRequest)return;
+    if(attempt<3){showcaseRetry=setTimeout(()=>loadShowcase(kind,attempt+1),Math.min(12000,1500*2**attempt));return;}
+    const note=node('li','showcase-empty');note.append(node('span','','Couldn’t load Trending.'),action('Try again',()=>loadShowcase(kind),'button'));
+    track.replaceChildren(note);track.setAttribute('aria-busy','false');
+  }
 }
+addEventListener('online',()=>{if(!showcaseShown)loadShowcase();});
 function syncShowcaseArrows(){const track=$('#showcase-track');if(!track)return;const max=track.scrollWidth-track.clientWidth,start=track.scrollLeft<=2,end=track.scrollLeft>=max-2;$('#showcase-prev').disabled=start;$('#showcase-next').disabled=end;track.toggleAttribute('data-more-before',!start);track.toggleAttribute('data-more-after',!end);}
 // Trending stays put while filters or search narrow the feed; it only folds away
 // (height + fade) on Saved, and unfolds on leaving it, so chips never jump under the cursor.
@@ -2150,6 +2163,7 @@ async function renderView() {
   if(state.view==='discover') {
     if(previousFeed!==state.feed)state.catalogLoaded=false;
     updateFeedControls();
+    if(state.bootstrapped && !showcaseShown && previousView!=='discover' && previousView)loadShowcase();
     if(state.bootstrapped && (!state.catalogLoaded || previousView!=='discover'))await loadCatalog();
     if(state.bootstrapped && chapter){const hash=currentRoute(),readRevision=likes.revision;try{const result=await api(`/api/v1/cosmetics/${encodeURIComponent(chapter)}`);result.cosmetic.like_read_revision=readRevision;if(currentRoute()===hash)await showDetails(result.cosmetic);}catch(error){if(currentRoute()===hash){$('#detail-dialog').close();navigate('/discover');toast('This Flare is unavailable or not approved.',true);}}}
   }
@@ -2269,7 +2283,8 @@ async function init(){
   $('[data-nav="analytics"]').hidden=!state.config.features?.insights;
   updateNotificationBadge();
   renderCommands();
-  editor.accountChanged();await renderView();showAuthOutcome();initFeedGeometry();initScrollState();wireRailFilters(filter=>run(()=>applyQuickFilter(filter)));loadRail({api,state,followButton});loadShowcase();await resumeLikeIntent();await resumeFollowIntent();
+  loadShowcase();
+  editor.accountChanged();await renderView();showAuthOutcome();initFeedGeometry();initScrollState();wireRailFilters(filter=>run(()=>applyQuickFilter(filter)));loadRail({api,state,followButton});await resumeLikeIntent();await resumeFollowIntent();
   try{const legacy=sessionStorage.getItem('nameflare.equip');if(legacy){sessionStorage.removeItem('nameflare.equip');if(!peekIntent())sessionStorage.setItem(INTENT_KEY,JSON.stringify({kind:'equip',id:legacy,route:'/discover',at:Date.now()}));}await resumeIntent();}catch(error){toast(error.message,true);}
 }
 run(init);

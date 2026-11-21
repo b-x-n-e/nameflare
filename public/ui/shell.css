@@ -684,7 +684,7 @@ body:not([data-view="discover"]) .right-rail { display: none; }
 .showcase-meta strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-md); font-weight: 650; }
 .showcase-meta small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--faint); font-size: var(--text-xs); }
 .showcase-skeleton { list-style: none; aspect-ratio: 16 / 12; border-radius: 18px; background: linear-gradient(100deg, var(--surface) 30%, var(--surface-2) 50%, var(--surface) 70%) 0 0 / 300% 100%; animation: nf-shimmer 1.4s linear infinite; }
-.showcase-empty { list-style: none; padding: 26px; color: var(--faint); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.showcase-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; list-style: none; padding: 26px; color: var(--faint); font-size: var(--text-sm); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
 @media (max-width: 1180px) { .showcase-track { grid-auto-columns: minmax(240px, calc((100% - 12px) / 2)); } }
 @media (max-width: 640px) { .showcase-track { grid-auto-columns: 82%; } .showcase-nav { display: none; } }
 @media (prefers-reduced-motion: reduce) { .showcase-tile:hover { transform: none; } .showcase-skeleton { animation: none; } }

@@ -147,6 +147,8 @@
 :root[data-theme="gallery"] .showcase-meta small { font-size: 13px; color: var(--muted); }
 :root[data-theme="gallery"] .showcase-track::after,
 :root[data-theme="gallery"] .showcase::after { display: none; }
+:root[data-theme="gallery"] .showcase-track:has(> .showcase-empty) { display: block; }
+:root[data-theme="gallery"] .showcase-empty { min-height: 96px; padding: 24px 28px; color: var(--muted); font-size: 14px; background: var(--surface); border: 0; border-radius: 16px; box-shadow: var(--shadow-1); }
 
 /* ---- Tools: tabs, search, sort, filters ---------------------------------- */
 :root[data-theme="gallery"] .discover-tools { border: 0; padding-top: 0; gap: 14px; }
