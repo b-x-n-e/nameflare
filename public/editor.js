@@ -260,7 +260,7 @@ export function initializeEditor({api,getUser,signIn,toast,setControlLabel=(elem
     const dup=iconButton('copy','Duplicate layer',()=>{if(layers.length>=6)throw new Error('Maximum 6 layers.');layers.splice(i,0,clone(layer));activeLayer=i;renderLayers();update();remember();});dup.disabled=layers.length>=6;
     const del=iconButton('trash','Remove layer',()=>{if(layers.length===1)throw new Error('Keep at least one Flare layer.');layers.splice(i,1);activeLayer=Math.max(0,i-1);renderLayers();update();remember();},'st-icon st-danger');del.disabled=layers.length===1;
     tools.append(up,down,dup,del);head.append(title,tools);box.append(head);
-    box.append(segmented('Type',layer.type,[['linear','Linear'],['radial','Radial'],['conic','Conic'],['solid','Solid'],['image','Image']],type=>{
+    box.append(segmented('Type',layer.type,[['image','Image'],['linear','Linear'],['radial','Radial'],['conic','Conic'],['solid','Solid']],type=>{
       const replacement=changeLayerType(layer,type,recipe());try{validateTextureLimits({layers:layers.map((l,j)=>j===i?replacement:l)});}catch(error){renderLayerInspector();throw error;}
       layers[i]=replacement;activeStop=0;renderLayers();update();remember();
     }));
@@ -352,6 +352,8 @@ export function initializeEditor({api,getUser,signIn,toast,setControlLabel=(elem
   for(const [key,p]of Object.entries(presets)){const b=el('button','preset-tile');b.type='button';b.dataset.preset=key;b.addEventListener('click',()=>run(()=>preset(key)));const name=el('strong','','Aa');applyCosmetic(name,{recipe:p.recipe},location.origin,{paused:true});b.addEventListener('pointerenter',()=>applyCosmetic(name,{recipe:p.recipe}));b.addEventListener('pointerleave',()=>applyCosmetic(name,{recipe:p.recipe},location.origin,{paused:true}));const stage=el('span','preset-stage');stage.append(name);b.append(stage,el('span','preset-label',p.title));$('#preset-gallery').append(b);}
   syncPresetSelection($('#preset-select').value);
   // Template strip: arrows, a visible scrollbar, and wheel-to-sideways scrolling.
+  // Image and GIF Flares are the most popular kind, so starting from one is the first template.
+  {const b=el('button','preset-tile preset-image');b.type='button';b.title='Start from your own image or GIF';const stage=el('span','preset-stage'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),use=document.createElementNS('http://www.w3.org/2000/svg','use');svg.setAttribute('class','ui-icon');svg.setAttribute('aria-hidden','true');use.setAttribute('href','#icon-image');svg.append(use);stage.append(svg);b.append(stage,el('span','preset-label','Image or GIF'));b.addEventListener('click',()=>$('#image-only-design').click());$('#preset-gallery').prepend(b);}
   const gallery=$('#preset-gallery'),prev=$('#preset-prev'),next=$('#preset-next');
   const syncArrows=()=>{const max=gallery.scrollWidth-gallery.clientWidth;prev.disabled=gallery.scrollLeft<=2;next.disabled=gallery.scrollLeft>=max-2;gallery.classList.toggle('at-end',gallery.scrollLeft>=max-2);gallery.classList.toggle('at-start',gallery.scrollLeft<=2);};
   const page=direction=>gallery.scrollBy({left:direction*Math.max(160,gallery.clientWidth*.8),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});

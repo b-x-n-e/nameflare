@@ -616,14 +616,17 @@ new MutationObserver(records => { for (const record of records) { if (record.typ
   .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 document.fonts?.ready.then(() => fitFlaresIn(document.body));
 const updateCatalogNames = createFrameUpdate(() => {
-  const input = previewName(),hint=$('#catalog-name-hint');
+  const input = previewName(),hint=$('#catalog-name-hint');syncTypedName();
   if(hint)hint.textContent=input?`Every preview now reads “${input}”`:'Showing each Flare’s own name';
   for (const previews of [catalogPreviews, followingPreviews, showcasePreviews]) for (const [element, cosmetic] of previews) {
     const text = input || cosmetic.name || cosmetic.creator || 'yourname';
     updateCosmeticText(element, text);fitPreviewName(element, text);
   }
 });
+// While no name is typed, a plate already shows the Flare's own name, so the caption title steps aside.
+function syncTypedName(){document.documentElement.toggleAttribute('data-typed-name',Boolean(previewName()));}
 function card(cosmetic, collection=false, trackCatalog=true) {
+  syncTypedName();
   const colors=paintPalette(cosmetic.recipe);
   const card=node('article',`cosmetic-card${collection?' collection-card':''}`);card.dataset.paintId=cosmetic.id;card.dataset.creatorId=cosmetic.creator_id || cosmetic.owner_id || '';card.style.setProperty('--paint-color',colors[0] || 'transparent');card.style.setProperty('--paint-secondary',colors.at(-1) || 'transparent');card.classList.toggle('is-equipped',state.user?.equipped===cosmetic.id);
   const creatorId=cosmetic.creator_id || cosmetic.owner_id || '';
@@ -647,11 +650,11 @@ function card(cosmetic, collection=false, trackCatalog=true) {
     menu.append(menuItem('Edit a copy',()=>editor.editCopy(cosmetic),'studio'));
     menu.append(menuItem(cosmetic.listed?'Make unlisted':'List publicly',async()=>{await api('/api/cosmetics/publication',{id:cosmetic.id,listed:!Boolean(cosmetic.listed)});await loadCatalog();if(state.view==='account')await renderAccount();else await renderCollection();toast(cosmetic.listed?'Flare is unlisted. Existing links and equips still work.':'Flare will appear in Discover once approved.');},'eye'));
   }
-  head.append(menu);
+  if(collection)head.append(menu);
   const preview=node('button','card-preview');preview.type='button';preview.setAttribute('aria-label',`View ${cosmetic.name}`);
   const name=node('strong','',previewName() || cosmetic.name || cosmetic.creator || 'yourname');name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
   if(!collection && trackCatalog)catalogPreviews.set(name,cosmetic);
-  const type=hasTexture(cosmetic)?'Texture':cosmetic.recipe.depth?'3D depth':cosmetic.recipe.animation==='none'?'Static':'Animated',typeLabel=node('wa-badge','corner-label',type);typeLabel.setAttribute('variant','neutral');typeLabel.setAttribute('appearance','outlined');typeLabel.setAttribute('pill','');typeLabel.setAttribute('aria-hidden','true');typeLabel.prepend(icon(hasTexture(cosmetic)?'layers':cosmetic.recipe.depth?'collection':cosmetic.recipe.animation==='none'?'spark':'motion'));
+  const type=hasTexture(cosmetic)?'Image':cosmetic.recipe.depth?'3D depth':cosmetic.recipe.animation==='none'?'Static':'Animated',typeLabel=node('wa-badge','corner-label',type);typeLabel.setAttribute('variant','neutral');typeLabel.setAttribute('appearance','outlined');typeLabel.setAttribute('pill','');typeLabel.setAttribute('aria-hidden','true');typeLabel.prepend(icon(hasTexture(cosmetic)?'layers':cosmetic.recipe.depth?'collection':cosmetic.recipe.animation==='none'?'spark':'motion'));
   const palette=node('span','preview-palette');palette.setAttribute('aria-hidden','true');for(const color of colors){const chip=node('i');chip.style.backgroundColor=color;palette.append(chip);}
   preview.append(name,typeLabel,palette);
   preview.addEventListener('click',() => run(() => openDetails(cosmetic)));
@@ -667,7 +670,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   if(!collection){
     if((!cosmetic.status || cosmetic.status==='approved') && cosmetic.listed)social.append(likeButton(cosmetic));
     const shareAction=shareButton(cosmetic);social.append(shareAction);
-    if((cosmetic.status==='approved' || !cosmetic.status) && Number(cosmetic.equipped_count || 0) > 0){const wearers=node('span','equip-stat',`${compactNumber(cosmetic.equipped_count)} wearing`);wearers.prepend(icon('profiles'));social.append(wearers);}
+    if((cosmetic.status==='approved' || !cosmetic.status) && Number(cosmetic.equipped_count || 0) > 0)sub.append(node('span','equip-stat',`${compactNumber(cosmetic.equipped_count)} wearing`));
     actions.append(social);
   }
   if(collection){
@@ -687,7 +690,9 @@ function card(cosmetic, collection=false, trackCatalog=true) {
     if(cosmetic.status==='approved'){const equipButton=action('Equip',() => equip(cosmetic.id),'button equip-button');equipButton.dataset.equipId=cosmetic.id;syncEquipButton(equipButton);trailing.append(equipButton);}
     trailing.prepend(social);buttons.append(trailing);meta.append(buttons);
   } else {
-    const buttons=node('div','post-buttons'),equipButton=action('Equip',()=>equip(cosmetic.id),'button primary equip-button');equipButton.dataset.equipId=cosmetic.id;syncEquipButton(equipButton);buttons.append(equipButton);actions.append(buttons);
+    const buttons=node('div','post-buttons'),equipButton=action('Equip',()=>equip(cosmetic.id),'button primary equip-button');equipButton.dataset.equipId=cosmetic.id;syncEquipButton(equipButton);buttons.append(equipButton);
+    // Equip, then the heart, then More at the very end.
+    actions.prepend(buttons);actions.append(menu);
   }
   const previewArrow=icon('arrow','preview-open-arrow');preview.append(previewArrow);
   card.append(head);
@@ -848,7 +853,7 @@ async function loadFollowing(append=false) {
 // Advanced filters: color family, motion, and fill. They live in the URL so a
 // filtered Discover view can be shared or reloaded.
 const filterNames={color:{red:'Red',orange:'Orange',yellow:'Yellow',green:'Green',cyan:'Cyan',blue:'Blue',purple:'Purple',pink:'Pink',mono:'Black & white'},motion:{flow:'Flow',shimmer:'Shimmer',pulse:'Pulse',spectrum:'Spectrum',none:'Static motion'},fill:{gradient:'Gradient fill',solid:'Solid fill',image:'Image / GIF fill'}};
-const effectNames={animated:'Animated',glow:'Glow',texture:'Textures',depth:'3D depth',static:'Static'};
+const effectNames={animated:'Animated',glow:'Glow',texture:'Image & GIF',depth:'3D depth',static:'Static'};
 {const params=new URLSearchParams(location.search);for(const key of ['color','motion','fill']){const value=params.get(key);state[key]=value&&filterNames[key][value]?value:'all';}const effect=params.get('effect');if(effect&&effectNames[effect]){state.filter=effect;for(const b of document.querySelectorAll('[data-filter]')){const active=b.dataset.filter===effect;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}}if(['color','motion','fill'].some(key=>state[key]!=='all')){$('#catalog-filters')?.classList.add('is-open');$('#feed-filters-toggle')?.setAttribute('aria-expanded','true');}}
 function activeAdvancedFilters(){return ['color','motion','fill'].filter(key=>state[key]&&state[key]!=='all');}
 function advancedFilterQuery(){return activeAdvancedFilters().map(key=>`&${key}=${encodeURIComponent(state[key])}`).join('');}
@@ -885,7 +890,9 @@ function showcaseTile(cosmetic,index,kind){
   stage.append(node('span','showcase-rank',`#${index+1}`),name);
   const likes=Number((kind==='popular'?cosmetic.like_count:(cosmetic.recent_like_count || cosmetic.like_count)) || 0),wearing=Number(cosmetic.equipped_count || 0);
   const meta=node('span','showcase-meta'),title=node('strong','',cosmetic.name),sub=node('small','',`${cosmetic.creator || 'Community'} · ${kind==='popular'?(wearing?`${compactNumber(wearing)} wearing`:'Not worn yet'):(likes?`${compactNumber(likes)} like${likes===1?'':'s'} this week`:'New this week')}`);
-  meta.append(title,sub);tile.append(stage,meta);tile.addEventListener('click',()=>openDetails(cosmetic));item.append(tile);return item;
+  meta.append(title,sub);tile.append(stage,meta);tile.addEventListener('click',()=>openDetails(cosmetic));
+  // The heart sits on the plate's corner; it is a sibling of the tile because a button can't hold a button.
+  const like=likeButton(cosmetic);like.classList.add('showcase-like');item.append(tile,like);return item;
 }
 // Trending loads on its own, as soon as config is in, and never depends on the
 // rest of the page: before, it started only after the feed and the first view had

@@ -246,6 +246,41 @@
 :root:root[data-theme] .tab-head p { max-width: 62ch; margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 :root:root[data-theme] .account-tab-content:has(.followed-creators > .empty-state) [data-following-status] { display: none; }
 
+/* ---- Discover feed tabs: the same segmented control as Trending ---------
+   calm.css drew them as underlined tabs with !important, so this does too. */
+:root:root[data-theme] .feed-tabs { gap: 2px !important; padding: 3px !important; background: var(--tint-1) !important; border-radius: 999px !important; }
+:root:root[data-theme] .feed-tabs > wa-button.feed-tab { --_h: 30px; --_px: 14px; --_fs: 13px; --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: transparent; --_ink-h: var(--ink); --_sh-h: none; min-height: 30px !important; border-radius: 999px !important; }
+:root:root[data-theme] .feed-tabs > wa-button.feed-tab:is(.active, [aria-pressed="true"]) { --_bg: var(--surface); --_ink: var(--ink); --_sh: var(--shadow-1); --_bg-h: var(--surface); --_sh-h: var(--shadow-1); }
+:root:root[data-theme] .feed-tabs > wa-button.feed-tab::part(base) { min-height: 30px; padding: 0 14px !important; color: var(--_ink) !important; background: var(--_bg) !important; box-shadow: var(--_sh) !important; border-radius: 999px !important; font-size: 13px; font-weight: 600; }
+:root:root[data-theme] .feed-tabs > wa-button.feed-tab:hover::part(base) { color: var(--_ink-h) !important; background: var(--_bg-h) !important; }
+
+/* ---- Card actions: Equip, then the heart and More as circles at the end -- */
+:root:root[data-theme] #main-content .cosmetic-card > .post-actions { gap: 6px; }
+:root:root[data-theme] #main-content .cosmetic-card .post-actions .post-social { flex: 0 0 auto; overflow: visible; }
+:root:root[data-theme] .cosmetic-card .post-actions wa-button:is(.like-button, .post-more) {
+  --_w: var(--b-h-sm); --_h: var(--b-h-sm); --_px: 0; --_bg: var(--surface); --_ink: var(--muted); --_sh: var(--shadow-1); --_bg-h: var(--surface); --_ink-h: var(--ink); --_sh-h: var(--shadow-2);
+}
+:root:root[data-theme] .cosmetic-card .post-actions wa-button.like-button[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
+:root:root[data-theme] :is(.cosmetic-card .post-actions, .showcase-item) wa-button.like-button .like-count { display: none; }
+:root:root[data-theme] .post-sub .equip-stat::before { content: "· "; }
+/* The plate shows the Flare's own name until a name is typed; then the title returns. */
+:root:root[data-theme]:not([data-typed-name]) #catalog .cosmetic-card > .card-meta { display: none; }
+:root:root[data-theme]:not([data-typed-name]) #following-feed .cosmetic-card > .card-meta h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:root:root[data-theme]:not([data-typed-name]) #catalog .cosmetic-card > :is(.post-head, .post-actions) { padding-top: 12px; }
+
+/* ---- Trending: a heart on each plate's bottom-right corner --------------- */
+:root:root[data-theme] .showcase-item { position: relative; container-type: inline-size; }
+:root:root[data-theme] .showcase-item > wa-button.showcase-like {
+  position: absolute; right: 12px; top: calc(62.5cqw - 44px); z-index: 1;
+  --_w: 32px; --_h: 32px; --_px: 0; --_bg: rgba(255,255,255,.1); --_ink: rgba(255,255,255,.86); --_sh: inset 0 0 0 1px rgba(255,255,255,.12);
+  --_bg-h: rgba(255,255,255,.2); --_ink-h: #fff; --_sh-h: var(--_sh);
+}
+:root:root[data-theme] .showcase-item > wa-button.showcase-like[aria-pressed="true"] { --_ink: #ff4d6a; --_ink-h: #ff4d6a; }
+
+/* ---- Studio: the image template tile ------------------------------------ */
+:root:root[data-theme] .preset-image .preset-stage { display: grid; place-items: center; }
+:root:root[data-theme] .preset-image .preset-stage .ui-icon { width: 24px; height: 24px; color: rgba(255,255,255,.85); }
+
 /* ---- Phone menu sheet: one surface, tiles on it, no card inside a card --- */
 @media (max-width: 1000px) {
   :root:root[data-theme] .app-rail.menu-open .site-navigation { background: var(--surface); border: 0; border-radius: 0 0 24px 24px; box-shadow: var(--shadow-pop); }
