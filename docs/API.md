@@ -272,13 +272,7 @@ The studio offers an outline of layers and effects with a one-item inspector, ed
 
 The studio exports and imports Nameflare Flare files (`format: "nameflare-design"`, `version: 1`). Any other JSON is rejected. Files carry the recipe only, never image bytes, so image layers must be reattached after import, and an imported Flare is reviewed like any new design.
 
-## OBS / browser overlay
-
-- `/overlay?channel=yourchannel` — transparent Twitch IRC read overlay (anonymous public-channel reader; respects CLEARMSG/CLEARCHAT and reconnects). Requires browser WebSocket internet access. Live operation is not provider-verified by unit tests.
-- `/overlay?demo=1` — explicitly labeled sample messages, not live chat.
-- Options: `&effects=0` disables cosmetics, `&lifetime=45` sets message lifetime (5–300 seconds).
-
-Kick, YouTube and multi-platform chat overlays are Banechat's job ([chat.bxne.dev](https://chat.bxne.dev)); Nameflare's earlier relay rooms were removed.
+Kick, YouTube and multi-platform chat are Banechat's job ([chat.bxne.dev](https://chat.bxne.dev)).
 
 ## Chatterino / third-party clients
 

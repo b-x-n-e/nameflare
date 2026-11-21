@@ -103,7 +103,7 @@ The configured owner must sign in with Twitch. First signup and matching display
 
 ## Staging acceptance
 
-Verify on the actual HTTPS hostname: each provider login/link, cancellation and replay rejection, account collision, new session rotation, owner bootstrap, moderator grant/revocation, private GIF upload, duplicate upload, review/no-self-review, equip/resolve, anonymous private-asset rejection, approval and revocation, CORS/error caching, R2 privacy, and OBS Twitch behavior. Live provider checks and deployment require credentials/access not supplied in this thread.
+Verify on the actual HTTPS hostname: each provider login/link, cancellation and replay rejection, account collision, new session rotation, owner bootstrap, moderator grant/revocation, private GIF upload, duplicate upload, review/no-self-review, equip/resolve, anonymous private-asset rejection, approval and revocation, CORS/error caching and R2 privacy. Live provider checks and deployment require credentials/access not supplied in this thread.
 
 Reference documentation:
 - https://developers.cloudflare.com/workers/wrangler/configuration/

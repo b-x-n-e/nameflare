@@ -21,7 +21,7 @@ their own without a subscription:
 - **Get it approved.** Moderators review every new Flare for artwork rights,
   readability and safety before it goes public.
 - **Wear it.** Equip any approved Flare. It shows up wherever Nameflare is in
-  chat: the OBS overlay, and apps and bots built on the API.
+  chat: chat clients, apps and bots built on the API.
 - **Share it.** Browse, like and follow creators in Discover, and share any Flare by link.
 
 ## Highlights
@@ -30,7 +30,7 @@ their own without a subscription:
 |---|---|
 | **Studio** | Up to six layers, 2–12 colour stops per gradient, image fills (GIF, PNG, WebP, JPEG, BMP) with crop and zoom, glow, outline, shadow stacks, 3D extrusion, four motion styles, undo/redo, local drafts, and Flare file import/export |
 | **Community** | Discover with search, filters and trending, likes, follows, creator profiles, an Artists showcase, notifications, creator insights, and eight themes plus your own custom one |
-| **In chat** | A public JSON API (Flares, wearers, live stats, profiles and linked accounts), a change feed, a drop-in browser SDK, and an OBS overlay for Twitch chat |
+| **In chat** | A public JSON API (Flares, wearers, live stats, profiles and linked accounts), a change feed and a drop-in browser SDK |
 | **Safety** | Moderator review, abuse reports, bans, images decoded and rebuilt on upload, optional malware and content scanning, and an exportable activity log |
 | **Privacy** | No passwords or platform tokens stored, privacy-friendly page counts, published retention periods, and self-service data download and account deletion |
 | **Runs small** | One Node process with SQLite and no runtime dependencies. Sized and load-tested for a 1 GB Oracle Always Free instance |
@@ -58,8 +58,6 @@ npm run check     # syntax check of every script
 
 ## Bring Flares into chat
 
-- **OBS overlay.** Add `/overlay?channel=yourchannel` from this site as a Browser
-  Source. It reads public Twitch chat and draws each chatter's Flare.
 - **Kick, YouTube and multi-platform chat.** Use [Banechat](https://chat.bxne.dev).
 - **API and SDK.** Approved Flares are public JSON with CORS. Look people up by
   platform ID one at a time or 100 at a time, list who is wearing a Flare, read

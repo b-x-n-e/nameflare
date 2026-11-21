@@ -10,7 +10,7 @@ web
 
 - **Primary: chatters picking a look.** Viewers who chat on Twitch, Kick or YouTube. They arrive from a stream or a shared link, browse Flares, try them on their own name, and equip one. Visits are short and casual; most never open Studio.
 - **Secondary: Flare designers.** People who build Flares in Studio and publish them; they care about their profile, likes and wearers.
-- **Secondary: streamers.** They add the overlay or an API-based bot so their chat shows Flares.
+- **Secondary: streamers.** They use a supported chat client or an API-based bot so their chat shows Flares.
 - **Staff:** the owner and moderators review submissions, reports and accounts.
 
 ## Product Purpose
@@ -19,12 +19,12 @@ Nameflare lets anyone give their chat name an animated style (a *Flare*: gradien
 
 ## Positioning
 
-Free to make and free to wear, open source (AGPL-3.0), and platform-independent: one Flare follows the person across Twitch, Kick and YouTube wherever Nameflare is in chat (OBS overlay, API apps and bots). Every public Flare is reviewed by a moderator.
+Free to make and free to wear, open source (AGPL-3.0), and platform-independent: one Flare follows the person across Twitch, Kick and YouTube wherever Nameflare is in chat (chat clients, apps and bots on the API). Every public Flare is reviewed by a moderator.
 
 ## Operating Context
 
 - Chatters usually come from a stream, often on a phone, often with the stream playing in another tab or window.
-- Flares show in chat at about 18px through the OBS overlay and API clients; the site previews them magnified and at real chat size.
+- Flares show in chat at about 18px through API clients; the site previews them magnified and at real chat size.
 - Sign-in is OAuth with Twitch, Kick or YouTube only; no passwords.
 - Staff work in a moderation queue with keyboard shortcuts.
 

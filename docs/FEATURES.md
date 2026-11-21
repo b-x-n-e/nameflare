@@ -39,7 +39,7 @@ Everything Nameflare does today, in detail. The [README](../README.md) has the s
 
 ## Integrations
 
-- CORS-enabled versioned public API, batch identity resolution, a transparent OBS browser-source overlay, direct public Twitch chat connection. Kick, YouTube and multi-platform chat overlays are covered by Banechat.
+- CORS-enabled versioned public API, batch identity resolution and a change feed for chat clients and bots. Kick, YouTube and multi-platform chat are covered by Banechat.
 - On-site guide at `/guide`, grouped by who it is for: getting started and troubleshooting, making and publishing Flares, using Nameflare (Discover, sign-in, appearance, privacy, shortcuts), moderating, and the API and self-hosting. Each chapter has its own link, such as `/guide/publish`.
 
 ## Hosting
