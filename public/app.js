@@ -650,7 +650,6 @@ function card(cosmetic, collection=false, trackCatalog=true) {
     menu.append(menuItem('Edit a copy',()=>editor.editCopy(cosmetic),'studio'));
     menu.append(menuItem(cosmetic.listed?'Make unlisted':'List publicly',async()=>{await api('/api/cosmetics/publication',{id:cosmetic.id,listed:!Boolean(cosmetic.listed)});await loadCatalog();if(state.view==='account')await renderAccount();else await renderCollection();toast(cosmetic.listed?'Flare is unlisted. Existing links and equips still work.':'Flare will appear in Discover once approved.');},'eye'));
   }
-  if(collection)head.append(menu);
   const preview=node('button','card-preview');preview.type='button';preview.setAttribute('aria-label',`View ${cosmetic.name}`);
   const name=node('strong','',previewName() || cosmetic.name || cosmetic.creator || 'yourname');name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
   if(!collection && trackCatalog)catalogPreviews.set(name,cosmetic);
@@ -688,7 +687,8 @@ function card(cosmetic, collection=false, trackCatalog=true) {
     // Needs changes: the way forward is one click away, with the note carried along.
     if(cosmetic.status==='rejected'){const revise=action('Revise',()=>editor.revise(cosmetic),'button revise-button');revise.title='Open this design in Flare studio to fix it and submit again';trailing.append(revise);}
     if(cosmetic.status==='approved'){const equipButton=action('Equip',() => equip(cosmetic.id),'button equip-button');equipButton.dataset.equipId=cosmetic.id;syncEquipButton(equipButton);trailing.append(equipButton);}
-    trailing.prepend(social);buttons.append(trailing);meta.append(buttons);
+    // Same order as every other card: the main action, then the heart, then More at the very end.
+    trailing.append(social,menu);buttons.append(trailing);meta.append(buttons);
   } else {
     const buttons=node('div','post-buttons'),equipButton=action('Equip',()=>equip(cosmetic.id),'button primary equip-button');equipButton.dataset.equipId=cosmetic.id;syncEquipButton(equipButton);buttons.append(equipButton);
     // Equip, then the heart, then More at the very end.
