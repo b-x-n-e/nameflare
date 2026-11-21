@@ -1,0 +1,1336 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 3c27bc0..9482807 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -443,6 +443,11 @@ set(SOURCE_FILES
+ 
+         providers/bluzyrino/BluzyrinoBadges.cpp
+         providers/bluzyrino/BluzyrinoBadges.hpp
++
++        providers/nameflare/NameflarePaint.cpp
++        providers/nameflare/NameflarePaint.hpp
++        providers/nameflare/NameflarePaints.cpp
++        providers/nameflare/NameflarePaints.hpp
+         providers/bttv/BttvBadges.cpp
+         providers/bttv/BttvBadges.hpp
+         providers/bttv/BttvEmotes.cpp
+diff --git a/src/messages/MessageBuilder.cpp b/src/messages/MessageBuilder.cpp
+index b9e73f0..10f8286 100644
+--- a/src/messages/MessageBuilder.cpp
++++ b/src/messages/MessageBuilder.cpp
+@@ -40,6 +40,7 @@
+ #include "providers/moltorino/MoltorinoSupporterBadges.hpp"
+ #include "providers/pronouns/Pronouns.hpp"
+ #include "providers/repetitions/RepeatedMessageDetector.hpp"
++#include "providers/nameflare/NameflarePaints.hpp"
+ #include "providers/seventv/SeventvBadges.hpp"
+ #include "providers/seventv/SeventvEmotes.hpp"
+ #include "providers/seventv/SeventvPersonalEmotes.hpp"
+@@ -3687,6 +3688,8 @@ void MessageBuilder::appendUserBadges(Communi::TagsRef tags,
+     this->appendMoltorinoBadges(userID);
+     this->appendSeventvBadges(userID);
+     this->appendHomiesBadges(userID, isCurrentUser);
++    NameflarePaints::instance().noteUser(NameflarePaints::Platform::Twitch,
++                                         userID, this->message().loginName);
+     this->applyVanityBadgeLayout(userID, firstVanityBadge);
+ }
+ 
+diff --git a/src/messages/layouts/MessageLayoutElement.cpp b/src/messages/layouts/MessageLayoutElement.cpp
+index 1c6081f..3e329b1 100644
+--- a/src/messages/layouts/MessageLayoutElement.cpp
++++ b/src/messages/layouts/MessageLayoutElement.cpp
+@@ -10,6 +10,7 @@
+ #include "messages/Image.hpp"
+ #include "messages/layouts/MessageLayoutContext.hpp"
+ #include "messages/MessageElement.hpp"
++#include "providers/nameflare/NameflarePaints.hpp"
+ #include "providers/seventv/SeventvPaints.hpp"
+ #include "providers/twitch/TwitchEmotes.hpp"
+ #include "singletons/helper/GifTimer.hpp"
+@@ -2025,12 +2026,12 @@ QString TextLayoutElement::getPaintTooltip() const
+     if (!isNametag || this->messageColor_ == MessageColor::System ||
+         this->getCreator().getFlags().has(
+             MessageElementFlag::NoUsernamePaint) ||
+-        !getSettings()->displaySevenTVPaints)
++        !usernamePaintsEnabled())
+     {
+         return {};
+     }
+ 
+-    const auto paint = getApp()->getSeventvPaints()->getPaint(
++    const auto paint = usernamePaint(
+         link.value.toLower(),
+         this->getCreator().getFlags().has(MessageElementFlag::KickUsername));
+     return paint ? paint->getTooltip() : QString{};
+@@ -2194,10 +2195,10 @@ void TextLayoutElement::paintText(QPainter &painter, bool paintHighlights)
+     bool drawPaint = isNametag && this->messageColor_ != MessageColor::System &&
+                      !this->getCreator().getFlags().has(
+                          MessageElementFlag::NoUsernamePaint) &&
+-                     getSettings()->displaySevenTVPaints;
++                     usernamePaintsEnabled();
+     if (drawPaint)
+     {
+-        auto paint = app->getSeventvPaints()->getPaint(
++        auto paint = usernamePaint(
+             this->getLink().value.toLower(),
+             this->getCreator().getFlags().has(
+                 MessageElementFlag::KickUsername));
+@@ -2333,11 +2334,11 @@ QRegion TextLayoutElement::paintAnimated(QPainter &painter, const qreal yOffset,
+                            this->messageColor_ != MessageColor::System &&
+                            !this->getCreator().getFlags().has(
+                                MessageElementFlag::NoUsernamePaint) &&
+-                           getSettings()->displaySevenTVPaints;
++                           usernamePaintsEnabled();
+     QRegion paintedRegion;
+     if (drawPaint)
+     {
+-        const auto paint = getApp()->getSeventvPaints()->getPaint(
++        const auto paint = usernamePaint(
+             this->getLink().value.toLower(),
+             this->getCreator().getFlags().has(
+                 MessageElementFlag::KickUsername));
+diff --git a/src/providers/kick/KickMessageBuilder.cpp b/src/providers/kick/KickMessageBuilder.cpp
+index 449c0b7..0e941a8 100644
+--- a/src/providers/kick/KickMessageBuilder.cpp
++++ b/src/providers/kick/KickMessageBuilder.cpp
+@@ -1,5 +1,6 @@
+ #include "providers/kick/KickMessageBuilder.hpp"
+ 
++#include "providers/nameflare/NameflarePaints.hpp"
+ #include "Application.hpp"
+ #include "common/Channel.hpp"
+ #include "controllers/accounts/AccountController.hpp"
+@@ -584,6 +585,9 @@ std::pair<MessagePtrMut, HighlightAlert> KickMessageBuilder::makeChatMessage(
+     appendSeventvBadge(builder);
+ 
+     builder.appendUsername(identity);
++    NameflarePaints::instance().noteUser(NameflarePaints::Platform::Kick,
++                                         QString::number(builder.senderID),
++                                         builder->displayName);
+     kickChannel->setUserColor(builder->displayName, builder->usernameColor);
+     kickChannel->addRecentChatter(builder->displayName);
+ 
+diff --git a/src/providers/nameflare/NameflarePaint.cpp b/src/providers/nameflare/NameflarePaint.cpp
+new file mode 100644
+index 0000000..29936ac
+--- /dev/null
++++ b/src/providers/nameflare/NameflarePaint.cpp
+@@ -0,0 +1,195 @@
++#include "providers/nameflare/NameflarePaint.hpp"
++
++#include "singletons/Settings.hpp"
++
++#include <QDateTime>
++#include <QLineF>
++
++#include <algorithm>
++#include <cmath>
++#include <utility>
++
++namespace chatterino {
++
++namespace {
++
++/// Flow keeps the gradient seamless by closing unequal endpoints: the first
++/// colour is repeated one average stop interval after the last, and the whole
++/// pattern then repeats with that closed period (Nameflare renderer contract).
++QGradientStops closedStops(const QGradientStops &stops, double &period)
++{
++    QGradientStops closed = stops;
++    const auto first = stops.front().first;
++    const auto last = stops.back().first;
++    const auto span = std::max(0.0, last - first);
++    const auto step = stops.size() > 1 ? span / double(stops.size() - 1) : 1.0;
++    if (stops.front().second != stops.back().second)
++    {
++        closed.append({last + std::max(step, 0.05), stops.front().second});
++    }
++    period = std::max(0.05, closed.back().first - first);
++    return closed;
++}
++
++/// The CSS gradient line for `angle` across `rect`: the same geometry the
++/// browser uses, so a Flare points the same way in chat as on the site.
++QLineF cssGradientLine(const QRectF &rect, float angle)
++{
++    const auto radians = qDegreesToRadians(double(angle));
++    const auto dx = std::sin(radians);
++    const auto dy = -std::cos(radians);
++    const auto half = (std::abs(rect.width() * dx) + std::abs(rect.height() * dy)) / 2.0;
++    const QPointF center = rect.center();
++    return {center - QPointF(dx, dy) * half, center + QPointF(dx, dy) * half};
++}
++
++}  // namespace
++
++NameflarePaint::NameflarePaint(QString name, QString id, Fill fill,
++                               std::vector<PaintDropShadow> dropShadows)
++    : Paint(std::move(name), std::move(id))
++    , fill_(std::move(fill))
++    , dropShadows_(std::move(dropShadows))
++{
++}
++
++bool NameflarePaint::animated() const
++{
++    return this->fill_.motion != Motion::None &&
++           this->fill_.kind != Kind::Solid &&
++           this->fill_.stops.size() > 1 && getSettings()->animateEmotes;
++}
++
++double NameflarePaint::phaseAt(qint64 msecs) const
++{
++    const auto period = std::max(1000, this->fill_.periodMs);
++    const bool alternate = this->fill_.direction == Direction::Alternate ||
++                           this->fill_.direction == Direction::AlternateReverse;
++    const auto cycle = alternate ? qint64(period) * 2 : qint64(period);
++    auto t = double(msecs % cycle) / double(period);  // 0..1 or 0..2
++    if (alternate)
++    {
++        t = t <= 1.0 ? t : 2.0 - t;
++    }
++    if (this->fill_.direction == Direction::Reverse ||
++        this->fill_.direction == Direction::AlternateReverse)
++    {
++        t = 1.0 - t;
++    }
++    return std::clamp(t, 0.0, 1.0);
++}
++
++double NameflarePaint::phase() const
++{
++    return this->animated()
++               ? this->phaseAt(QDateTime::currentMSecsSinceEpoch())
++               : 0.0;
++}
++
++qint64 NameflarePaint::sourcePixmapCacheKey() const
++{
++    // Animated fills change every frame; 30 steps per second is plenty for a
++    // name and keeps the shared pixmap cache from churning faster than paint.
++    return this->animated() ? QDateTime::currentMSecsSinceEpoch() / 33 : 0;
++}
++
++QBrush NameflarePaint::asBrush(const QColor userColor,
++                               const QRectF drawingRect) const
++{
++    const auto &stops = this->fill_.stops;
++    if (stops.empty())
++    {
++        return {userColor};
++    }
++    if (this->fill_.kind == Kind::Solid || stops.size() == 1)
++    {
++        return {stops.front().second};
++    }
++
++    const auto phase = this->phase();
++    const bool moving = phase > 0.0;
++
++    if (this->fill_.kind == Kind::Conic)
++    {
++        // Conic Flow rotates from the original angle through one full turn.
++        // Qt's conical gradients run counter-clockwise from 3 o'clock; CSS
++        // runs clockwise from 12, so mirror the positions and offset by 90°.
++        const QPointF center(
++            drawingRect.left() + drawingRect.width() * this->fill_.center.x(),
++            drawingRect.top() + drawingRect.height() * this->fill_.center.y());
++        QConicalGradient gradient(
++            center, 90.0 - double(this->fill_.angle) - phase * 360.0);
++        for (const auto &[position, color] : stops)
++        {
++            gradient.setColorAt(std::clamp(1.0 - position, 0.0, 1.0), color);
++        }
++        return {gradient};
++    }
++
++    if (this->fill_.kind == Kind::Radial)
++    {
++        const QPointF center(
++            drawingRect.left() + drawingRect.width() * this->fill_.center.x(),
++            drawingRect.top() + drawingRect.height() * this->fill_.center.y());
++        const auto radius =
++            std::hypot(drawingRect.width(), drawingRect.height()) / 2.0;
++        QRadialGradient gradient(center, radius);
++        if (moving || this->fill_.repeat)
++        {
++            double period = 1.0;
++            const auto closed = closedStops(stops, period);
++            gradient.setSpread(QGradient::RepeatSpread);
++            gradient.setRadius(radius * period);
++            for (const auto &[position, color] : closed)
++            {
++                auto offset = std::fmod((position - closed.front().first) /
++                                                period +
++                                            phase,
++                                        1.0);
++                gradient.setColorAt(std::clamp(offset, 0.0, 1.0), color);
++            }
++            return {gradient};
++        }
++        for (const auto &[position, color] : stops)
++        {
++            gradient.setColorAt(std::clamp(position, 0.0, 1.0), color);
++        }
++        return {gradient};
++    }
++
++    // Linear: the CSS gradient line, shifted along itself by one closed
++    // period per cycle while moving so the sweep never jumps.
++    const auto line = cssGradientLine(drawingRect, this->fill_.angle);
++    if (!moving && !this->fill_.repeat)
++    {
++        QLinearGradient gradient(line.p1(), line.p2());
++        for (const auto &[position, color] : stops)
++        {
++            gradient.setColorAt(std::clamp(position, 0.0, 1.0), color);
++        }
++        return {gradient};
++    }
++    double period = 1.0;
++    const auto closed = moving ? closedStops(stops, period) : stops;
++    if (!moving)
++    {
++        period = std::max(0.05, stops.back().first - stops.front().first);
++    }
++    const auto start = closed.front().first + phase * period;
++    QLinearGradient gradient(line.pointAt(start), line.pointAt(start + period));
++    gradient.setSpread(QGradient::RepeatSpread);
++    for (const auto &[position, color] : closed)
++    {
++        gradient.setColorAt(
++            std::clamp((position - closed.front().first) / period, 0.0, 1.0),
++            color);
++    }
++    return {gradient};
++}
++
++const std::vector<PaintDropShadow> &NameflarePaint::getDropShadows() const
++{
++    return this->dropShadows_;
++}
++
++}  // namespace chatterino
+diff --git a/src/providers/nameflare/NameflarePaint.hpp b/src/providers/nameflare/NameflarePaint.hpp
+new file mode 100644
+index 0000000..b5742e7
+--- /dev/null
++++ b/src/providers/nameflare/NameflarePaint.hpp
+@@ -0,0 +1,66 @@
++#pragma once
++
++#include "providers/seventv/paints/Paint.hpp"
++
++#include <QGradient>
++
++#include <cstdint>
++
++#include <vector>
++
++namespace chatterino {
++
++/// A Nameflare Flare drawn with Moltorino's paint pipeline: the top visible
++/// gradient or solid layer of a recipe, with Flow and Shimmer motion. Image
++/// layers use UrlPaint instead; effects (depth, outline, glow, shadows) are
++/// drop shadows built by NameflarePaints.
++class NameflarePaint : public Paint
++{
++public:
++    enum class Kind : std::uint8_t {
++        Solid,
++        Linear,
++        Radial,
++        Conic,
++    };
++    enum class Motion : std::uint8_t {
++        None,
++        Flow,
++    };
++    enum class Direction : std::uint8_t {
++        Normal,
++        Reverse,
++        Alternate,
++        AlternateReverse,
++    };
++
++    struct Fill {
++        Kind kind = Kind::Solid;
++        QGradientStops stops;  // positions 0..1, ascending
++        float angle = 90.F;    // CSS degrees: 0 = to top, 90 = to right
++        bool repeat = false;
++        QPointF center{0.5, 0.5};  // radial/conic centre in the name box
++        Motion motion = Motion::None;
++        Direction direction = Direction::Normal;
++        int periodMs = 4000;
++    };
++
++    NameflarePaint(QString name, QString id, Fill fill,
++                   std::vector<PaintDropShadow> dropShadows);
++
++    QBrush asBrush(QColor userColor, QRectF drawingRect) const override;
++    const std::vector<PaintDropShadow> &getDropShadows() const override;
++    bool animated() const override;
++
++    /// Phase of the motion cycle in [0, 1) at a point in time (for tests).
++    double phaseAt(qint64 msecs) const;
++
++private:
++    qint64 sourcePixmapCacheKey() const override;
++    double phase() const;
++
++    const Fill fill_;
++    const std::vector<PaintDropShadow> dropShadows_;
++};
++
++}  // namespace chatterino
+diff --git a/src/providers/nameflare/NameflarePaints.cpp b/src/providers/nameflare/NameflarePaints.cpp
+new file mode 100644
+index 0000000..79b0080
+--- /dev/null
++++ b/src/providers/nameflare/NameflarePaints.cpp
+@@ -0,0 +1,584 @@
++#include "providers/nameflare/NameflarePaints.hpp"
++
++#include "Application.hpp"
++#include "common/network/NetworkRequest.hpp"
++#include "common/network/NetworkResult.hpp"
++#include "common/QLogging.hpp"
++#include "messages/Image.hpp"
++#include "providers/nameflare/NameflarePaint.hpp"
++#include "providers/seventv/paints/UrlPaint.hpp"
++#include "providers/seventv/SeventvPaints.hpp"
++#include "singletons/Settings.hpp"
++#include "singletons/WindowManager.hpp"
++#include "util/PostToThread.hpp"
++
++#include <QColor>
++#include <QCryptographicHash>
++#include <QDateTime>
++#include <QJsonArray>
++#include <QJsonDocument>
++#include <QRegularExpression>
++#include <QUrl>
++
++#include <algorithm>
++#include <cmath>
++#include <mutex>
++#include <optional>
++
++using namespace Qt::Literals::StringLiterals;
++
++namespace chatterino {
++
++namespace {
++
++constexpr qint64 RESULT_TTL_MS = 15 * 1000;  // API contract: at most 15 s
++constexpr int BATCH_SIZE = 100;              // API maximum per resolve
++constexpr int FLUSH_DELAY_MS = 750;          // gathers a burst of chatters
++constexpr int MAX_ENTRIES = 20000;           // per platform, then forgotten
++constexpr int MAX_DROP_SHADOWS = 14;         // each one is a blur pass
++
++/// Parse `#RGB`, `#RRGGBB` and `#RRGGBBAA` (CSS order: alpha last, unlike
++/// QColor::fromString, which reads 8 digits as #AARRGGBB).
++std::optional<QColor> cssColor(const QString &value)
++{
++    static const QRegularExpression hex(
++        QStringLiteral("^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"));
++    if (!hex.match(value).hasMatch())
++    {
++        return std::nullopt;
++    }
++    auto digits = value.mid(1);
++    if (digits.size() == 3)
++    {
++        digits = QString(digits[0]) + digits[0] + digits[1] + digits[1] +
++                 digits[2] + digits[2];
++    }
++    bool ok = false;
++    const auto rgb = digits.left(6).toUInt(&ok, 16);
++    QColor color(int((rgb >> 16) & 0xff), int((rgb >> 8) & 0xff),
++                 int(rgb & 0xff));
++    if (digits.size() == 8)
++    {
++        color.setAlpha(int(digits.mid(6, 2).toUInt(&ok, 16)));
++    }
++    return color;
++}
++
++QColor withOpacity(QColor color, double opacity)
++{
++    color.setAlphaF(std::clamp(color.alphaF() * opacity, 0.0, 1.0));
++    return color;
++}
++
++double clampNumber(const QJsonValue &value, double low, double high,
++                   double fallback)
++{
++    if (!value.isDouble() || !std::isfinite(value.toDouble()))
++    {
++        return fallback;
++    }
++    return std::clamp(value.toDouble(), low, high);
++}
++
++QGradientStops stopsFrom(const QJsonArray &array, double opacity)
++{
++    QGradientStops stops;
++    for (const auto &value : array)
++    {
++        const auto stop = value.toObject();
++        const auto color = cssColor(stop.value("color").toString());
++        if (!color)
++        {
++            continue;
++        }
++        stops.append({clampNumber(stop.value("at"), 0, 1, 0),
++                      withOpacity(*color, opacity)});
++        if (stops.size() >= 12)
++        {
++            break;
++        }
++    }
++    std::ranges::stable_sort(stops, [](const auto &a, const auto &b) {
++        return a.first < b.first;
++    });
++    return stops;
++}
++
++/// The fallback palette (`colors`, 2–5 entries) as evenly spaced stops.
++QGradientStops paletteStops(const QJsonObject &recipe)
++{
++    QGradientStops stops;
++    const auto colors = recipe.value("colors").toArray();
++    for (qsizetype i = 0; i < colors.size() && i < 5; i++)
++    {
++        if (const auto color = cssColor(colors[i].toString()))
++        {
++            stops.append({colors.size() > 1 ? double(i) / double(colors.size() - 1)
++                                            : 0.0,
++                          *color});
++        }
++    }
++    return stops;
++}
++
++bool validTextureID(const QString &id)
++{
++    static const QRegularExpression pattern(
++        QStringLiteral("^[a-f0-9]{64}\\.(gif|webp|png|jpe?g)$"));
++    return pattern.match(id).hasMatch();
++}
++
++/// Effects as drop shadows, in the web renderer's stacking order: 3D depth
++/// beneath everything, then the outline, the glow, the legacy shadow and the
++/// recipe's extra shadows. Moltorino applies drop shadows one after another
++/// (like chained CSS drop-shadow filters), so each wraps the result so far.
++std::vector<PaintDropShadow> shadowsFrom(const QJsonObject &recipe,
++                                         const QGradientStops &palette)
++{
++    std::vector<PaintDropShadow> shadows;
++    const auto push = [&](float x, float y, float radius, QColor color) {
++        if (shadows.size() < size_t(MAX_DROP_SHADOWS) && color.alpha() > 0)
++        {
++            // A radius of 0 is "no shadow" to PaintDropShadow; hard-edged
++            // effects (depth, outline) use the smallest visible blur.
++            shadows.emplace_back(x, y, std::max(radius, 0.6F), color);
++        }
++    };
++
++    const auto depth = int(clampNumber(recipe.value("depth"), 0, 8, 0));
++    if (depth > 0)
++    {
++        const auto angle = qDegreesToRadians(
++            clampNumber(recipe.value("depthAngle"), 0, 360, 45));
++        const auto color = cssColor(recipe.value("depthColor").toString())
++                               .value_or(QColor(0x30, 0x30, 0x47));
++        for (int i = 0; i < depth; i++)
++        {
++            push(float(std::cos(angle)), float(std::sin(angle)), 0, color);
++        }
++    }
++
++    const auto outline = clampNumber(recipe.value("outline"), 0, 2, 0);
++    if (outline > 0)
++    {
++        const auto color = cssColor(recipe.value("outlineColor").toString())
++                               .value_or(QColor(Qt::white));
++        const auto o = float(outline);
++        push(o, 0, 0, color);
++        push(-o, 0, 0, color);
++        push(0, o, 0, color);
++        push(0, -o, 0, color);
++    }
++
++    const auto glow = clampNumber(recipe.value("glow"), 0, 20, 0);
++    if (glow > 0)
++    {
++        const auto fallback = palette.isEmpty() ? QColor(Qt::white)
++                                                : palette.front().second;
++        const auto color = cssColor(recipe.value("glowColor").toString())
++                               .value_or(fallback);
++        push(0, 0, float(glow) * 0.75F, color);
++    }
++
++    const auto shadowOpacity =
++        clampNumber(recipe.value("shadowOpacity"), 0, 100, 0);
++    if (shadowOpacity > 0)
++    {
++        const auto color = cssColor(recipe.value("shadowColor").toString())
++                               .value_or(QColor(Qt::black));
++        push(float(clampNumber(recipe.value("shadowX"), -12, 12, 0)),
++             float(clampNumber(recipe.value("shadowY"), -12, 12, 0)),
++             float(clampNumber(recipe.value("shadowBlur"), 0, 20, 0)),
++             withOpacity(color, shadowOpacity / 100.0));
++    }
++
++    for (const auto &value : recipe.value("shadows").toArray())
++    {
++        const auto shadow = value.toObject();
++        const auto color = cssColor(shadow.value("color").toString());
++        if (!color)
++        {
++            continue;
++        }
++        push(float(clampNumber(shadow.value("x"), -20, 20, 0)),
++             float(clampNumber(shadow.value("y"), -20, 20, 0)),
++             float(clampNumber(shadow.value("blur"), 0, 30, 0)), *color);
++    }
++    return shadows;
++}
++
++NameflarePaint::Direction directionFrom(const QString &value)
++{
++    if (value == u"reverse")
++    {
++        return NameflarePaint::Direction::Reverse;
++    }
++    if (value == u"alternate")
++    {
++        return NameflarePaint::Direction::Alternate;
++    }
++    if (value == u"alternate-reverse")
++    {
++        return NameflarePaint::Direction::AlternateReverse;
++    }
++    return NameflarePaint::Direction::Normal;
++}
++
++}  // namespace
++
++NameflarePaints &NameflarePaints::instance()
++{
++    // Created on first use from the GUI thread (message building and
++    // rendering both happen there); lives for the rest of the process.
++    static auto *paints = new NameflarePaints;
++    return *paints;
++}
++
++NameflarePaints::NameflarePaints()
++{
++    this->flushTimer_.setSingleShot(true);
++    this->flushTimer_.setInterval(FLUSH_DELAY_MS);
++    QObject::connect(&this->flushTimer_, &QTimer::timeout, this, [this] {
++        this->flush();
++    });
++}
++
++QString NameflarePaints::origin()
++{
++    const QUrl url(getSettings()->nameflareOrigin.getValue().trimmed());
++    if (!url.isValid() || url.scheme() != u"https" || url.host().isEmpty() ||
++        !url.userInfo().isEmpty())
++    {
++        return QStringLiteral("https://nameflare.bxne.dev");
++    }
++    auto origin = u"https://"_s + url.host();
++    if (url.port(-1) != -1)
++    {
++        origin += u':' + QString::number(url.port());
++    }
++    return origin;
++}
++
++void NameflarePaints::noteUser(Platform platform, const QString &userID,
++                               const QString &nameKey)
++{
++    if (!getSettings()->displayNameflareFlares || userID.isEmpty() ||
++        nameKey.isEmpty() || userID.size() > 64 ||
++        !std::ranges::all_of(userID, [](QChar c) {
++            return c.isDigit();
++        }))
++    {
++        return;
++    }
++    const auto index = size_t(platform);
++    const auto key = nameKey.toLower();
++    const auto now = QDateTime::currentMSecsSinceEpoch();
++    {
++        std::unique_lock lock(this->mutex_);
++        auto &entries = this->entries_[index];
++        if (entries.size() >= size_t(MAX_ENTRIES) && !entries.contains(key))
++        {
++            entries.clear();
++            this->keysByID_[index].clear();
++        }
++        auto &entry = entries[key];
++        if (entry.userID != userID)
++        {
++            // A rename or a new chatter: start fresh for this name.
++            entry = Entry{.userID = userID};
++            this->keysByID_[index][userID] = key;
++        }
++        if (entry.pending || now - entry.checkedAt < RESULT_TTL_MS)
++        {
++            return;
++        }
++        entry.pending = true;
++        this->queue_[index].append(userID);
++    }
++    runInGuiThread([this] {
++        this->scheduleFlush();
++    });
++}
++
++void NameflarePaints::scheduleFlush()
++{
++    if (!this->flushTimer_.isActive())
++    {
++        this->flushTimer_.start();
++    }
++}
++
++void NameflarePaints::flush()
++{
++    for (size_t index = 0; index < 2; index++)
++    {
++        QStringList batch;
++        {
++            std::unique_lock lock(this->mutex_);
++            auto &queue = this->queue_[index];
++            batch = queue.mid(0, BATCH_SIZE);
++            queue.remove(0, batch.size());
++        }
++        if (!batch.isEmpty())
++        {
++            this->request(Platform(index), batch);
++        }
++    }
++    std::shared_lock lock(this->mutex_);
++    if (!this->queue_[0].isEmpty() || !this->queue_[1].isEmpty())
++    {
++        this->flushTimer_.start();  // more than one batch waiting
++    }
++}
++
++void NameflarePaints::request(Platform platform, const QStringList &userIDs)
++{
++    QJsonObject body{
++        {"provider", platform == Platform::Kick ? "kick" : "twitch"},
++        {"ids", QJsonArray::fromStringList(userIDs)},
++    };
++    const auto origin = NameflarePaints::origin();
++    this->inFlight_++;
++    NetworkRequest(QUrl(origin + u"/api/v1/resolve"_s),
++                   NetworkRequestType::Post)
++        .json(body)
++        .timeout(10000)
++        .caller(this)
++        .onSuccess([this, platform, userIDs](const NetworkResult &result) {
++            this->inFlight_--;
++            this->failures_ = 0;
++            this->applyResults(platform, userIDs, result.parseJson());
++        })
++        .onError([this, platform, userIDs](const NetworkResult &result) {
++            this->inFlight_--;
++            this->failures_++;
++            qCDebug(chatterinoSeventv)
++                << "Nameflare resolve failed:" << result.formatError();
++            // Keep what is shown; retry when these people speak again,
++            // backing off after repeated failures (or a 429).
++            const auto now = QDateTime::currentMSecsSinceEpoch();
++            const auto backoff =
++                std::min<qint64>(120000, 5000LL << std::min(this->failures_, 5));
++            std::unique_lock lock(this->mutex_);
++            const auto index = size_t(platform);
++            for (const auto &id : userIDs)
++            {
++                const auto key = this->keysByID_[index].find(id);
++                if (key == this->keysByID_[index].end())
++                {
++                    continue;
++                }
++                auto entry = this->entries_[index].find(key->second);
++                if (entry != this->entries_[index].end())
++                {
++                    entry->second.pending = false;
++                    entry->second.checkedAt =
++                        now - RESULT_TTL_MS + backoff;
++                }
++            }
++        })
++        .execute();
++}
++
++void NameflarePaints::applyResults(Platform platform,
++                                   const QStringList &requested,
++                                   const QJsonObject &root)
++{
++    const auto index = size_t(platform);
++    const auto origin = NameflarePaints::origin();
++    const auto now = QDateTime::currentMSecsSinceEpoch();
++
++    // Unknown identities are omitted; known ones without a Flare are null.
++    boost::unordered_flat_map<QString, QJsonObject> found;
++    for (const auto &value : root.value("users").toArray())
++    {
++        const auto user = value.toObject();
++        const auto id = user.value("provider_id").toString();
++        if (!id.isEmpty())
++        {
++            found[id] = user.value("cosmetic").toObject();
++        }
++    }
++
++    bool changed = false;
++    std::unique_lock lock(this->mutex_);
++    for (const auto &id : requested)
++    {
++        const auto keyIt = this->keysByID_[index].find(id);
++        if (keyIt == this->keysByID_[index].end())
++        {
++            continue;
++        }
++        auto entryIt = this->entries_[index].find(keyIt->second);
++        if (entryIt == this->entries_[index].end())
++        {
++            continue;
++        }
++        auto &entry = entryIt->second;
++        entry.pending = false;
++        entry.checkedAt = now;
++
++        const auto cosmetic = found.contains(id) ? found[id] : QJsonObject{};
++        QString cosmeticKey;
++        if (!cosmetic.isEmpty())
++        {
++            const auto recipe = QJsonDocument(cosmetic.value("recipe").toObject())
++                                    .toJson(QJsonDocument::Compact);
++            cosmeticKey =
++                cosmetic.value("id").toString() + u':' +
++                QString::fromLatin1(QCryptographicHash::hash(
++                                        recipe, QCryptographicHash::Sha1)
++                                        .toHex()
++                                        .left(16));
++        }
++        if (cosmeticKey == entry.cosmeticKey)
++        {
++            continue;  // unchanged: keep the paint and its animation
++        }
++        entry.cosmeticKey = cosmeticKey;
++        if (cosmeticKey.isEmpty())
++        {
++            entry.paint = nullptr;
++        }
++        else
++        {
++            auto &shared = this->paints_[cosmeticKey];
++            if (!shared)
++            {
++                shared = NameflarePaints::paintFromCosmetic(cosmetic, origin);
++            }
++            entry.paint = shared;
++        }
++        changed = true;
++    }
++    lock.unlock();
++
++    if (changed)
++    {
++        getApp()->getWindows()->invalidateChannelViewBuffers();
++    }
++}
++
++std::shared_ptr<Paint> NameflarePaints::getPaint(const QString &nameKey,
++                                                 bool kick) const
++{
++    std::shared_lock lock(this->mutex_);
++    const auto &entries = this->entries_[kick ? 1 : 0];
++    const auto found = entries.find(nameKey.toLower());
++    return found == entries.end() ? nullptr : found->second.paint;
++}
++
++std::shared_ptr<Paint> NameflarePaints::paintFromCosmetic(
++    const QJsonObject &cosmetic, const QString &origin)
++{
++    const auto recipe = cosmetic.value("recipe").toObject();
++    if (recipe.isEmpty())
++    {
++        return nullptr;
++    }
++    const auto name = u"Nameflare · "_s + cosmetic.value("name").toString().left(60);
++    const auto id = u"nameflare:"_s + cosmetic.value("id").toString().left(80);
++    const auto palette = paletteStops(recipe);
++    auto shadows = shadowsFrom(recipe, palette);
++
++    // The top visible layer is the fill; older recipes use the palette.
++    QJsonObject layer;
++    for (const auto &value : recipe.value("layers").toArray())
++    {
++        const auto candidate = value.toObject();
++        if (clampNumber(candidate.value("opacity"), 0, 1, 1) > 0)
++        {
++            layer = candidate;
++            break;
++        }
++    }
++    const auto type = layer.isEmpty() ? QString{} : layer.value("type").toString();
++    const auto opacity = clampNumber(layer.value("opacity"), 0, 1, 1);
++
++    // Image and GIF fills: only from the configured Nameflare origin.
++    const auto textureID = type == u"image" ? layer.value("textureId").toString()
++                           : layer.isEmpty() ? recipe.value("textureId").toString()
++                                             : QString{};
++    if (!textureID.isEmpty())
++    {
++        if (!validTextureID(textureID))
++        {
++            return nullptr;
++        }
++        auto image = Image::fromUrl(Url{origin + u"/textures/"_s + textureID});
++        return std::make_shared<UrlPaint>(name, id, image, std::move(shadows));
++    }
++
++    NameflarePaint::Fill fill;
++    const auto animation = recipe.value("animation").toString();
++    if (animation == u"flow" || animation == u"shimmer")
++    {
++        fill.motion = NameflarePaint::Motion::Flow;
++    }
++    fill.periodMs = int(clampNumber(recipe.value("speed"), 1, 20, 4) * 1000);
++    fill.direction = directionFrom(recipe.value("direction").toString());
++
++    if (type == u"solid")
++    {
++        const auto color = cssColor(layer.value("color").toString());
++        if (!color)
++        {
++            return nullptr;
++        }
++        fill.kind = NameflarePaint::Kind::Solid;
++        fill.stops = {{0.0, withOpacity(*color, opacity)}};
++        fill.motion = NameflarePaint::Motion::None;
++    }
++    else if (type == u"linear" || type == u"radial" || type == u"conic")
++    {
++        fill.kind = type == u"linear"   ? NameflarePaint::Kind::Linear
++                    : type == u"radial" ? NameflarePaint::Kind::Radial
++                                        : NameflarePaint::Kind::Conic;
++        fill.stops = stopsFrom(layer.value("stops").toArray(), opacity);
++        fill.angle = float(clampNumber(layer.value("angle"), 0, 360, 90));
++        fill.repeat = layer.value("repeat").toBool();
++        const auto at = layer.value("at").toArray();
++        if (at.size() == 2)
++        {
++            fill.center = {clampNumber(at[0], 0, 100, 50) / 100.0,
++                           clampNumber(at[1], 0, 100, 50) / 100.0};
++        }
++    }
++    else
++    {
++        // Legacy recipe: the palette as a linear gradient at `angle`.
++        fill.kind = NameflarePaint::Kind::Linear;
++        fill.stops = palette;
++        fill.angle = float(clampNumber(recipe.value("angle"), 0, 360, 90));
++    }
++    if (fill.stops.isEmpty())
++    {
++        return nullptr;
++    }
++    return std::make_shared<NameflarePaint>(name, id, std::move(fill),
++                                            std::move(shadows));
++}
++
++bool usernamePaintsEnabled()
++{
++    return getSettings()->displayNameflareFlares ||
++           getSettings()->displaySevenTVPaints;
++}
++
++std::shared_ptr<Paint> usernamePaint(const QString &nameKey, bool kick)
++{
++    if (getSettings()->displayNameflareFlares)
++    {
++        if (auto paint = NameflarePaints::instance().getPaint(nameKey, kick))
++        {
++            return paint;
++        }
++    }
++    if (getSettings()->displaySevenTVPaints)
++    {
++        return getApp()->getSeventvPaints()->getPaint(nameKey, kick);
++    }
++    return nullptr;
++}
++
++}  // namespace chatterino
+diff --git a/src/providers/nameflare/NameflarePaints.hpp b/src/providers/nameflare/NameflarePaints.hpp
+new file mode 100644
+index 0000000..a88713f
+--- /dev/null
++++ b/src/providers/nameflare/NameflarePaints.hpp
+@@ -0,0 +1,88 @@
++#pragma once
++
++#include "util/QStringHash.hpp"  // IWYU pragma: keep
++
++#include <boost/unordered/unordered_flat_map.hpp>
++#include <QJsonObject>
++#include <QObject>
++#include <QString>
++#include <QStringList>
++#include <QTimer>
++
++#include <array>
++#include <memory>
++#include <shared_mutex>
++
++namespace chatterino {
++
++class Paint;
++
++/// Nameflare Flares as username paints (https://nameflare.bxne.dev).
++///
++/// Message builders report each chatter with `noteUser` (platform user ID plus
++/// the key the nametag is drawn with). IDs are looked up in batches of up to
++/// 100 through the public `POST /api/v1/resolve` endpoint, cached for 15
++/// seconds as the API contract requires, and re-checked when the person
++/// speaks again after that. `usernamePaint` is what the renderer asks: a
++/// Nameflare paint when the person wears an approved Flare, otherwise their
++/// 7TV paint.
++class NameflarePaints final : public QObject
++{
++public:
++    enum class Platform : std::uint8_t {
++        Twitch = 0,
++        Kick = 1,
++    };
++
++    static NameflarePaints &instance();
++
++    /// `userID` is the immutable platform ID; `nameKey` is the login (Twitch)
++    /// or display name (Kick) the nametag links to. Thread-safe.
++    void noteUser(Platform platform, const QString &userID,
++                  const QString &nameKey);
++
++    std::shared_ptr<Paint> getPaint(const QString &nameKey, bool kick) const;
++
++    /// Build a paint from a public cosmetic object (`{id, name, recipe}`).
++    /// Returns nullptr for anything that cannot be drawn safely.
++    static std::shared_ptr<Paint> paintFromCosmetic(const QJsonObject &cosmetic,
++                                                    const QString &origin);
++
++    /// The configured service origin, normalised (https only, no path).
++    static QString origin();
++
++private:
++    NameflarePaints();
++
++    struct Entry {
++        QString userID;
++        QString cosmeticKey;  // cosmetic id + recipe hash, or empty
++        std::shared_ptr<Paint> paint;
++        qint64 checkedAt = 0;
++        bool pending = false;
++    };
++
++    void scheduleFlush();
++    void flush();
++    void request(Platform platform, const QStringList &userIDs);
++    void applyResults(Platform platform, const QStringList &requested,
++                      const QJsonObject &root);
++
++    mutable std::shared_mutex mutex_;
++    std::array<boost::unordered_flat_map<QString, Entry>, 2> entries_;  // by name key
++    std::array<boost::unordered_flat_map<QString, QString>, 2> keysByID_;
++    std::array<QStringList, 2> queue_;  // user IDs awaiting lookup
++    boost::unordered_flat_map<QString, std::shared_ptr<Paint>> paints_;  // by cosmeticKey
++    QTimer flushTimer_;
++    int inFlight_ = 0;
++    int failures_ = 0;
++};
++
++/// The paint the renderer draws a nametag with: a Nameflare Flare first (when
++/// enabled), then the person's 7TV paint (when enabled).
++std::shared_ptr<Paint> usernamePaint(const QString &nameKey, bool kick);
++
++/// Whether nametags should be drawn with paints at all.
++bool usernamePaintsEnabled();
++
++}  // namespace chatterino
+diff --git a/src/singletons/Settings.hpp b/src/singletons/Settings.hpp
+index 97944dc..41939db 100644
+--- a/src/singletons/Settings.hpp
++++ b/src/singletons/Settings.hpp
+@@ -342,6 +342,10 @@ public:
+     BoolSetting enableSmoothScrollingNewMessages = {
+         "/appearance/smoothScrollingNewMessages", false};
+     BoolSetting displaySevenTVPaints = {"/misc/displaySevenTVPaints", true};
++    /// Nameflare Flares (https://nameflare.bxne.dev) as username paints.
++    BoolSetting displayNameflareFlares = {"/misc/displayNameflareFlares", true};
++    QStringSetting nameflareOrigin = {"/misc/nameflareOrigin",
++                                      "https://nameflare.bxne.dev"};
+     BoolSetting displaySevenTVPaintShadows = {
+         "/misc/displaySevenTVPaintShadows", true};
+     BoolSetting largeSevenTVPaintShadows = {"/misc/largeSevenTVPaintShadows",
+diff --git a/src/widgets/dialogs/UserInfoPopup.cpp b/src/widgets/dialogs/UserInfoPopup.cpp
+index a1c6542..37f921b 100644
+--- a/src/widgets/dialogs/UserInfoPopup.cpp
++++ b/src/widgets/dialogs/UserInfoPopup.cpp
+@@ -40,6 +40,7 @@
+ #include "providers/moltorino/MoltorinoSupporterBadges.hpp"
+ #include "providers/pronouns/Pronouns.hpp"
+ #include "providers/seventv/SeventvBadges.hpp"
++#include "providers/nameflare/NameflarePaints.hpp"
+ #include "providers/seventv/SeventvPaints.hpp"
+ #include "providers/tiktok/TikTokAccount.hpp"
+ #include "providers/tiktok/TikTokBadge.hpp"
+@@ -271,13 +272,12 @@ protected:
+         const auto login = this->property("paint-login").toString().toLower();
+         const bool isKick = this->property("paint-kick").toBool();
+         auto *app = tryGetApp();
+-        if (!app || login.isEmpty() ||
+-            !getSettings()->displaySevenTVPaints)
++        if (!app || login.isEmpty() || !usernamePaintsEnabled())
+         {
+             return Label::event(event);
+         }
+ 
+-        const auto paint = app->getSeventvPaints()->getPaint(login, isKick);
++        const auto paint = usernamePaint(login, isKick);
+         const auto tooltip = paint ? paint->getTooltip() : QString{};
+         if (tooltip.isEmpty())
+         {
+@@ -7049,10 +7049,9 @@ void UserInfoPopup::refreshIdentityPaint()
+     std::shared_ptr<Paint> paint;
+     if (!this->isYouTube_ && !this->isTikTok_ &&
+         getSettings()->showUsercardSevenTVPaint &&
+-        getSettings()->displaySevenTVPaints && !this->userName_.isEmpty())
++        usernamePaintsEnabled() && !this->userName_.isEmpty())
+     {
+-        paint = getApp()->getSeventvPaints()->getPaint(
+-            this->userName_.toLower(), this->isKick_);
++        paint = usernamePaint(this->userName_.toLower(), this->isKick_);
+     }
+ 
+     const bool visible =
+diff --git a/src/widgets/settingspages/GeneralPage.cpp b/src/widgets/settingspages/GeneralPage.cpp
+index 9be1e7e..c6f3230 100644
+--- a/src/widgets/settingspages/GeneralPage.cpp
++++ b/src/widgets/settingspages/GeneralPage.cpp
+@@ -1558,6 +1558,10 @@ void GeneralPage::initLayout(GeneralPageView &layout)
+ 
+     SettingWidget::checkbox("Display 7TV Paints", s.displaySevenTVPaints)
+         ->addTo(layout);
++    SettingWidget::checkbox("Display Nameflare Flares", s.displayNameflareFlares)
++        ->setDescription("Animated name styles people wear from nameflare.bxne.dev. "
++                         "A Flare is shown instead of a 7TV paint when someone has both.")
++        ->addTo(layout);
+     SettingWidget::checkbox("Display 7TV Paint Shadows",
+                             s.displaySevenTVPaintShadows)
+         ->addTo(layout);
+@@ -1571,6 +1575,7 @@ void GeneralPage::initLayout(GeneralPageView &layout)
+             getApp()->getWindows()->invalidateChannelViewBuffers();
+         };
+         s.displaySevenTVPaints.connect(cb, this->managedConnections_, false);
++        s.displayNameflareFlares.connect(cb, this->managedConnections_, false);
+         s.displaySevenTVPaintShadows.connect(cb, this->managedConnections_,
+                                              false);
+         s.largeSevenTVPaintShadows.connect(cb, this->managedConnections_,
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 182413e..6d18085 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -29,6 +29,7 @@ set(test_SOURCES
+     ${CMAKE_CURRENT_LIST_DIR}/src/LimitedQueue.cpp
+     ${CMAKE_CURRENT_LIST_DIR}/src/BasicPubSub.cpp
+     ${CMAKE_CURRENT_LIST_DIR}/src/SeventvEventAPI.cpp
++    ${CMAKE_CURRENT_LIST_DIR}/src/NameflarePaints.cpp
+     ${CMAKE_CURRENT_LIST_DIR}/src/BttvLiveUpdates.cpp
+     ${CMAKE_CURRENT_LIST_DIR}/src/Updates.cpp
+     ${CMAKE_CURRENT_LIST_DIR}/src/Filters.cpp
+diff --git a/tests/src/NameflarePaints.cpp b/tests/src/NameflarePaints.cpp
+new file mode 100644
+index 0000000..831eacd
+--- /dev/null
++++ b/tests/src/NameflarePaints.cpp
+@@ -0,0 +1,170 @@
++#include "providers/nameflare/NameflarePaints.hpp"
++
++#ifndef NAMEFLARE_STANDALONE
++#    include "mocks/BaseApplication.hpp"
++#endif
++#include "providers/nameflare/NameflarePaint.hpp"
++#include "providers/seventv/paints/UrlPaint.hpp"
++#include "singletons/Settings.hpp"
++#include "Test.hpp"
++
++#include <QImage>
++#include <QJsonArray>
++#include <QJsonDocument>
++#include <QPainter>
++
++using namespace chatterino;
++
++namespace {
++
++const QString ORIGIN = QStringLiteral("https://nameflare.example");
++
++QJsonObject cosmetic(const char *recipeJson)
++{
++    return {
++        {"id", "flare-1"},
++        {"name", "Test Flare"},
++        {"recipe", QJsonDocument::fromJson(recipeJson).object()},
++    };
++}
++
++/// Fill a box with the paint's brush and sample a pixel.
++QColor sample(const Paint &paint, QPointF at)
++{
++    QImage image(200, 40, QImage::Format_ARGB32);
++    image.fill(Qt::transparent);
++    QPainter painter(&image);
++    painter.fillRect(QRectF(0, 0, 200, 40),
++                     paint.asBrush(Qt::white, QRectF(0, 0, 200, 40)));
++    painter.end();
++    return image.pixelColor(at.toPoint());
++}
++
++class NameflarePaintsTest : public ::testing::Test
++{
++#ifndef NAMEFLARE_STANDALONE
++protected:
++    mock::BaseApplication app;
++#endif
++};
++
++}  // namespace
++
++TEST_F(NameflarePaintsTest, LegacyPaletteIsALinearGradientAtItsAngle)
++{
++    getSettings()->animateEmotes = false;
++    const auto paint = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none","angle":90})"),
++        ORIGIN);
++    ASSERT_NE(paint, nullptr);
++    ASSERT_NE(dynamic_cast<NameflarePaint *>(paint.get()), nullptr);
++    EXPECT_FALSE(paint->animated());
++    EXPECT_EQ(paint->getName(), u"Nameflare · Test Flare");
++
++    // 90° points right: red on the left, blue on the right.
++    const auto left = sample(*paint, {2, 20});
++    const auto right = sample(*paint, {197, 20});
++    EXPECT_GT(left.red(), 200);
++    EXPECT_LT(left.blue(), 60);
++    EXPECT_GT(right.blue(), 200);
++    EXPECT_LT(right.red(), 60);
++}
++
++TEST_F(NameflarePaintsTest, TopVisibleLayerWinsAndAlphaColoursKeepTheirAlpha)
++{
++    const auto paint = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
++            {"type":"linear","opacity":0,"stops":[{"at":0,"color":"#ff0000"},{"at":1,"color":"#ff0000"}]},
++            {"type":"solid","opacity":1,"color":"#00ff0080"}]})"),
++        ORIGIN);
++    ASSERT_NE(paint, nullptr);
++    const auto pixel = sample(*paint, {100, 20});
++    EXPECT_GT(pixel.green(), 200);
++    EXPECT_LT(pixel.red(), 40);
++    EXPECT_NEAR(pixel.alpha(), 128, 2);  // #RRGGBBAA, not Qt's #AARRGGBB
++}
++
++TEST_F(NameflarePaintsTest, EffectsBecomeDropShadowsInStackingOrderAndAreCapped)
++{
++    const auto paint = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none",
++            "depth":3,"outline":1,"glow":6,"shadowOpacity":50,"shadowX":2,"shadowY":2,
++            "shadows":[{"x":1,"y":1,"blur":2,"color":"#00000080"},{"x":0,"y":0,"blur":4,"color":"#ffffff40"}]})"),
++        ORIGIN);
++    ASSERT_NE(paint, nullptr);
++    // depth 3 + outline 4 + glow 1 + legacy shadow 1 + extra shadows 2
++    EXPECT_EQ(paint->getDropShadows().size(), 11U);
++
++    const auto heavy = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none",
++            "depth":8,"outline":2,"glow":20,"shadowOpacity":100,
++            "shadows":[{"x":1,"y":1,"blur":1,"color":"#000000"},{"x":1,"y":1,"blur":1,"color":"#000000"},
++                       {"x":1,"y":1,"blur":1,"color":"#000000"},{"x":1,"y":1,"blur":1,"color":"#000000"},
++                       {"x":1,"y":1,"blur":1,"color":"#000000"},{"x":1,"y":1,"blur":1,"color":"#000000"},
++                       {"x":1,"y":1,"blur":1,"color":"#000000"},{"x":1,"y":1,"blur":1,"color":"#000000"}]})"),
++        ORIGIN);
++    ASSERT_NE(heavy, nullptr);
++    EXPECT_EQ(heavy->getDropShadows().size(), 14U);  // each one is a blur pass
++}
++
++TEST_F(NameflarePaintsTest, ImageLayersOnlyLoadWellFormedTexturesFromTheOrigin)
++{
++    const auto image = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none","layers":[
++            {"type":"image","opacity":1,"textureId":"86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif"}]})"),
++        ORIGIN);
++    ASSERT_NE(image, nullptr);
++    EXPECT_NE(dynamic_cast<UrlPaint *>(image.get()), nullptr);
++
++    for (const auto *bad : {"../../etc/passwd", "https://evil.example/x.gif",
++                            "86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.exe"})
++    {
++        auto recipe = cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none"})");
++        auto inner = recipe["recipe"].toObject();
++        inner["layers"] = QJsonArray{QJsonObject{
++            {"type", "image"}, {"opacity", 1}, {"textureId", bad}}};
++        recipe["recipe"] = inner;
++        EXPECT_EQ(NameflarePaints::paintFromCosmetic(recipe, ORIGIN), nullptr)
++            << bad;
++    }
++}
++
++TEST_F(NameflarePaintsTest, FlowMovesFollowingSpeedAndDirection)
++{
++    getSettings()->animateEmotes = true;
++    const auto make = [](const char *direction) {
++        return std::dynamic_pointer_cast<NameflarePaint>(
++            NameflarePaints::paintFromCosmetic(
++                cosmetic(QString(R"({"colors":["#ff0000","#0000ff"],"animation":"flow","speed":4,"direction":"%1"})")
++                             .arg(direction)
++                             .toUtf8()
++                             .constData()),
++                ORIGIN));
++    };
++    const auto normal = make("normal");
++    ASSERT_NE(normal, nullptr);
++    EXPECT_TRUE(normal->animated());
++    EXPECT_NEAR(normal->phaseAt(1000), 0.25, 1e-9);
++    EXPECT_NEAR(normal->phaseAt(4000 + 2000), 0.5, 1e-9);
++
++    EXPECT_NEAR(make("reverse")->phaseAt(1000), 0.75, 1e-9);
++    // Alternate plays forward, then back, over two cycles.
++    const auto alternate = make("alternate");
++    EXPECT_NEAR(alternate->phaseAt(2000), 0.5, 1e-9);
++    EXPECT_NEAR(alternate->phaseAt(6000), 0.5, 1e-9);
++    EXPECT_NEAR(alternate->phaseAt(7000), 0.25, 1e-9);
++
++    // GIF animation off in settings stops Flare motion too.
++    getSettings()->animateEmotes = false;
++    EXPECT_FALSE(normal->animated());
++    getSettings()->animateEmotes = true;
++}
++
++TEST_F(NameflarePaintsTest, RecipesThatCannotBeDrawnAreIgnored)
++{
++    EXPECT_EQ(NameflarePaints::paintFromCosmetic(QJsonObject{}, ORIGIN), nullptr);
++    EXPECT_EQ(NameflarePaints::paintFromCosmetic(
++                  cosmetic(R"({"colors":["not-a-colour"],"animation":"none"})"),
++                  ORIGIN),
++              nullptr);
++}

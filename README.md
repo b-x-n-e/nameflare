@@ -58,6 +58,9 @@ npm run check     # syntax check of every script
 
 ## Bring Flares into chat
 
+- **Moltorino.** A ready-made integration for the [Moltorino](https://github.com/EEVA-inc/Moltorino)
+  chat client draws Flares on Twitch and Kick usernames. See
+  [integrations/moltorino](integrations/moltorino/README.md).
 - **Kick, YouTube and multi-platform chat.** Use [Banechat](https://chat.bxne.dev).
 - **API and SDK.** Approved Flares are public JSON with CORS. Look people up by
   platform ID one at a time or 100 at a time, list who is wearing a Flare, read
