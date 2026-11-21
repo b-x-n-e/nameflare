@@ -242,21 +242,21 @@ wa-button.follow-button[aria-pressed="true"]::part(button) {
   border-top: 1px solid var(--line);
 }
 .cosmetic-card .post-actions { margin-top: auto; }
-.post-social { display: flex; align-items: center; gap: 4px; min-width: 0; }
-wa-button.like-button::part(button) {
+.card-react { display: flex; align-items: center; gap: 4px; min-width: 0; }
+wa-button.heart-toggle::part(button) {
   gap: 6px; min-height: 32px; padding: 0 10px;
   color: var(--muted); background: transparent; border: 1px solid transparent;
   font-size: var(--text-xs); font-weight: 560;
 }
-wa-button.like-button::part(button):hover { color: var(--ink); background: var(--surface-2); }
-wa-button.like-button[aria-pressed="true"]::part(button) { color: var(--accent); background: var(--accent-soft); }
-wa-button.like-button .ui-icon { width: 15px; height: 15px; }
-wa-button.like-button[aria-pressed="true"] .ui-icon { --i-line: none; --i-solid: inline; }
-.like-count { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--faint); }
-wa-button.like-button[aria-pressed="true"] .like-count { color: var(--accent); }
-.like-label { display: none; }
-.post-social .button.ghost { min-height: 32px; padding: 0 9px; font-size: var(--text-xs); }
-.post-social .button.ghost .ui-icon { width: 14px; height: 14px; }
+wa-button.heart-toggle::part(button):hover { color: var(--ink); background: var(--surface-2); }
+wa-button.heart-toggle[aria-pressed="true"]::part(button) { color: var(--accent); background: var(--accent-soft); }
+wa-button.heart-toggle .ui-icon { width: 15px; height: 15px; }
+wa-button.heart-toggle[aria-pressed="true"] .ui-icon { --i-line: none; --i-solid: inline; }
+.heart-count { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--faint); }
+wa-button.heart-toggle[aria-pressed="true"] .heart-count { color: var(--accent); }
+.heart-label { display: none; }
+.card-react .button.ghost { min-height: 32px; padding: 0 9px; font-size: var(--text-xs); }
+.card-react .button.ghost .ui-icon { width: 14px; height: 14px; }
 .equip-stat { padding: 0; color: var(--faint); background: none; border: 0; font-size: var(--text-xs); letter-spacing: 0; }
 .equip-stat .ui-icon { width: 13px; height: 13px; }
 .post-buttons { display: flex; align-items: center; gap: 8px; margin-left: auto; }

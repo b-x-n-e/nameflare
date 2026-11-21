@@ -489,7 +489,7 @@ const likes=createLikeController({
     if(state.view==='discover' && state.likedOnly && !value.liked){
       state.cosmetics=state.cosmetics.filter(paint=>paint.id!==value.id);
       const cards=[...$('#catalog').querySelectorAll('.cosmetic-card')];
-      for(const card of cards)if(card.dataset.paintId===value.id){const focused=card.contains(document.activeElement),next=card.nextElementSibling || card.previousElementSibling;card.remove();if(focused)(next?.querySelector('.like-button') || $('#catalog-liked')).focus();}
+      for(const card of cards)if(card.dataset.paintId===value.id){const focused=card.contains(document.activeElement),next=card.nextElementSibling || card.previousElementSibling;card.remove();if(focused)(next?.querySelector('.heart-toggle') || $('#catalog-liked')).focus();}
       if(!state.cosmetics.length){state.next=null;renderCatalog();}else updateCatalogStatus();
     }
   }
@@ -531,12 +531,12 @@ function shareButton(cosmetic) {
 }
 function updateLikeButton(button) {
   const value=likes.get(button.dataset.likeId),liked=Boolean(state.user && (value?.liked ?? state.likedIds.has(button.dataset.likeId))),count=value?.count ?? Number(button.dataset.likeCount || 0);
-  const wasLiked=button.getAttribute('aria-pressed')==='true',previous=button.querySelector('.like-count').textContent;
+  const wasLiked=button.getAttribute('aria-pressed')==='true',previous=button.querySelector('.heart-count').textContent;
   button.setAttribute('aria-pressed',String(liked));button.setAttribute('aria-label',`Like ${button.dataset.likeName}`);
   button.setAttribute('aria-busy',String(Boolean(value?.pending)));button.title=liked?'Remove from your likes':'Save to your likes';
-  button.querySelector('.like-count').textContent=compactNumber(count);button.querySelector('.like-label').textContent='Like';button.classList.toggle('no-likes',!count);
+  button.querySelector('.heart-count').textContent=compactNumber(count);button.querySelector('.heart-label').textContent='Like';button.classList.toggle('no-likes',!count);
   if(liked && !wasLiked && button.isConnected){button.classList.remove('heart-pop');void button.offsetWidth;button.classList.add('heart-pop');}
-  if(previous!==String(count) && button.isConnected){const counter=button.querySelector('.like-count');counter.classList.remove('count-pop');void counter.offsetWidth;counter.classList.add('count-pop');}
+  if(previous!==String(count) && button.isConnected){const counter=button.querySelector('.heart-count');counter.classList.remove('count-pop');void counter.offsetWidth;counter.classList.add('count-pop');}
 }
 function requestLike(cosmetic) {
   if(!state.user){try{sessionStorage.setItem('nameflare.like',JSON.stringify({id:cosmetic.id,at:Date.now()}));}catch{}rememberIntent('like',cosmetic.id);openSignIn('like');return;}
@@ -551,11 +551,11 @@ async function resumeLikeIntent() {
 }
 function likeButton(cosmetic) {
   likes.observe(cosmetic.id,cosmetic.like_count || 0,state.likedIds.has(cosmetic.id),cosmetic.like_read_revision ?? likes.revision);
-  const button=node('wa-button','like-button');button.setAttribute('appearance','plain');button.setAttribute('size','s');button.setAttribute('type','button');button.addEventListener('click',()=>run(()=>requestLike(cosmetic)));
+  const button=node('wa-button','heart-toggle');button.setAttribute('appearance','plain');button.setAttribute('size','s');button.setAttribute('type','button');button.addEventListener('click',()=>run(()=>requestLike(cosmetic)));
   button.dataset.likeId=cosmetic.id;button.dataset.likeName=cosmetic.name;button.dataset.likeCount=String(cosmetic.like_count || 0);
   const heart=icon('heart');
-  const count=node('span','like-count');count.setAttribute('slot','end');
-  button.append(heart,node('span','like-label sr-only','Like'),count);updateLikeButton(button);return button;
+  const count=node('span','heart-count');count.setAttribute('slot','end');
+  button.append(heart,node('span','heart-label sr-only','Like'),count);updateLikeButton(button);return button;
 }
 const catalogPreviews = new Map();
 const showcasePreviews = new Map();
@@ -623,12 +623,15 @@ const updateCatalogNames = createFrameUpdate(() => {
     updateCosmeticText(element, text);fitPreviewName(element, text);
   }
 });
+// Image and GIF Flares have no gradient to sample, so UI tints (the Wearing button,
+// hover glows) fall back to the Flare's fallback colours, then the accent.
+function accentColors(recipe){const list=(recipe?.colors || []).filter(color=>/^#[0-9a-f]{6}$/i.test(color));return list.length?list:['#f15a20'];}
 // While no name is typed, a plate already shows the Flare's own name, so the caption title steps aside.
 function syncTypedName(){document.documentElement.toggleAttribute('data-typed-name',Boolean(previewName()));}
 function card(cosmetic, collection=false, trackCatalog=true) {
   syncTypedName();
   const colors=paintPalette(cosmetic.recipe);
-  const card=node('article',`cosmetic-card${collection?' collection-card':''}`);card.dataset.paintId=cosmetic.id;card.dataset.creatorId=cosmetic.creator_id || cosmetic.owner_id || '';card.style.setProperty('--paint-color',colors[0] || 'transparent');card.style.setProperty('--paint-secondary',colors.at(-1) || 'transparent');card.classList.toggle('is-equipped',state.user?.equipped===cosmetic.id);
+  const card=node('article',`cosmetic-card${collection?' collection-card':''}`);card.dataset.paintId=cosmetic.id;card.dataset.creatorId=cosmetic.creator_id || cosmetic.owner_id || '';const tint=colors.length?colors:accentColors(cosmetic.recipe);card.style.setProperty('--paint-color',tint[0] || 'transparent');card.style.setProperty('--paint-secondary',tint.at(-1) || 'transparent');card.classList.toggle('is-equipped',state.user?.equipped===cosmetic.id);
   const creatorId=cosmetic.creator_id || cosmetic.owner_id || '';
   const head=node('div','post-head');
   const author=node('a','post-author');author.href=`/profiles/${encodeURIComponent(creatorId)}`;
@@ -665,7 +668,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   for(const color of colors){const dot=node('i');dot.style.backgroundColor=color;swatches.append(dot);}
   if(!colors.length)swatches.append(node('small','','Image fill'));
   const effect=node('span','effect-caption',cosmetic.recipe.animation==='none'?'Static finish':`${cosmetic.recipe.speed}s ${cosmetic.recipe.animation}`);effect.prepend(icon(cosmetic.recipe.animation==='none'?'spark':'motion'));bottom.append(swatches,effect);meta.append(bottom);
-  const actions=node('div','post-actions'),social=node('div','post-social');
+  const actions=node('div','post-actions'),social=node('div','card-react');
   if(!collection){
     if((!cosmetic.status || cosmetic.status==='approved') && cosmetic.listed)social.append(likeButton(cosmetic));
     const shareAction=shareButton(cosmetic);social.append(shareAction);
@@ -680,7 +683,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
     meta.append(status);
     if(cosmetic.reviewed_at){const reviewed=node('p','card-note',`Reviewed by ${cosmetic.reviewer || 'a moderator'} · ${timeAgo(cosmetic.reviewed_at)}`);reviewed.title=date(cosmetic.reviewed_at);meta.append(reviewed);}
     if(cosmetic.reason){const note=node('p','collection-note');note.append(node('span','collection-note-label','Reviewer note'),document.createTextNode(cosmetic.reason));meta.append(note);}
-    const buttons=node('div','card-actions'),social=node('div','post-social'),trailing=node('div','card-actions-end');
+    const buttons=node('div','card-actions'),social=node('div','card-react'),trailing=node('div','card-actions-end');
     if((!cosmetic.status || cosmetic.status==='approved') && cosmetic.listed)social.append(likeButton(cosmetic));
     // Only an approved Flare has a link worth sharing.
     if(cosmetic.status==='approved'){const share=shareButton(cosmetic);social.append(share);}
@@ -884,7 +887,7 @@ const showcaseCache=new Map();let showcaseKind='trending',showcaseRequest=0;
 function showcaseTile(cosmetic,index,kind){
   const item=node('li','showcase-item'),tile=node('button','showcase-tile');tile.type='button';
   tile.setAttribute('aria-label',`${index+1}. ${cosmetic.name} by ${cosmetic.creator || 'the community'}. Open details`);
-  const stage=node('span','showcase-stage'),colors=paintPalette(cosmetic.recipe);
+  const stage=node('span','showcase-stage'),palette=paintPalette(cosmetic.recipe),colors=palette.length?palette:accentColors(cosmetic.recipe);
   if(colors[0])stage.style.setProperty('--paint-color',colors[0]);if(colors.at(-1))stage.style.setProperty('--paint-secondary',colors.at(-1));
   const text=previewName() || cosmetic.name || cosmetic.creator,name=node('strong','',text);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});fitPreviewName(name,text);showcasePreviews.set(name,cosmetic);
   stage.append(node('span','showcase-rank',`#${index+1}`),name);
@@ -892,7 +895,7 @@ function showcaseTile(cosmetic,index,kind){
   const meta=node('span','showcase-meta'),title=node('strong','',cosmetic.name),sub=node('small','',`${cosmetic.creator || 'Community'} · ${kind==='popular'?(wearing?`${compactNumber(wearing)} wearing`:'Not worn yet'):(likes?`${compactNumber(likes)} like${likes===1?'':'s'} this week`:'New this week')}`);
   meta.append(title,sub);tile.append(stage,meta);tile.addEventListener('click',()=>openDetails(cosmetic));
   // The heart sits on the plate's corner; it is a sibling of the tile because a button can't hold a button.
-  const like=likeButton(cosmetic);like.classList.add('showcase-like');item.append(tile,like);return item;
+  const like=likeButton(cosmetic);like.classList.add('showcase-heart');item.append(tile,like);return item;
 }
 // Trending loads on its own, as soon as config is in, and never depends on the
 // rest of the page: before, it started only after the feed and the first view had

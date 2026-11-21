@@ -192,12 +192,12 @@
 :root[data-theme] #main-content .cosmetic-card .post-sub { font-size: 12px; color: var(--faint); }
 :root[data-theme] #main-content .cosmetic-card .post-sub::before { content: "·"; margin-right: 6px; color: var(--faint); }
 :root[data-theme] #main-content .cosmetic-card > .post-actions { grid-area: actions; order: 3; padding: 6px 0 0; gap: 4px; border: 0; background: none; container-type: normal; }
-:root[data-theme] #main-content .cosmetic-card .post-social { gap: 0; }
+:root[data-theme] #main-content .cosmetic-card .card-react { gap: 0; }
 :root[data-theme] #main-content .cosmetic-card wa-button.post-action-share { display: none; }
-:root[data-theme] wa-button.like-button::part(button), :root[data-theme] wa-button.like-button::part(base) { min-height: 32px; padding: 0 8px; color: var(--muted); background: none; }
-:root[data-theme] wa-button.like-button:hover::part(button), :root[data-theme] wa-button.like-button:hover::part(base) { color: var(--ink); background: var(--tint-1); }
-:root[data-theme] wa-button.like-button[aria-pressed="true"]::part(button), :root[data-theme] wa-button.like-button[aria-pressed="true"]::part(base) { color: #e5364f; }
-:root[data-theme] .like-count { font: 500 12px var(--font-mono); }
+:root[data-theme] wa-button.heart-toggle::part(button), :root[data-theme] wa-button.heart-toggle::part(base) { min-height: 32px; padding: 0 8px; color: var(--muted); background: none; }
+:root[data-theme] wa-button.heart-toggle:hover::part(button), :root[data-theme] wa-button.heart-toggle:hover::part(base) { color: var(--ink); background: var(--tint-1); }
+:root[data-theme] wa-button.heart-toggle[aria-pressed="true"]::part(button), :root[data-theme] wa-button.heart-toggle[aria-pressed="true"]::part(base) { color: #e5364f; }
+:root[data-theme] .heart-count { font: 500 12px var(--font-mono); }
 :root[data-theme] wa-button.equip-button { min-width: 0; }
 :root[data-theme] wa-button.equip-button::part(button), :root[data-theme] wa-button.equip-button::part(base) {
   min-height: 32px; min-width: 76px; padding: 0 14px; border: 0; border-radius: 999px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); font-size: 13px;
@@ -295,5 +295,7 @@
 /* ---- A Flare is authored for chat-dark backgrounds. Where a name is worn
    inline on a light surface, it gets a small plate of its own. ----------- */
 :root[data-theme] .flare-chip {
-  display: block; width: fit-content; max-width: 100%; padding: 1px 8px 2px; border-radius: 7px; background: var(--g-plate); overflow: hidden;
+  display: block; width: fit-content; max-width: 100%; padding: 1px 9px 2px; border-radius: 999px; background: var(--g-plate); overflow: hidden;
 }
+/* A dark room is already chat-dark, so the name needs no plate of its own there. */
+:root:is([data-theme="ink"], [data-theme="dusk"], [data-theme="moss"], [data-theme="plum"], [data-theme="custom"]:not([data-custom-scheme="light"])) .flare-chip { padding: 0; background: none; border-radius: 0; overflow: visible; }

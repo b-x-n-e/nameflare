@@ -72,7 +72,7 @@
 }
 
 /* Dense size: anything that sits in a row of other controls. */
-:root:root[data-theme] :is(wa-button.equip-button, wa-button.follow-button, wa-button.like-button, wa-button.post-more,
+:root:root[data-theme] :is(wa-button.equip-button, wa-button.follow-button, wa-button.heart-toggle, wa-button.post-more,
   wa-button.sort-trigger, wa-button.filter-toggle, wa-button[size="xs"], wa-button[size="s"], wa-button.ph-share,
   .st-btn, .rail-panel .button, .plat-actions .button, .review-actions .button) {
   --_h: var(--b-h-sm); --_px: 12px; --_fs: 13px;
@@ -98,9 +98,9 @@
 :root:root[data-theme] .st-link:hover { color: var(--ink); background: var(--tint-1); }
 /* Icon-only buttons are circles. */
 :root:root[data-theme] :is(wa-button.post-more, wa-button.filter-toggle, wa-button.detail-download, wa-button.detail-report) { --_w: var(--_h); --_px: 0; }
-:root:root[data-theme] wa-button:is(.post-more, .detail-download, .detail-report, .like-button) { --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: var(--tint-1); --_ink-h: var(--ink); --_sh-h: none; }
-:root:root[data-theme] wa-button.like-button { --_px: 10px; }
-:root:root[data-theme] wa-button.like-button[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
+:root:root[data-theme] wa-button:is(.post-more, .detail-download, .detail-report, .heart-toggle) { --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: var(--tint-1); --_ink-h: var(--ink); --_sh-h: none; }
+:root:root[data-theme] wa-button.heart-toggle { --_px: 10px; }
+:root:root[data-theme] wa-button.heart-toggle[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
 /* Equip: a white pill; ink on hover; tinted by the Flare's own colour once worn. */
 :root:root[data-theme] wa-button.equip-button { --_px: 14px; min-width: 0; }
 :root:root[data-theme] wa-button.equip-button:hover { --_bg-h: var(--ink); --_ink-h: var(--on-ink); --_sh-h: none; }
@@ -256,18 +256,18 @@
 
 /* ---- Card actions: Equip, then the heart and More as circles at the end -- */
 :root:root[data-theme] #main-content .cosmetic-card > .post-actions { gap: 6px; }
-:root:root[data-theme] #main-content .cosmetic-card .post-actions .post-social { flex: 0 0 auto; overflow: visible; }
-:root:root[data-theme] .cosmetic-card :is(.post-actions, .card-actions) wa-button:is(.like-button, .post-more) {
+:root:root[data-theme] #main-content .cosmetic-card .post-actions .card-react { flex: 0 0 auto; overflow: visible; }
+:root:root[data-theme] .cosmetic-card :is(.post-actions, .card-actions) wa-button:is(.heart-toggle, .post-more) {
   --_w: var(--b-h-sm); --_h: var(--b-h-sm); --_px: 0; --_bg: var(--surface-2); --_ink: var(--ink-2); --_sh: inset 0 0 0 1px var(--line-strong); --_bg-h: var(--surface-3); --_ink-h: var(--ink); --_sh-h: inset 0 0 0 1px var(--line-hard);
 }
-:root:root[data-theme] .cosmetic-card :is(.post-actions, .card-actions) wa-button.like-button[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
-:root:root[data-theme] :is(.cosmetic-card .post-actions, .cosmetic-card .card-actions, .showcase-item) wa-button.like-button .like-count { display: none; }
+:root:root[data-theme] .cosmetic-card :is(.post-actions, .card-actions) wa-button.heart-toggle[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
+:root:root[data-theme] :is(.cosmetic-card .post-actions, .cosmetic-card .card-actions, .showcase-item) wa-button.heart-toggle .heart-count { display: none; }
 :root:root[data-theme] .collection-card .card-actions { margin: 14px 0 0; padding: 0; }
 :root:root[data-theme] .collection-card .card-actions-end { justify-content: flex-end; gap: 6px; width: 100%; margin-left: 0; }
-:root:root[data-theme] .collection-card .card-actions-end .post-social { flex: 0 0 auto; margin-right: 0; overflow: visible; }
+:root:root[data-theme] .collection-card .card-actions-end .card-react { flex: 0 0 auto; margin-right: 0; overflow: visible; }
 :root:root[data-theme] .collection-card .card-actions-end > :is(.button, wa-button) { margin-left: 0; }
 :root:root[data-theme][data-density="compact"] .cosmetic-card .card-actions :is(wa-button, .button) { --_h: 30px; --_px: 12px; --_fs: 13px; }
-:root:root[data-theme][data-density="compact"] .cosmetic-card .card-actions wa-button:is(.like-button, .post-more) { --_w: 30px; --_px: 0; }
+:root:root[data-theme][data-density="compact"] .cosmetic-card .card-actions wa-button:is(.heart-toggle, .post-more) { --_w: 30px; --_px: 0; }
 :root:root[data-theme] .post-sub .equip-stat::before { content: "· "; }
 /* The plate shows the Flare's own name until a name is typed; then the title returns. */
 :root:root[data-theme]:not([data-typed-name]) #catalog .cosmetic-card > .card-meta { display: none; }
@@ -280,7 +280,7 @@
    Compact now keeps the same card, smaller: four columns where the page
    allows, 30px controls, and a list view with the plate on the left. */
 :root:root[data-theme][data-density="compact"] .cosmetic-card .post-actions :is(wa-button, .button) { --_h: 30px; --_px: 12px; --_fs: 13px; }
-:root:root[data-theme][data-density="compact"] .cosmetic-card .post-actions wa-button:is(.like-button, .post-more) { --_w: 30px; --_px: 0; }
+:root:root[data-theme][data-density="compact"] .cosmetic-card .post-actions wa-button:is(.heart-toggle, .post-more) { --_w: 30px; --_px: 0; }
 :root:root[data-theme] #main-content .cosmetic-card .post-author { min-width: 0; }
 :root:root[data-theme] #main-content .cosmetic-card .post-author-copy { min-width: 0; overflow: hidden; }
 :root:root[data-theme] #main-content .cosmetic-card .post-author-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -314,12 +314,20 @@
 
 /* ---- Trending: a heart on each plate's bottom-right corner --------------- */
 :root:root[data-theme] .showcase-item { position: relative; container-type: inline-size; }
-:root:root[data-theme] .showcase-item > wa-button.showcase-like {
+:root:root[data-theme] .showcase-item > wa-button.showcase-heart {
   position: absolute; right: 12px; top: calc(62.5cqw - 44px); z-index: 1;
   --_w: 32px; --_h: 32px; --_px: 0; --_bg: rgba(255,255,255,.14); --_ink: #fff; --_sh: inset 0 0 0 1px rgba(255,255,255,.2);
   --_bg-h: rgba(255,255,255,.24); --_ink-h: #fff; --_sh-h: var(--_sh);
 }
-:root:root[data-theme] .showcase-item > wa-button.showcase-like[aria-pressed="true"] { --_ink: #ff4d6a; --_ink-h: #ff4d6a; }
+:root:root[data-theme] .showcase-item > wa-button.showcase-heart[aria-pressed="true"] { --_ink: #ff4d6a; --_ink-h: #ff4d6a; }
+
+/* Trending: the tile and its heart lift together, whether the pointer is on the plate or the heart. */
+:root:root[data-theme] .showcase-item > .showcase-tile:hover { transform: none; }
+:root:root[data-theme] .showcase-item > :is(.showcase-tile, wa-button.showcase-heart) { transition: transform var(--normal) var(--ease-out), box-shadow var(--normal) var(--ease-out); }
+:root:root[data-theme] .showcase-item:is(:hover, :has(> .showcase-tile:focus-visible)) > :is(.showcase-tile, wa-button.showcase-heart) { transform: translateY(-3px); }
+:root:root[data-theme] .showcase-item:hover .showcase-stage { box-shadow: 0 18px 40px -18px var(--lift); }
+@media (prefers-reduced-motion: reduce) { :root:root[data-theme] .showcase-item:is(:hover, :has(> .showcase-tile:focus-visible)) > * { transform: none; } }
+:root[data-motion="reduced"] .showcase-item > * { transform: none !important; }
 
 /* ---- Studio: the image template tile ------------------------------------ */
 :root:root[data-theme] .preset-image .preset-stage { display: grid; place-items: center; }

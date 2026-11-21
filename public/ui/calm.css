@@ -539,7 +539,7 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 #view-discover[data-layout="grid"] .cosmetic-card .card-preview strong { font-size: clamp(22px, calc(var(--name-scale, 12) * 1cqw), 56px); }
 
 /* Like counts are numbers in the card's own type, not a code value. */
-.like-count { font-family: var(--font-ui); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.heart-count { font-family: var(--font-ui); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* Icons are Phosphor (regular weight). A few symbols also carry the fill
    weight; these two custom properties swap to it for "on" states. */
@@ -810,8 +810,8 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .card-meta { padding: 4px 12px 0; gap: 0; }
 :root[data-density="compact"] .cosmetic-card .card-meta h3, :root[data-density="compact"] .cosmetic-card .card-meta .post-title { overflow: hidden; font-size: var(--text-base); white-space: nowrap; text-overflow: ellipsis; }
 :root[data-density="compact"] #view-discover[data-layout="grid"] .cosmetic-card .post-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 12px 8px; }
-:root[data-density="compact"] #view-discover[data-layout="grid"] .post-social { flex: 0 0 auto; overflow: visible; }
-:root[data-density="compact"] #view-discover[data-layout="grid"] .post-social > :not(.like-button) { display: none; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .card-react { flex: 0 0 auto; overflow: visible; }
+:root[data-density="compact"] #view-discover[data-layout="grid"] .card-react > :not(.heart-toggle) { display: none; }
 :root[data-density="compact"] #view-discover[data-layout="grid"] .post-actions [data-equip-id] { flex: 0 1 auto; min-width: 0; }
 :root[data-density="compact"] .cosmetic-card .post-head .avatar { width: 20px; height: 20px; font-size: 10px; }
 /* Discover list rows: preview left, details right */
@@ -832,8 +832,8 @@ wa-button.revise-button:hover::part(base), wa-button.revise-button:hover::part(b
 /* Other Flare grids (collections, profiles, following) */
 :root[data-density="compact"] .cosmetic-grid:not(#catalog):not(#profile-results), :root[data-density="compact"] .profile-created-flares .cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 12px; }
 /* Narrow cards everywhere: like + Equip only, one-line titles. */
-:root[data-density="compact"] .cosmetic-grid:not(#catalog) .post-social, :root[data-density="compact"] #view-discover[data-layout="grid"] .post-social { flex: 0 0 auto; overflow: visible; }
-:root[data-density="compact"] .cosmetic-grid:not(#catalog) .post-social > :not(.like-button) { display: none; }
+:root[data-density="compact"] .cosmetic-grid:not(#catalog) .card-react, :root[data-density="compact"] #view-discover[data-layout="grid"] .card-react { flex: 0 0 auto; overflow: visible; }
+:root[data-density="compact"] .cosmetic-grid:not(#catalog) .card-react > :not(.heart-toggle) { display: none; }
 :root[data-density="compact"] .cosmetic-grid:not(#catalog) .post-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 12px 8px; }
 /* Creators */
 :root[data-density="compact"] #profile-results:not(.profile-detail-grid), :root[data-density="compact"] .followed-creators { grid-template-columns: repeat(auto-fill, minmax(min(100%, 236px), 1fr)); gap: 12px; }
@@ -974,7 +974,7 @@ a.mod-stat:hover { border-color: var(--line-hard); color: var(--ink-2); }
 .creator-tile .cc-sub { min-height: 22px; align-items: center; }
 /* A zero like count reads as an empty room. The heart stands alone, and the
    count keeps its space so Share never moves when the first like lands. */
-wa-button.like-button.no-likes .like-count { visibility: hidden; }
+wa-button.heart-toggle.no-likes .heart-count { visibility: hidden; }
 
 /* ---- Site footer -------------------------------------------------------- */
 /* One footer under every page except Studio, which is a full-height tool:
