@@ -760,7 +760,10 @@ function catalogSkeleton() {
   const head=node('div','skeleton-head'),avatar=node('wa-skeleton','skeleton-avatar');avatar.setAttribute('effect','sheen');
   const lines=node('span','skeleton-lines'),name=node('wa-skeleton','skeleton-line skeleton-line-name'),meta=node('wa-skeleton','skeleton-line skeleton-line-meta');name.setAttribute('effect','sheen');meta.setAttribute('effect','sheen');lines.append(name,meta);head.append(avatar,lines);
   const media=node('wa-skeleton','skeleton-media');media.setAttribute('effect','sheen');
-  const foot=node('div','skeleton-foot'),title=node('wa-skeleton','skeleton-line skeleton-line-title');title.setAttribute('effect','sheen'),action=node('wa-skeleton','skeleton-line skeleton-line-action');action.setAttribute('effect','sheen');foot.append(title,action);
+  const foot=node('div','skeleton-foot'),title=node('wa-skeleton','skeleton-line skeleton-line-title'),actionLine=node('wa-skeleton','skeleton-line skeleton-line-action');
+  // These were once joined by a comma after a call, which made `action=` overwrite the
+  // shared action() helper; every card built after a slow load then failed.
+  title.setAttribute('effect','sheen');actionLine.setAttribute('effect','sheen');foot.append(title,actionLine);
   article.append(head,media,foot);return article;
 }
 let catalogRequest=0,catalogAbort;
@@ -783,6 +786,8 @@ async function loadCatalog(append=false) {
     state.cosmetics=append?[...state.cosmetics,...added]:added;state.next=result.next_offset;state.catalogLoaded=true;renderCatalog(append,added);
   } catch(error) {
     if(error.name==='AbortError' || request!==catalogRequest)return;
+    // A failure while building cards is a bug, not the connection: keep it visible in the console.
+    if(!(error instanceof TypeError && /fetch|network/i.test(error.message)) && !error.status)console.error('Discover failed to render',error);
     $('#catalog-status').textContent='Connection interrupted. Your last view is still here.';
     // A failed switch must not leave an empty or skeleton grid behind.
     if(!append && (!state.catalogLoaded || !$('#catalog .cosmetic-card'))){empty($('#catalog'),'Couldn’t load Flares.','Check your connection and try again.',null);$('#catalog').firstElementChild.append(action('Try again',()=>loadCatalog(),'button primary'));}
