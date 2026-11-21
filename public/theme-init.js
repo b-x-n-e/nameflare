@@ -1,7 +1,7 @@
 (() => {
   try {
-    const themes = ['gallery', 'ink', 'paper', 'sand', 'dusk', 'frost', 'moss', 'plum', 'rose'];
-    document.documentElement.dataset.theme = 'gallery';
+    const themes = ['ink', 'gallery', 'paper', 'sand', 'dusk', 'frost', 'moss', 'plum', 'rose'];
+    document.documentElement.dataset.theme = 'ink';
     const saved = JSON.parse(localStorage.getItem('nameflare.appearance.v1') || 'null');
     if (!saved || typeof saved !== 'object') return;
     const root = document.documentElement;

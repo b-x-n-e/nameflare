@@ -8,17 +8,19 @@ Nameflare is a public collection and a creative tool for animated name styles, c
 
 Discover is a gallery where every Flare is shown like product photography: big, on a chat-dark plate, captioned underneath, in a calm light room. The chrome recedes so the artwork leads.
 
-It replaced the earlier dark "product studio" (neon on near-black, dot-grid stages, bordered cards). That look is still available as the **Ink** theme. Research behind the choice (Nov 2026): Meta's Astryx, Linear, Raycast, Material 3 Expressive, Geist, Spectrum 2 and the shadcn family (coss, Catalyst, Untitled UI, HeroUI, Base UI). The lesson was that quality comes from restraint in the chrome, one characterful typeface, disciplined radius, shadow and hue tiers, and art-directed content. The two ruts to stay out of are grey SaaS and gamer neon.
+It replaced the earlier dark "product studio" (neon on near-black, dot-grid stages, bordered cards). **Every theme now shares this one look; a theme only supplies colour.** The default is **Ink**, the same gallery in a dark room; **Gallery** is the light room. Research behind the choice (Nov 2026): Meta's Astryx, Linear, Raycast, Material 3 Expressive, Geist, Spectrum 2 and the shadcn family (coss, Catalyst, Untitled UI, HeroUI, Base UI). The lesson was that quality comes from restraint in the chrome, one characterful typeface, disciplined radius, shadow and hue tiers, and art-directed content. The two ruts to stay out of are grey SaaS and gamer neon.
 
 ### Room
 
+Values below are Gallery (light) / Ink (dark, default).
+
 | Token | Value | Use |
 |---|---|---|
-| `--bg` | `#F4F4F2` | the page: near-neutral, neither warm cream nor blue-grey |
-| `--surface` | `#FFFFFF` | panels, fields, buttons that sit on the room |
-| `--ink` / `--muted` / `--faint` | `#111113` / `#5E5E66` / `#6C6C74` | text; `--faint` still passes 4.5:1 on white |
+| `--bg` | `#F4F4F2` / `#0B0B0C` | the page: near-neutral, neither warm nor blue |
+| `--surface` | `#FFFFFF` / `#161618` | panels, fields, buttons that sit on the room |
+| `--ink` / `--muted` / `--faint` | `#111113` / `#5E5E66` / `#6C6C74`; dark `#F4F4F2` / `#A3A3AA` / `#8E8E96` | text; `--faint` passes 4.5:1 on the surface |
 | `--accent` | `#F15A20` | the logo's flame orange; the only accent |
-| `--g-plate` | `#0E0E10` | every Flare stage |
+| `--g-plate` | `#0E0E10` / `#111113` | every Flare stage |
 
 - **No hairline borders on content.** Depth comes from three soft shadow tiers. `--shadow-1` is a 1px ring plus a 2px soft shadow, for anything resting on the room. `--shadow-2` is a lifted shadow, for hover and open states. `--shadow-pop` is for menus and dialogs.
 - **Radius tiers:** 10px for inner controls, 14–16px for elements (plates, fields, disclosures), 24px for containers (rail panels, page panels). Pills (999px) are reserved for buttons, toggles, chips and the header search.
@@ -89,13 +91,15 @@ Every Flare is drawn on one object: a chat-dark plate with a faint top light. Th
 
 - `public/ui/tokens.css`: type, the colour scales for every theme (the `gallery` block included), shape, elevation and motion.
 - `public/ui/kit.css`, `frame.css`, `shell.css`, `views.css`, `studio.css`, `admin.css`, `profiles.css`, `stage.css`, `slim.css`, `calm.css`: the component kit and page layouts shared by all themes, in load order.
-- `public/ui/system.css`: the component system above; loads after gallery.css and is scoped to Gallery.
-- `public/ui/gallery.css`: the Gallery world. It loads last, and every rule is scoped to `:root[data-theme="gallery"]`, so the other themes keep their own look. Where an older rule carries an ID, Gallery rules prefix `#main-content` rather than reach for `!important`.
+- `public/ui/system.css`: the component system above; loads after gallery.css and applies to every theme.
+- `public/ui/gallery.css`: the gallery look for every theme. Rules are prefixed `:root[data-theme]` to keep the weight they need over the older layers. Where an older rule carries an ID, Gallery rules prefix `#main-content` rather than reach for `!important`.
 - `public/effects.css`, `public/renderer.js`: the Flare renderer. Never skin these from product CSS; a Flare's colours and motion are authored data.
 
 ## Themes, density, and motion
 
-- **Gallery** is the default for new visitors, set in `theme-init.js` and `preferences.js`. Ink, Paper, Sand, Dusk, Frost, Moss, Plum and Rose remain choices in Appearance, alongside the custom theme. A stored choice always wins.
+- **Ink** (dark) is the default for new visitors, set in `theme-init.js` and `preferences.js`. Gallery, Paper, Sand, Dusk, Frost, Moss, Plum and Rose remain choices in Appearance, alongside the custom theme. A stored choice always wins.
+- **One look, every theme.** gallery.css and system.css apply to all themes. A theme block in tokens.css sets only colour (`--bg`, surfaces, `--ink` scale, `--accent`, status colours). The section "One look, every theme" in tokens.css derives the rest at zero extra specificity: tints, ring shadows, `--on-ink` (text on filled ink buttons), `--ink-hover`, `--on-accent`, the accent gradient and hover, `--on-danger`, `--lift`, `--backdrop` and the plate. Dark rooms (Ink, Dusk, Moss, Plum, dark custom) get black shadows, light rings and dark text on ink buttons.
+- Never write `#fff` or a fixed ink colour in product CSS for text on a filled control; use `--on-ink`, `--on-accent` or `--on-danger`. Light-on-plate colours (the plate is always dark) are the exception.
 - Compact density sizes Web Awesome buttons only through `--wa-form-control-height`.
 - Motion uses short exponential ease-out. Plates animate only on hover or focus. Reduced motion stops chrome animation without changing Flares. There is no bounce, parallax or scroll-jacking.
 

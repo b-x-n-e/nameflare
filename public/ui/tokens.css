@@ -148,8 +148,20 @@
    -------------------------------------------------------------------------- */
 
 :root[data-theme="ink"] {
+  /* Ink (default): the Gallery look in a dark room. Plates sit a step above
+     the room and below the panels, so a Flare still reads as it does in chat. */
   color-scheme: dark;
-  --ambient: radial-gradient(120% 90% at 50% -32%, rgba(255, 90, 54, .07) 0%, transparent 62%);
+  --bg: #0b0b0c; --bg-raised: #111113; --surface: #161618; --surface-2: #1c1c1f; --surface-3: #242428; --surface-4: #2e2e33;
+  --surface-glass: rgba(11, 11, 12, .9);
+  --ink: #f4f4f2; --ink-2: #dadad8; --muted: #a3a3aa; --faint: #8e8e96;
+  --line: rgba(244, 244, 242, .08); --line-strong: rgba(244, 244, 242, .14); --line-hard: rgba(244, 244, 242, .24);
+  --accent: #f15a20; --accent-2: #ff8c20; --accent-ink: #170802; --accent-soft: rgba(241, 90, 32, .16); --accent-wash: transparent;
+  --accent-gradient: linear-gradient(180deg, #f6692d, #ec5216);
+  --on-accent: #fff;
+  --success: #4fcf8f; --success-soft: rgba(79, 207, 143, .13); --danger: #ff6b5e; --danger-soft: rgba(255, 107, 94, .13);
+  --warning: #f0b45a; --warning-soft: rgba(240, 180, 90, .13); --info: #7fa9ff; --info-soft: rgba(127, 169, 255, .13);
+  --ring: 0 0 0 3px rgba(241, 90, 32, .32);
+  --ambient: none;
 }
 
 :root[data-theme="dusk"] {
@@ -190,10 +202,6 @@
   --line: rgba(23, 20, 15, .09); --line-strong: rgba(23, 20, 15, .17); --line-hard: rgba(23, 20, 15, .3);
   --accent: #b53a12; --accent-2: #ad541c; --accent-ink: #fffaf5; --accent-soft: rgba(181, 58, 18, .1); --accent-wash: rgba(181, 58, 18, .05);
   --success: #21764a; --danger: #b23a2b; --warning: #8a5a0c;
-  --shadow-1: 0 1px 2px rgba(23, 20, 15, .06);
-  --shadow-2: 0 14px 34px -18px rgba(23, 20, 15, .3);
-  --shadow-pop: 0 24px 64px -28px rgba(23, 20, 15, .38), 0 2px 8px rgba(23, 20, 15, .08);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, .8);
   --ring: 0 0 0 3px rgba(181, 58, 18, .16);
   --ambient: radial-gradient(120% 90% at 50% -32%, rgba(201, 70, 29, .07) 0%, transparent 62%);
 }
@@ -206,10 +214,6 @@
   --line: rgba(36, 28, 18, .1); --line-strong: rgba(36, 28, 18, .18); --line-hard: rgba(36, 28, 18, .3);
   --accent: #8a4715; --accent-2: #9e581b; --accent-ink: #fdf8ee; --accent-soft: rgba(138, 71, 21, .11); --accent-wash: rgba(138, 71, 21, .05);
   --success: #3d7148; --danger: #a63d30; --warning: #8a5f12;
-  --shadow-1: 0 1px 2px rgba(36, 28, 18, .07);
-  --shadow-2: 0 14px 34px -18px rgba(36, 28, 18, .3);
-  --shadow-pop: 0 24px 64px -28px rgba(36, 28, 18, .38), 0 2px 8px rgba(36, 28, 18, .09);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, .7);
   --ring: 0 0 0 3px rgba(138, 71, 21, .16);
   --ambient: radial-gradient(120% 90% at 50% -32%, rgba(161, 89, 31, .07) 0%, transparent 62%);
 }
@@ -222,10 +226,6 @@
   --line: rgba(16, 26, 36, .095); --line-strong: rgba(16, 26, 36, .17); --line-hard: rgba(16, 26, 36, .3);
   --accent: #2f6b95; --accent-2: #3a769d; --accent-ink: #f7fbff; --accent-soft: rgba(47, 107, 149, .11); --accent-wash: rgba(47, 107, 149, .05);
   --success: #1f6b4f; --danger: #a63c38; --warning: #8b5b0f;
-  --shadow-1: 0 1px 2px rgba(16, 26, 36, .06);
-  --shadow-2: 0 14px 34px -18px rgba(16, 26, 36, .28);
-  --shadow-pop: 0 24px 64px -28px rgba(16, 26, 36, .36), 0 2px 8px rgba(16, 26, 36, .08);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, .85);
   --ring: 0 0 0 3px rgba(47, 107, 149, .16);
   --ambient: radial-gradient(120% 90% at 50% -32%, rgba(47, 107, 149, .07) 0%, transparent 62%);
 }
@@ -238,10 +238,6 @@
   --line: rgba(36, 21, 24, .095); --line-strong: rgba(36, 21, 24, .17); --line-hard: rgba(36, 21, 24, .3);
   --accent: #a33140; --accent-2: #b04a57; --accent-ink: #fff8f8; --accent-soft: rgba(163, 49, 64, .1); --accent-wash: rgba(163, 49, 64, .05);
   --success: #2f6f4b; --danger: #a3312f; --warning: #94610f;
-  --shadow-1: 0 1px 2px rgba(36, 21, 24, .06);
-  --shadow-2: 0 14px 34px -18px rgba(36, 21, 24, .28);
-  --shadow-pop: 0 24px 64px -28px rgba(36, 21, 24, .36), 0 2px 8px rgba(36, 21, 24, .08);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, .8);
   --ring: 0 0 0 3px rgba(163, 49, 64, .16);
   --ambient: radial-gradient(120% 90% at 50% -32%, rgba(178, 58, 73, .07) 0%, transparent 62%);
 }
@@ -257,6 +253,7 @@
   --line: rgba(17, 17, 19, .07); --line-strong: rgba(17, 17, 19, .12); --line-hard: rgba(17, 17, 19, .22);
   --accent: #f15a20; --accent-2: #ff8c20; --accent-ink: #170802; --accent-soft: rgba(241, 90, 32, .12); --accent-wash: transparent;
   --accent-gradient: linear-gradient(180deg, #f6692d, #ec5216);
+  --on-accent: #fff;
   --success: #17804e; --success-soft: rgba(23, 128, 78, .1); --danger: #c2321f; --danger-soft: rgba(194, 50, 31, .09);
   --warning: #8a5a0c; --warning-soft: rgba(138, 90, 12, .1); --info: #2a5fc4; --info-soft: rgba(42, 95, 196, .09);
   --shadow-1: 0 1px 2px rgba(17, 17, 19, .06), 0 0 0 1px rgba(17, 17, 19, .045);
@@ -265,6 +262,48 @@
   --shadow-inset: none;
   --ring: 0 0 0 3px rgba(241, 90, 32, .22);
   --ambient: none;
+}
+
+/* --------------------------------------------------------------------------
+   One look, every theme (2026.11). gallery.css and system.css draw every
+   theme the same way; a theme only supplies colour. These tokens derive the
+   rest from --bg, --ink and --accent at zero extra specificity, so a theme
+   block above can still set any of them. Dark rooms get their own recipe:
+   shadows are black, rings are light, and filled ink controls read dark text.
+   -------------------------------------------------------------------------- */
+:where(:root)[data-theme] {
+  --tint-1: color-mix(in srgb, var(--ink) 4.5%, transparent);
+  --tint-2: color-mix(in srgb, var(--ink) 7.5%, transparent);
+  --tint-3: color-mix(in srgb, var(--ink) 11%, transparent);
+  --on-ink: #fff;
+  --ink-hover: color-mix(in srgb, var(--ink) 86%, var(--bg));
+  --on-accent: var(--accent-ink);
+  --accent-gradient: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+  --accent-hover: linear-gradient(180deg, color-mix(in srgb, var(--accent) 78%, #fff), color-mix(in srgb, var(--accent) 92%, #fff));
+  --accent-glow: color-mix(in srgb, var(--accent) 65%, transparent);
+  --on-danger: #fff;
+  --danger-hover: color-mix(in srgb, var(--danger) 84%, var(--ink));
+  --shadow-1: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 0 0 1px color-mix(in srgb, var(--ink) 4.5%, transparent);
+  --shadow-2: 0 1px 2px color-mix(in srgb, var(--ink) 5%, transparent), 0 10px 28px -10px color-mix(in srgb, var(--ink) 20%, transparent);
+  --shadow-pop: 0 28px 70px -24px color-mix(in srgb, var(--ink) 34%, transparent), 0 6px 16px -6px color-mix(in srgb, var(--ink) 12%, transparent), 0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent);
+  --shadow-inset: none;
+  --lift: color-mix(in srgb, var(--ink) 55%, transparent);
+  --backdrop: color-mix(in srgb, var(--ink) 42%, transparent);
+  --g-plate: #0e0e10;
+}
+:where(:root:is([data-theme="ink"], [data-theme="dusk"], [data-theme="moss"], [data-theme="plum"], [data-theme="custom"]:not([data-custom-scheme="light"])))[data-theme] {
+  --tint-1: color-mix(in srgb, var(--ink) 6%, transparent);
+  --tint-2: color-mix(in srgb, var(--ink) 10%, transparent);
+  --tint-3: color-mix(in srgb, var(--ink) 15%, transparent);
+  --on-ink: var(--bg);
+  --on-danger: var(--bg);
+  --danger-hover: color-mix(in srgb, var(--danger) 86%, #fff);
+  --shadow-1: 0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent), 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-2: 0 0 0 1px color-mix(in srgb, var(--ink) 11%, transparent), 0 14px 32px -12px rgba(0, 0, 0, .75);
+  --shadow-pop: 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent), 0 28px 70px -20px rgba(0, 0, 0, .85), 0 6px 16px -6px rgba(0, 0, 0, .5);
+  --lift: rgba(0, 0, 0, .8);
+  --backdrop: rgba(0, 0, 0, .62);
+  --g-plate: #111113;
 }
 
 :root[data-density="compact"] {
@@ -532,10 +571,6 @@ html[data-boot-view]:not([data-boot-view="discover"]) .right-rail { display: non
   --surface-glass: color-mix(in srgb, var(--surface) 80%, transparent);
   --accent-2: color-mix(in oklab, var(--accent), black 18%);
   --success: #21764a; --danger: #b23a2b; --warning: #8a5a0c;
-  --shadow-1: 0 1px 2px color-mix(in srgb, var(--ink) 7%, transparent);
-  --shadow-2: 0 14px 34px -18px color-mix(in srgb, var(--ink) 30%, transparent);
-  --shadow-pop: 0 24px 64px -28px color-mix(in srgb, var(--ink) 38%, transparent), 0 2px 8px color-mix(in srgb, var(--ink) 8%, transparent);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, .8);
 }
 :root[data-theme="custom"][data-custom-scheme="light"] .card-preview::before { background-image: radial-gradient(circle at 1px 1px, rgba(20, 18, 14, .16) 1px, transparent 0); }
 :root[data-theme="custom"][data-custom-scheme="light"] .studio { --stage-bg: #17171b; --chat-bg: #17171b; }
