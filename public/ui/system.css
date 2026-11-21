@@ -258,7 +258,7 @@
 :root:root[data-theme] #main-content .cosmetic-card > .post-actions { gap: 6px; }
 :root:root[data-theme] #main-content .cosmetic-card .post-actions .post-social { flex: 0 0 auto; overflow: visible; }
 :root:root[data-theme] .cosmetic-card .post-actions wa-button:is(.like-button, .post-more) {
-  --_w: var(--b-h-sm); --_h: var(--b-h-sm); --_px: 0; --_bg: var(--surface); --_ink: var(--muted); --_sh: var(--shadow-1); --_bg-h: var(--surface); --_ink-h: var(--ink); --_sh-h: var(--shadow-2);
+  --_w: var(--b-h-sm); --_h: var(--b-h-sm); --_px: 0; --_bg: var(--surface-2); --_ink: var(--ink-2); --_sh: inset 0 0 0 1px var(--line-strong); --_bg-h: var(--surface-3); --_ink-h: var(--ink); --_sh-h: inset 0 0 0 1px var(--line-hard);
 }
 :root:root[data-theme] .cosmetic-card .post-actions wa-button.like-button[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
 :root:root[data-theme] :is(.cosmetic-card .post-actions, .showcase-item) wa-button.like-button .like-count { display: none; }
@@ -268,12 +268,50 @@
 :root:root[data-theme]:not([data-typed-name]) #following-feed .cosmetic-card > .card-meta h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 :root:root[data-theme]:not([data-typed-name]) #catalog .cosmetic-card > :is(.post-head, .post-actions) { padding-top: 12px; }
 
+/* ---- Compact density, rebuilt for the new card --------------------------
+   calm.css packed compact cards into 176px columns: the creator's name was
+   squeezed to a 1px sliver beside the avatar and the actions overflowed.
+   Compact now keeps the same card, smaller: four columns where the page
+   allows, 30px controls, and a list view with the plate on the left. */
+:root:root[data-theme][data-density="compact"] .cosmetic-card .post-actions :is(wa-button, .button) { --_h: 30px; --_px: 12px; --_fs: 13px; }
+:root:root[data-theme][data-density="compact"] .cosmetic-card .post-actions wa-button:is(.like-button, .post-more) { --_w: 30px; --_px: 0; }
+:root:root[data-theme] #main-content .cosmetic-card .post-author { min-width: 0; }
+:root:root[data-theme] #main-content .cosmetic-card .post-author-copy { min-width: 0; overflow: hidden; }
+:root:root[data-theme] #main-content .cosmetic-card .post-author-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="grid"] #catalog.cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(208px, 1fr)); gap: 26px 16px; margin-top: 4px; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="grid"] #catalog .cosmetic-card > .card-preview { aspect-ratio: 16 / 10; padding: 12px; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="grid"] #catalog .cosmetic-card > .card-meta { padding: 10px 2px 0; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="grid"] #catalog .cosmetic-card > .post-head { align-self: center; padding: 10px 0 0 2px; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="grid"] #catalog .cosmetic-card > .post-actions { display: flex; justify-content: flex-end; gap: 4px; padding: 10px 0 0; }
+
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog.cosmetic-grid { gap: 16px; margin-top: 4px; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card {
+  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); grid-template-rows: 1fr auto auto auto 1fr;
+  grid-template-areas: "plate ." "plate meta" "plate head" "plate actions" "plate ."; column-gap: 20px; row-gap: 0; align-items: center; overflow: visible;
+}
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .card-preview {
+  grid-area: plate; height: auto; min-height: 0; aspect-ratio: 16 / 9; padding: 12px; border: 0; border-radius: var(--g-r-el);
+}
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .card-preview > strong { font-size: clamp(20px, calc(var(--name-scale, 12) * .8cqw), 44px); }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .card-meta { grid-area: meta; padding: 0 0 8px; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .post-head { grid-area: head; justify-self: start; padding: 0; }
+:root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .post-actions { grid-area: actions; justify-self: start; align-self: center; display: flex; gap: 4px; margin: 0; padding: 12px 0 0; }
+@media (max-width: 640px) {
+  :root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card {
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto; grid-template-areas: "plate plate" "meta meta" "head actions"; column-gap: 8px;
+  }
+  :root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .card-meta { padding: 10px 2px 0; }
+  :root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .post-head { padding: 10px 0 0 2px; }
+  :root:root[data-theme][data-density="compact"] #view-discover[data-layout="feed"] #catalog .cosmetic-card > .post-actions { justify-self: end; padding: 10px 0 0; }
+}
+
 /* ---- Trending: a heart on each plate's bottom-right corner --------------- */
 :root:root[data-theme] .showcase-item { position: relative; container-type: inline-size; }
 :root:root[data-theme] .showcase-item > wa-button.showcase-like {
   position: absolute; right: 12px; top: calc(62.5cqw - 44px); z-index: 1;
-  --_w: 32px; --_h: 32px; --_px: 0; --_bg: rgba(255,255,255,.1); --_ink: rgba(255,255,255,.86); --_sh: inset 0 0 0 1px rgba(255,255,255,.12);
-  --_bg-h: rgba(255,255,255,.2); --_ink-h: #fff; --_sh-h: var(--_sh);
+  --_w: 32px; --_h: 32px; --_px: 0; --_bg: rgba(255,255,255,.14); --_ink: #fff; --_sh: inset 0 0 0 1px rgba(255,255,255,.2);
+  --_bg-h: rgba(255,255,255,.24); --_ink-h: #fff; --_sh-h: var(--_sh);
 }
 :root:root[data-theme] .showcase-item > wa-button.showcase-like[aria-pressed="true"] { --_ink: #ff4d6a; --_ink-h: #ff4d6a; }
 
