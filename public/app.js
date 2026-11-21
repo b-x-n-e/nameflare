@@ -652,6 +652,14 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   if(collection){
     menu.append(menuItem('Edit a copy',()=>editor.editCopy(cosmetic),'studio'));
     menu.append(menuItem(cosmetic.listed?'Make unlisted':'List publicly',async()=>{await api('/api/cosmetics/publication',{id:cosmetic.id,listed:!Boolean(cosmetic.listed)});await loadCatalog();if(state.view==='account')await renderAccount();else await renderCollection();toast(cosmetic.listed?'Flare is unlisted. Existing links and equips still work.':'Flare will appear in Discover once approved.');},'eye'));
+    // Creators can remove their own Flares for good (Oracle/Node only).
+    if(state.config.runtime!=='cloudflare'){const remove=menuItem('Delete Flare',async()=>{
+      const worn=Number(cosmetic.equipped_count || 0);
+      const confirmed=await confirmModeration({title:'Delete this Flare?',description:`“${cosmetic.name}” will be removed for good${worn?`, and the ${worn} ${worn===1?'person':'people'} wearing it will go back to their platform style`:''}. Its images are removed too unless another Flare uses them. There is no undo.`,label:'Delete Flare',onConfirm:()=>api('/api/cosmetics/delete',{id:cosmetic.id,confirm:true})});
+      if(!confirmed)return;
+      card.remove();toast('Flare deleted.');
+      await refreshAccount();await Promise.all([loadCatalog(),state.view==='account'?renderAccount():renderCollection()]);
+    },'trash');remove.classList.add('danger');remove.setAttribute('variant','danger');menu.append(remove);}
   }
   const preview=node('button','card-preview');preview.type='button';preview.setAttribute('aria-label',`View ${cosmetic.name}`);
   const name=node('strong','',previewName() || cosmetic.name || cosmetic.creator || 'yourname');name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
@@ -2064,7 +2072,7 @@ async function loadAudit() {
   if(state.view!=='moderation' || state.user?.id!==userId || $('#moderation-audit')!==panel)return;
   panel.replaceChildren();
   if(!audit.entries.length)empty(panel,'A clean slate.','Decisions, permanent bans, and access changes will appear here.',null);
-  const labels={'account.banned':'Permanently banned an account','account.unbanned':'Lifted an account ban','cosmetic.approved':'Approved a Flare','cosmetic.rejected':'Disapproved a Flare','cosmetic.auto_approved':'Automatically approved a staff Flare','moderator.added':'Granted moderator access','moderator.removed':'Removed moderator access','artist.added':'Granted artist role','artist.removed':'Removed artist role','flare.deleted':'Permanently deleted a Flare','flare.publication':'Changed Flare publication','report.actioned':'Acted on a report','report.dismissed':'Dismissed a report','media.blocked':'Blocked images from being uploaded again','upload.blocked':'Stopped a flagged upload','account.deleted':'Deleted an account','account.suspended':'Suspended an account','cosmetic.reopened':'Undid a decision','identity.changed':'Switched a linked platform account','identity.unlinked':'Unlinked a platform'};
+  const labels={'account.banned':'Permanently banned an account','account.unbanned':'Lifted an account ban','cosmetic.approved':'Approved a Flare','flare.deleted_by_creator':'Deleted their own Flare','cosmetic.rejected':'Disapproved a Flare','cosmetic.auto_approved':'Automatically approved a staff Flare','moderator.added':'Granted moderator access','moderator.removed':'Removed moderator access','artist.added':'Granted artist role','artist.removed':'Removed artist role','flare.deleted':'Permanently deleted a Flare','flare.publication':'Changed Flare publication','report.actioned':'Acted on a report','report.dismissed':'Dismissed a report','media.blocked':'Blocked images from being uploaded again','upload.blocked':'Stopped a flagged upload','account.deleted':'Deleted an account','account.suspended':'Suspended an account','cosmetic.reopened':'Undid a decision','identity.changed':'Switched a linked platform account','identity.unlinked':'Unlinked a platform'};
   if(!audit.entries.length)return;
   const kindOf=action=>/^(cosmetic|flare|report|media|upload)\./.test(action)?'decision':action.startsWith('account.')?'account':'access';
   const filters=node('div','audit-filters');filters.setAttribute('role','group');filters.setAttribute('aria-label','Filter activity');

@@ -455,3 +455,19 @@ test('first real OAuth sign-in creates a regular account, copies avatar, and ret
     assert.equal(store.db.prepare('SELECT * FROM identities').get().access_token,undefined);
   }finally{globalThis.fetch=originalFetch;app.server.closeAllConnections();await new Promise(resolve=>app.server.close(resolve));store.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+test('creators can delete their own Flares, approved or not; nobody else can',()=>{
+  const store=new Store();
+  try{
+    const ownerId=store.linkIdentity(profile('1'),null,'1'),creatorId=store.linkIdentity(profile('2'),null,'1'),viewerId=store.linkIdentity(profile('3'),null,'1');
+    const approved=store.submit(creatorId,'Keeper','',recipe),pending=store.submit(creatorId,'Draft','',recipe);
+    store.review(store.user(ownerId),approved.id,'approved','');
+    store.equip(viewerId,approved.id);assert.equal(store.user(viewerId).equipped,approved.id);
+    assert.throws(()=>store.deleteOwn(viewerId,approved.id),e=>e.status===403,'Only the creator can delete');
+    assert.throws(()=>store.deleteOwn(ownerId,approved.id),e=>e.status===403,'Not even the site owner, through the creator route');
+    assert.deepEqual(store.deleteOwn(creatorId,approved.id),{id:approved.id,deleted_textures:[]});
+    assert.equal(store.getCosmetic(approved.id),null);assert.equal(store.user(viewerId).equipped,null,'Wearers are unequipped');
+    store.deleteOwn(creatorId,pending.id);assert.equal(store.mine(creatorId).length,0);
+    assert.throws(()=>store.deleteOwn(creatorId,approved.id),e=>e.status===404);
+  }finally{store.close();}
+});

@@ -512,6 +512,11 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         assert(typeof data.listed === 'boolean',400,'Public listing must be true or false.');
         return json(res,200,{ cosmetic:store.setPublication(session.id,text(data.id,1,100,'Flare ID'),data.listed) });
       }
+      if (method === 'POST' && path === '/api/cosmetics/delete') {
+        const session = mutation(req), data = await body(req);
+        assert(data.confirm === true,400,'Confirm deleting this Flare.');
+        return json(res,200,{ ok:true, ...store.deleteOwn(session.id,text(data.id,1,100,'Flare ID'),removeTextureFile) });
+      }
       if (method === 'POST' && path === '/api/cosmetics/like') {
         const session = mutation(req), data = await body(req);
         assert(typeof data.liked === 'boolean',400,'Liked must be true or false.');
