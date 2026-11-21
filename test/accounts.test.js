@@ -471,3 +471,20 @@ test('creators can delete their own Flares, approved or not; nobody else can',()
     assert.throws(()=>store.deleteOwn(creatorId,approved.id),e=>e.status===404);
   }finally{store.close();}
 });
+
+test('a profile\'s likes are public: approved listed Flares only',async()=>{
+  const dir=mkdtempSync(join(tmpdir(),'nameflare-likes-')),store=new Store();
+  const ownerId=store.linkIdentity(profile('1'),null,'1'),creatorId=store.linkIdentity(profile('2'),null,'1'),fanId=store.linkIdentity(profile('3'),null,'1');
+  const shown=store.submit(creatorId,'Shown','',recipe),hidden=store.submit(creatorId,'Unlisted','',recipe),pending=store.submit(creatorId,'Pending','',recipe);
+  store.review(store.user(ownerId),shown.id,'approved','');store.review(store.user(ownerId),hidden.id,'approved','');
+  store.setLike(fanId,shown.id,true);store.setLike(fanId,hidden.id,true);store.setPublication(creatorId,hidden.id,false);assert.throws(()=>store.setLike(fanId,pending.id,true));
+  const app=createApp({store,dataDir:dir,baseUrl:'http://localhost',env:{}});await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));
+  try{
+    const base=`http://127.0.0.1:${app.server.address().port}`;
+    const result=await (await fetch(`${base}/api/v1/profiles/${fanId}/likes?limit=24`)).json();
+    assert.deepEqual(result.cosmetics.map(c=>c.name),['Shown'],'Unlisted and unapproved Flares never appear');
+    assert.equal(result.next_offset,null);
+    assert.equal((await fetch(`${base}/api/v1/profiles/nobody/likes`)).status,404);
+    assert.equal((await fetch(`${base}/api/v1/profiles/${fanId}/likes?limit=0`)).status,400);
+  }finally{app.server.close();store.close();rmSync(dir,{recursive:true,force:true});}
+});

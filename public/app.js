@@ -1218,9 +1218,9 @@ async function renderCollection(append=false) {
   finally{if(request===collectionRequest)more.disabled=false;}
 }
 $('#collection-more').addEventListener('click',()=>run(()=>renderCollection(collectionNext!==null)));
-function createdFlares(user, own=false) {
-  const section=node('section','created-flares'),heading=node('div','section-heading'),copy=node('div');
-  copy.append(node('h2','',own?'Your created Flares':'Flares'));if(own)copy.append(node('p','','All your submissions, including public, unlisted, and in-review designs.'));
+function createdFlares(user, own=false, liked=false) {
+  const section=node('section',liked?'created-flares liked-flares':'created-flares'),heading=node('div','section-heading'),copy=node('div');
+  copy.append(node('h2','',liked?'Liked Flares':own?'Your created Flares':'Flares'));if(liked)copy.append(node('p','',`Public Flares ${user.name} has given a heart to.`));if(own)copy.append(node('p','','All your submissions, including public, unlisted, and in-review designs.'));
   heading.append(copy);if(own)heading.append(link('Create a Flare','/studio','button subtle'));section.append(heading);
   const status=node('p','form-footnote'),grid=node('div','cosmetic-grid'),more=controlLabel(node('button','button subtle load-more'),'Load more Flares ↓');
   status.setAttribute('role','status');more.type='button';more.hidden=true;section.append(status,grid,more);
@@ -1229,11 +1229,11 @@ function createdFlares(user, own=false) {
     if(busy || !section.isConnected)return;
     busy=true;more.disabled=true;grid.setAttribute('aria-busy','true');status.textContent='Loading created Flares…';
     try {
-      const path=own?'/api/my/cosmetics':`/api/v1/profiles/${encodeURIComponent(user.id)}/cosmetics`;
+      const path=own?'/api/my/cosmetics':`/api/v1/profiles/${encodeURIComponent(user.id)}/${liked?'likes':'cosmetics'}`;
       const readRevision=likes.revision,result=await api(`${path}?limit=24&offset=${offset}`);
       for(const paint of result.cosmetics)paint.like_read_revision=readRevision;
       if(!section.isConnected || (own && state.user?.id!==user.id))return;
-      if(!shown && !result.cosmetics.length){empty(grid,own?'You haven’t made a Flare yet.':'No public Flares yet.',own?'Design one in Studio. Everything you submit shows here, approved or not.':'This creator hasn’t published any listed Flares.',own?'/studio':null);section.classList.add('is-empty');}
+      if(!shown && !result.cosmetics.length){if(liked)empty(grid,'No liked Flares yet.',`When ${user.name} gives a public Flare a heart, it shows here.`,null);else empty(grid,own?'You haven’t made a Flare yet.':'No public Flares yet.',own?'Design one in Studio. Everything you submit shows here, approved or not.':'This creator hasn’t published any listed Flares.',own?'/studio':null);section.classList.add('is-empty');}
       else grid.append(...result.cosmetics.map((c,i)=>{const el=card(c,own,false);el.style.setProperty('--entry-delay',`${Math.min(i,5)*30}ms`);return el;}));
       shown+=result.cosmetics.length;offset=result.next_offset;
       status.textContent=own?`${shown} created Flares shown`:'';
@@ -1332,7 +1332,7 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
   // The preview shows the chosen platform's name and picture straight away.
   const asSource=provider=>{const item=user.identities.find(identity=>identity.provider===provider);return item?{...user,name:item.display_name || user.name,avatar_url:item.avatar_url || '',profile_provider:provider}:user;};
   select.addEventListener('change',()=>{const shown=asSource(select.value);preview.firstElementChild.replaceWith(avatar(shown,'avatar-large'));preview.querySelector('strong').textContent=shown.name;});bio.addEventListener('input',()=>preview.lastChild.textContent=bio.value || 'Your story goes here.');
-  const save=node('button','button primary','Save profile');save.type='submit';settings.append(preview,label,bioLabel,count,colorLabel,save,node('p','form-footnote','Favorites, pending submissions, and review notes stay private. Approved unlisted Flares can still be seen when equipped or shared by link.'));
+  const save=node('button','button primary','Save profile');save.type='submit';settings.append(preview,label,bioLabel,count,colorLabel,save,node('p','form-footnote','Flares you like show on your public profile. Pending submissions and review notes stay private. Approved unlisted Flares can still be seen when equipped or shared by link.'));
   settings.addEventListener('submit',event=>{event.preventDefault();run(async()=>{save.disabled=true;try{await api('/api/account/profile',{provider:select.value,bio:bio.value,profile_color:color.value});await refreshAccount();if(request===accountRequest && state.view==='account'){summary.style.setProperty('--profile-color',state.user.profile_color);identity.querySelector('h2').textContent=state.user.name;identityHead.querySelector('.avatar')?.replaceWith(avatar(state.user,'avatar-large'));toast('Profile saved. Your public page is up to date.');}}finally{if(save.isConnected)save.disabled=false;}});});content.append(settings);return;
   }
   const linked=user.identities.length,total=Object.keys(providerNames).length;
@@ -1545,7 +1545,9 @@ async function loadProfiles(id) {
   if(request!==profileRequest || state.view!=='profiles' || currentRoute()!==hash)return;
   const users=id?[result.user]:result.users;grid.replaceChildren(...users.map(user=>profileCard(user,Boolean(id),readRevision)));grid.setAttribute('aria-busy','false');
   if(id){document.title=`${result.user.name} · Nameflare`;$('#page-label').textContent=result.user.name;$('#profile-title').focus({preventScroll:true});}
-  if(id){const gallery=createdFlares(result.user);gallery.section.classList.add('profile-created-flares');grid.append(gallery.section);await run(gallery.load);if(request!==profileRequest || state.view!=='profiles' || currentRoute()!==hash)return;}
+  if(id){const gallery=createdFlares(result.user);gallery.section.classList.add('profile-created-flares');grid.append(gallery.section);await run(gallery.load);if(request!==profileRequest || state.view!=='profiles' || currentRoute()!==hash)return;
+    // Likes are public: anyone can see which public Flares a person has liked.
+    if(state.config.runtime!=='cloudflare'){const liked=createdFlares(result.user,false,true);liked.section.classList.add('profile-created-flares');grid.append(liked.section);await run(liked.load);if(request!==profileRequest || state.view!=='profiles' || currentRoute()!==hash)return;}}
   if(!users.length)empty(grid,'No matching profiles.','Try another name, platform login, or platform ID.',null);
   $('#profile-status').textContent=id?'':`${users.length} profiles shown`;
   const paging=$('#profile-pagination');paging.replaceChildren();

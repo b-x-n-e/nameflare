@@ -12,7 +12,8 @@ details next to this.
 | Account: display name, avatar, bio, profile colour, join date | Your profile | Everyone |
 | Connected platform accounts: platform user ID, login, display name, avatar | Signing in, and showing your Flare in chat | Everyone (this is how chat tools find your Flare) |
 | Flares you made, with their recipes and images | The product itself | Approved ones: everyone. Pending or disapproved: you and moderators |
-| Likes, follows | Your feed and creators' counts | Counts are public; who liked or followed is private |
+| Likes | Your feed, creators' counts, and the Liked Flares list on your profile | Public: anyone can see which public Flares you liked |
+| Follows | Your Following feed and creators' counts | Counts are public; who followed whom is private |
 | Notifications | Your inbox | You |
 | Reports you send | Moderation | Moderators |
 | Staff notes about an account | Moderation context (warnings, follow-ups) | Moderators and the owner. Deleted with the account |

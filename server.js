@@ -741,7 +741,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
       }
       if (method === 'GET' && (path === '/api/v1' || path === '/api/v1/')) {
         return publicJson(req,res,() => ({ version:1, name:'Nameflare', origin, features:{ resolve:true, batch:true, lookup:true, changes:true, stats:true, wearers:true },
-          endpoints:['GET /api/v1/stats','GET /api/v1/cosmetics','GET /api/v1/cosmetics/:id','GET /api/v1/cosmetics/:id/stats','GET /api/v1/cosmetics/:id/wearers','GET /api/v1/cosmetics/batch?ids=','GET /api/v1/cosmetics/lookup?name=','GET /api/v1/profiles','GET /api/v1/profiles/:id','GET /api/v1/profiles/:id/cosmetics','GET /api/v1/profiles/:id/accounts','GET /api/v1/profiles/:id/stats','GET /api/v1/artists','GET /api/v1/users/:provider/:id','GET /api/v1/users/:provider/:id/profile','GET /api/v1/users/:provider/:id/cosmetics','POST /api/v1/resolve','GET /api/v1/changes'],
+          endpoints:['GET /api/v1/stats','GET /api/v1/cosmetics','GET /api/v1/cosmetics/:id','GET /api/v1/cosmetics/:id/stats','GET /api/v1/cosmetics/:id/wearers','GET /api/v1/profiles/:id/likes','GET /api/v1/cosmetics/batch?ids=','GET /api/v1/cosmetics/lookup?name=','GET /api/v1/profiles','GET /api/v1/profiles/:id','GET /api/v1/profiles/:id/cosmetics','GET /api/v1/profiles/:id/accounts','GET /api/v1/profiles/:id/stats','GET /api/v1/artists','GET /api/v1/users/:provider/:id','GET /api/v1/users/:provider/:id/profile','GET /api/v1/users/:provider/:id/cosmetics','POST /api/v1/resolve','GET /api/v1/changes'],
           limits:{ resolve_ids:100, batch_ids:100, page:100, reads_per_minute:600, resolves_per_minute:240 },
           timing:{ public_cache_s:PUBLIC_TTL/1000, changes_poll_ms:4000, client_refresh_ms:7000, client_expiry_ms:12000 } }));
       }
@@ -816,12 +816,13 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         assert(['name','newest','oldest'].includes(sort),400,'Sort by name, newest, or oldest.');
         return publicJson(req,res,() => { const users = store.searchProfiles({query:(url.searchParams.get('q') || '').slice(0,80),offset,limit:25,sort}); return { total:store.countProfiles(), users:users.slice(0,24),next_offset:users.length > 24 ? offset+24:null }; });
       }
-      const profileFlares = /^\/api\/v1\/profiles\/([a-zA-Z0-9-]+)\/cosmetics$/.exec(path);
+      // A profile's own public Flares, and (2026.11) the public Flares it has liked.
+      const profileFlares = /^\/api\/v1\/profiles\/([a-zA-Z0-9-]+)\/(cosmetics|likes)$/.exec(path);
       if (method === 'GET' && profileFlares) {
         assert(store.publicProfile(profileFlares[1]),404,'Profile not found.');
         const offset = Number(url.searchParams.get('offset') || 0), limit = Number(url.searchParams.get('limit') || 24);
         assert(Number.isInteger(offset) && offset >= 0 && offset <= 1000000 && Number.isInteger(limit) && limit >= 1 && limit <= 100,400,'Invalid pagination.');
-        return publicJson(req,res,() => { const results = store.catalog({owner:profileFlares[1],listedOnly:true,offset,limit:limit+1}); return { cosmetics:results.slice(0,limit).map(c => store.publicCosmetic(c)), next_offset:results.length > limit ? offset+limit:null }; });
+        return publicJson(req,res,() => { const results = store.catalog({...(profileFlares[2] === 'likes' ? {likedBy:profileFlares[1]} : {owner:profileFlares[1]}),listedOnly:true,offset,limit:limit+1}); return { cosmetics:results.slice(0,limit).map(c => store.publicCosmetic(c)), next_offset:results.length > limit ? offset+limit:null }; });
       }
       const profileMatch = /^\/api\/v1\/profiles\/([a-zA-Z0-9-]+)$/.exec(path);
       if (method === 'GET' && profileMatch) {

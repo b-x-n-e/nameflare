@@ -31,6 +31,12 @@
   font: 600 var(--_fs)/1 var(--font-ui); letter-spacing: -.01em;
   transition: background var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
+/* A Web Awesome pill fills its host (plain buttons size to their label). */
+:root:root[data-theme] wa-button { --_w: 100%; }
+/* The host never paints: an older `.button.primary` rule coloured it, and when a
+   layout stretched the host wider than its pill, hover recoloured only the
+   pill in the middle. The pill now always fills its host. */
+:root:root[data-theme] wa-button:not(.showcase-heart) { background: none !important; box-shadow: none !important; }
 :root:root[data-theme] wa-button::part(label) { display: inline-flex; align-items: center; gap: 8px; padding: 0; }
 :root:root[data-theme] wa-button:not([disabled]):hover::part(base) { color: var(--_ink-h); background: var(--_bg-h); box-shadow: var(--_sh-h); }
 :root:root[data-theme] wa-button:not([disabled]):active::part(base) { transform: scale(.98); }
@@ -372,6 +378,13 @@
 :root:root[data-theme] .collection-card .collection-status .card-note { margin: 0; }
 :root:root[data-theme] .collection-card .collection-note { display: grid; gap: 4px; margin: 6px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
 :root:root[data-theme] .collection-card > .card-meta > .card-actions { margin-top: auto; padding-top: 10px; }
+
+/* ---- Currently wearing, with nothing equipped: the name at full size ------
+   (an older rule set it to 17px, so the empty panel looked broken). */
+:root:root[data-theme] .equipped-stage.is-empty strong {
+  font-family: var(--font-preview); font-size: clamp(26px, calc(var(--name-scale, 12) * 1cqw), 58px); font-weight: 800;
+  letter-spacing: -.01em; color: rgba(255, 255, 255, .82);
+}
 
 /* ---- Nothing moves under the pointer -------------------------------------
    Older layers nudged controls 1–3px on hover and squeezed them on press
