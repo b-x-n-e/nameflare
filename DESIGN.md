@@ -59,10 +59,37 @@ Every Flare is drawn on one object: a chat-dark plate with a faint top light. Th
 - **Site footer:** under every page except Studio. It holds the mark, a one-line description, Explore / Learn / Project columns, then ownership and licence.
 - **404 page:** "404" drawn in the Sunset fade preset on a plate, plus the failed address and Go to Discover / Search. Unknown pages return status 404, and the guessable aliases redirect with 301.
 
+## System: one set of parts (2026.11)
+
+`public/ui/system.css` loads last. It is where every control gets its shape. Before it, the site rendered 49 distinct button styles (heights from 24 to 40px, 8 radii, 4 weights) from twelve layered stylesheets; there are now a handful, each with a reason.
+
+- **Buttons.**
+  - **Sizes:** two. 36px is the default; 32px for anything in a row of other controls (card actions, rails, chips, toolbars). All are pills with 600-weight Mona Sans, 14px or 13px.
+  - **Colour:** comes from per-element variables (`--_bg`, `--_ink`, `--_sh` and their hover twins), so a variant is a one-line rule.
+  - **Variants:**
+    - secondary (white with the hairline ring) is the default;
+    - primary is ink;
+    - ghost is transparent and muted;
+    - accent is the flame gradient, for Create, Publish, Submit and Follow on a profile only;
+    - danger is red.
+  - **Icon-only buttons** are circles.
+  - **Width:** buttons size to their label and never stretch across a panel.
+- **Segmented control.** One control for every either/or choice: a tinted track with a white thumb.
+  - Trending's This week / Most worn, Studio's Dark/Light/Clear, Type and Bands, the moderation status tabs, account filters, the layout toggle, and the Appearance density and motion settings.
+- **Chips.** Stackable filters are 32px pills that turn ink when active.
+- **Menus.** Web Awesome dropdowns, the More menu, row menus and Studio's menu share one panel: white, 14px radius, the pop shadow, 36px items with 16px icons.
+  - Card menus open toward whichever side of the card has room.
+- **Dialogs.** 24px radius, no border, one 36px circular close button (light-on-dark on the Flare detail plate).
+- **Badges.** One 22px soft pill.
+- **Rules for the layer itself:**
+  - `display` is declared at zero specificity (`:where`), so any older rule that hides a control still wins.
+  - Entry animations use `fill-mode: backwards`. A leftover identity `transform` on a page section made it the containing block for floating menus and dialogs.
+
 ## Files
 
 - `public/ui/tokens.css`: type, the colour scales for every theme (the `gallery` block included), shape, elevation and motion.
 - `public/ui/kit.css`, `frame.css`, `shell.css`, `views.css`, `studio.css`, `admin.css`, `profiles.css`, `stage.css`, `slim.css`, `calm.css`: the component kit and page layouts shared by all themes, in load order.
+- `public/ui/system.css`: the component system above; loads after gallery.css and is scoped to Gallery.
 - `public/ui/gallery.css`: the Gallery world. It loads last, and every rule is scoped to `:root[data-theme="gallery"]`, so the other themes keep their own look. Where an older rule carries an ID, Gallery rules prefix `#main-content` rather than reach for `!important`.
 - `public/effects.css`, `public/renderer.js`: the Flare renderer. Never skin these from product CSS; a Flare's colours and motion are authored data.
 

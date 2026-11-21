@@ -1,0 +1,259 @@
+/* ==========================================================================
+   Nameflare system (Gallery, 2026.11)
+   One set of parts for every page: two button sizes, five button variants,
+   one segmented control, one chip, one menu, one dialog, one badge. Before
+   this layer the site rendered 49 different button styles from twelve
+   stylesheets. Loaded last. Rules are prefixed :root:root[data-theme] so
+   they outrank the older per-page layers; !important appears only where an
+   older layer used it first.
+   ========================================================================== */
+
+:root[data-theme="gallery"] {
+  --b-h: 36px;              /* default control height */
+  --b-h-sm: 32px;           /* dense rows: cards, rails, toolbars, chips */
+  --r-menu: 14px;
+  --r-item: 9px;
+  --r-dialog: 24px;
+}
+
+/* ---- Buttons ------------------------------------------------------------
+   Geometry and colour come from variables set on the element, so a variant
+   or size is one short rule and every button reads them the same way. */
+:root:root[data-theme="gallery"] wa-button,
+:root:root[data-theme="gallery"] :is(.button, .btn, .st-btn):not(wa-button) {
+  --_h: var(--b-h); --_px: 16px; --_fs: 14px; --_w: auto;
+  --_bg: var(--surface); --_ink: var(--ink); --_sh: var(--shadow-1);
+  --_bg-h: var(--surface); --_ink-h: var(--ink); --_sh-h: var(--shadow-2);
+}
+:root:root[data-theme="gallery"] wa-button::part(base) {
+  width: var(--_w); height: var(--_h); min-height: var(--_h); padding: 0 var(--_px); gap: 8px;
+  color: var(--_ink); background: var(--_bg); border: 0; border-radius: 999px; box-shadow: var(--_sh);
+  font: 600 var(--_fs)/1 var(--font-ui); letter-spacing: -.01em;
+  transition: background var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+:root:root[data-theme="gallery"] wa-button::part(label) { display: inline-flex; align-items: center; gap: 8px; padding: 0; }
+:root:root[data-theme="gallery"] wa-button:not([disabled]):hover::part(base) { color: var(--_ink-h); background: var(--_bg-h); box-shadow: var(--_sh-h); }
+:root:root[data-theme="gallery"] wa-button:not([disabled]):active::part(base) { transform: scale(.98); }
+:root:root[data-theme="gallery"] wa-button[disabled]::part(base) { opacity: .42; box-shadow: none; cursor: not-allowed; }
+
+:root:root[data-theme="gallery"] :is(.button, .btn, .st-btn):not(wa-button) {
+  align-items: center; justify-content: center; gap: 8px;
+  width: var(--_w); height: var(--_h); min-height: var(--_h); padding: 0 var(--_px);
+  color: var(--_ink); background: var(--_bg); border: 0; border-radius: 999px; box-shadow: var(--_sh);
+  font: 600 var(--_fs)/1 var(--font-ui); letter-spacing: -.01em; text-decoration: none; white-space: nowrap; cursor: pointer;
+  transition: background var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+:root:root[data-theme="gallery"] :is(.button, .btn, .st-btn):not(wa-button):not(:disabled):hover { color: var(--_ink-h); background: var(--_bg-h); box-shadow: var(--_sh-h); text-decoration: none; }
+:root:root[data-theme="gallery"] :is(.button, .btn, .st-btn):not(wa-button):not(:disabled):active { transform: scale(.98); }
+:root:root[data-theme="gallery"] :is(.button, .btn, .st-btn):not(wa-button):disabled { opacity: .42; box-shadow: none; cursor: not-allowed; }
+:root:root[data-theme="gallery"] :is(wa-button, .button, .st-btn) .ui-icon { width: 16px; height: 16px; flex-shrink: 0; vertical-align: 0; }
+
+/* Display lives at zero specificity so any older rule that hides a button still wins. */
+:where(:root[data-theme="gallery"]) :where(.button, .btn, .st-btn) { display: inline-flex; }
+:where(:root[data-theme="gallery"]) :where(.st-icon, .icon-toggle, .showcase-nav button) { display: inline-grid; }
+:where(:root[data-theme="gallery"]) :where(.showcase-tabs, .canvas-seg, .segmented, .review-status-tabs, .audit-filters, .account-status-filters, .layout-toggle,
+  .showcase-tabs > button, .canvas-seg > button, .seg > button, .seg > label, .segmented > button, .review-status-tabs > button, .audit-filters > button, .layout-toggle > button,
+  .equipped-chip, .plat-status, .moderator-badge, .artist-badge, .collection-status, .badge, .status-badge) { display: inline-flex; }
+
+/* Variants. Secondary (white on the ring) is the default above. */
+:root:root[data-theme="gallery"] :is(wa-button, .button, .btn, .st-btn).primary:not(.equip-button) {
+  --_bg: var(--ink); --_ink: #fff; --_sh: none; --_bg-h: #2b2b30; --_ink-h: #fff; --_sh-h: none;
+}
+:root:root[data-theme="gallery"] :is(wa-button.ghost, wa-button[appearance="plain"], .button.ghost, .text-button, .st-link, .link-button) {
+  --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: var(--tint-1); --_ink-h: var(--ink); --_sh-h: none;
+}
+/* Accent: the flame orange, kept for creating and publishing only. */
+:root:root[data-theme="gallery"] :is(wa-button.rail-create, .st-btn.st-primary, .button.accent, #publish-submit, .publish-submit) {
+  --_bg: var(--accent-gradient); --_ink: #fff; --_sh: 0 1px 0 rgba(255,255,255,.22) inset, 0 6px 16px -8px rgba(236,82,22,.7);
+  --_bg-h: linear-gradient(180deg, #f7763d, #ee5a1f); --_ink-h: #fff; --_sh-h: var(--_sh);
+}
+:root:root[data-theme="gallery"] :is(wa-button.danger, .button.danger) {
+  --_bg: var(--danger); --_ink: #fff; --_sh: none; --_bg-h: #a82a19; --_ink-h: #fff; --_sh-h: none;
+}
+
+/* Dense size: anything that sits in a row of other controls. */
+:root:root[data-theme="gallery"] :is(wa-button.equip-button, wa-button.follow-button, wa-button.like-button, wa-button.post-more,
+  wa-button.sort-trigger, wa-button.filter-toggle, wa-button[size="xs"], wa-button[size="s"], wa-button.ph-share,
+  .st-btn, .rail-panel .button, .plat-actions .button, .review-actions .button) {
+  --_h: var(--b-h-sm); --_px: 12px; --_fs: 13px;
+}
+/* Studio's command bar sits at page level, so it keeps the default height. */
+:root:root[data-theme="gallery"] .st-bar .st-btn { --_h: var(--b-h); --_px: 16px; --_fs: 14px; }
+
+/* Icon buttons outside Web Awesome: one circle, ghost until hovered. */
+:root:root[data-theme="gallery"] :is(.st-icon, .icon-toggle, .showcase-nav button) {
+  place-items: center; width: 32px; height: 32px; min-height: 32px; padding: 0;
+  color: var(--muted); background: transparent; border: 0; border-radius: 999px; box-shadow: none; cursor: pointer;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+:root:root[data-theme="gallery"] :is(.st-icon, .icon-toggle, .showcase-nav button):not(:disabled):hover { color: var(--ink); background: var(--tint-1); }
+:root:root[data-theme="gallery"] :is(.st-icon, .icon-toggle, .showcase-nav button):disabled { opacity: .35; cursor: default; }
+:root:root[data-theme="gallery"] :is(.st-icon, .icon-toggle)[aria-pressed="true"] { color: var(--ink); background: var(--tint-2); }
+:root:root[data-theme="gallery"] :is(.st-icon.st-icon-sm, .insp .st-icon, .st-section .st-icon) { width: 28px; height: 28px; min-height: 28px; }
+/* Where icon buttons sit loose on the room (Studio bar, Trending arrows) they get the white ring. */
+:root:root[data-theme="gallery"] :is(.st-bar .st-icon, .showcase-nav button, .canvas-pause) { width: 36px; height: 36px; min-height: 36px; background: var(--surface); box-shadow: var(--shadow-1); }
+:root:root[data-theme="gallery"] .st-bar .st-group { display: inline-flex; gap: 2px; padding: 0; background: none; border: 0; box-shadow: none; }
+:root:root[data-theme="gallery"] .st-icon .ui-icon, :root:root[data-theme="gallery"] .icon-toggle .ui-icon { width: 16px; height: 16px; }
+:root:root[data-theme="gallery"] .st-link { color: var(--muted); font: 600 13px var(--font-ui); background: none; border: 0; border-radius: 999px; padding: 0 10px; height: 30px; }
+:root:root[data-theme="gallery"] .st-link:hover { color: var(--ink); background: var(--tint-1); }
+/* Icon-only buttons are circles. */
+:root:root[data-theme="gallery"] :is(wa-button.post-more, wa-button.filter-toggle, wa-button.detail-download, wa-button.detail-report) { --_w: var(--_h); --_px: 0; }
+:root:root[data-theme="gallery"] wa-button:is(.post-more, .detail-download, .detail-report, .like-button) { --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: var(--tint-1); --_ink-h: var(--ink); --_sh-h: none; }
+:root:root[data-theme="gallery"] wa-button.like-button { --_px: 10px; }
+:root:root[data-theme="gallery"] wa-button.like-button[aria-pressed="true"] { --_ink: #e5364f; --_ink-h: #e5364f; }
+/* Equip: a white pill; ink on hover; tinted by the Flare's own colour once worn. */
+:root:root[data-theme="gallery"] wa-button.equip-button { --_px: 14px; min-width: 0; }
+:root:root[data-theme="gallery"] wa-button.equip-button:hover { --_bg-h: var(--ink); --_ink-h: #fff; --_sh-h: none; }
+:root:root[data-theme="gallery"] wa-button.equip-button[aria-pressed="true"] {
+  --_bg: color-mix(in srgb, var(--paint-color, var(--success)) 16%, var(--surface)); --_bg-h: var(--_bg); --_ink-h: var(--ink);
+  --_sh: inset 0 0 0 1px color-mix(in srgb, var(--paint-color, var(--success)) 42%, transparent); --_sh-h: var(--_sh);
+}
+:root:root[data-theme="gallery"] wa-button .check-icon { width: 14px; height: 14px; margin-left: 2px; }
+/* Follow: quiet in lists; the flame only on a creator's own profile. */
+:root:root[data-theme="gallery"] wa-button.follow-button { --_bg: var(--tint-1); --_sh: none; --_bg-h: var(--tint-2); --_sh-h: none; }
+:root:root[data-theme="gallery"] wa-button.follow-button[aria-pressed="true"] { --_bg: transparent; --_ink: var(--muted); --_sh: inset 0 0 0 1px var(--line-strong); --_sh-h: var(--_sh); }
+:root:root[data-theme="gallery"] .ph-actions wa-button.follow-button[aria-pressed="false"] { --_h: var(--b-h); --_px: 20px; --_fs: 14px; --_bg: var(--accent-gradient); --_ink: #fff; --_bg-h: linear-gradient(180deg, #f7763d, #ee5a1f); --_ink-h: #fff; }
+:root:root[data-theme="gallery"] .ph-actions wa-button { --_h: var(--b-h); --_fs: 14px; }
+
+/* Buttons never stretch across a form or panel; they size to their label. */
+:root:root[data-theme="gallery"] :is(.panel, form, .account-tab-content, .empty-state, dialog) > :is(.button, wa-button) { justify-self: start; width: auto; }
+:root:root[data-theme="gallery"] .empty-state > :is(.button, wa-button) { justify-self: center; }
+:root:root[data-theme="gallery"] #publish-dialog :is([type="submit"], #publish-submit) { justify-self: stretch; --_w: 100%; }
+
+/* ---- Segmented control ---------------------------------------------------
+   One control for every either/or choice: a tinted track, a white thumb. */
+:root:root[data-theme="gallery"] :is(.showcase-tabs, .canvas-seg, .seg, .segmented, .review-status-tabs, .audit-filters, .account-status-filters, .layout-toggle) {
+  align-items: center; gap: 2px; width: auto; padding: 3px;
+  background: var(--tint-1); border: 0; border-radius: 999px; box-shadow: none;
+}
+:root:root[data-theme="gallery"] .seg { width: 100%; min-width: 0; }
+:root:root[data-theme="gallery"] .seg > * { flex: 1 1 0; min-width: 0; padding-inline: 6px !important; }
+:root:root[data-theme="gallery"] :is(.showcase-tabs, .canvas-seg, .seg, .segmented, .review-status-tabs, .audit-filters, .layout-toggle) > :is(button, label) {
+  align-items: center; justify-content: center; gap: 6px;
+  height: 30px; min-height: 30px; padding: 0 12px; border: 0; border-radius: 999px;
+  color: var(--muted); background: transparent; box-shadow: none;
+  font: 600 13px/1 var(--font-ui); letter-spacing: -.005em; white-space: nowrap; cursor: pointer;
+}
+:root:root[data-theme="gallery"] .layout-toggle > button { width: 30px; padding: 0; }
+:root:root[data-theme="gallery"] :is(.showcase-tabs, .canvas-seg, .seg, .segmented, .review-status-tabs, .audit-filters, .layout-toggle) > :is(button, label):hover { color: var(--ink); background: transparent; }
+:root:root[data-theme="gallery"] :is(.showcase-tabs, .canvas-seg, .seg, .segmented, .review-status-tabs, .audit-filters, .layout-toggle) > :is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], .active, :has(input:checked)) {
+  color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1);
+}
+:root:root[data-theme="gallery"] .account-status-filters > wa-button { --_h: 30px; --_px: 12px; --_fs: 13px; --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: transparent; --_ink-h: var(--ink); --_sh-h: none; }
+:root:root[data-theme="gallery"] .account-status-filters > wa-button.active { --_bg: var(--surface); --_ink: var(--ink); --_sh: var(--shadow-1); --_bg-h: var(--surface); --_sh-h: var(--shadow-1); }
+:root:root[data-theme="gallery"] .review-status-tab > span + span,
+:root:root[data-theme="gallery"] .review-status-tab .count { color: var(--faint); font: 500 12px var(--font-mono); }
+
+/* ---- Chips: filters you can stack ---------------------------------------- */
+:root:root[data-theme="gallery"] .filters > wa-button,
+:root:root[data-theme="gallery"] wa-button.filter-chip { --_h: var(--b-h-sm); --_px: 14px; --_fs: 13px; --_bg: transparent; --_ink: var(--muted); --_sh: none; --_bg-h: var(--tint-1); --_ink-h: var(--ink); --_sh-h: none; }
+:root:root[data-theme="gallery"] :is(.filters > wa-button, wa-button.filter-chip)::part(base) { border-radius: 999px !important; }
+:root:root[data-theme="gallery"] :is(.filters > wa-button, wa-button.filter-chip):is(.active, [aria-pressed="true"]) { --_bg: var(--ink); --_ink: #fff; --_bg-h: var(--ink); --_ink-h: #fff; }
+:root:root[data-theme="gallery"] .filter-chip, :root:root[data-theme="gallery"] .filters > wa-button { border-radius: 999px !important; }
+:root:root[data-theme="gallery"] .seg-filters { gap: 6px; }
+:root:root[data-theme="gallery"] .seg-filters button, :root:root[data-theme="gallery"] button.filter-pill {
+  height: 30px; padding: 0 12px; border: 0; border-radius: 999px; color: var(--muted); background: var(--tint-1);
+  font: 600 13px/1 var(--font-ui); cursor: pointer;
+}
+:root:root[data-theme="gallery"] .seg-filters button:hover { color: var(--ink); background: var(--tint-2); }
+:root:root[data-theme="gallery"] .seg-filters button[aria-pressed="true"], :root:root[data-theme="gallery"] button.filter-pill.active { color: #fff; background: var(--ink); }
+:root:root[data-theme="gallery"] .advanced-filters, :root:root[data-theme="gallery"] #advanced-filters { background: var(--surface); border: 0; border-radius: var(--g-r-box); box-shadow: var(--shadow-1); }
+:root:root[data-theme="gallery"] .filter-label { color: var(--ink); font: 650 13px var(--font-ui); letter-spacing: -.005em; text-transform: none; }
+
+/* ---- Fields --------------------------------------------------------------- */
+:root:root[data-theme="gallery"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select) { min-height: 40px; font-size: 14px; }
+:root:root[data-theme="gallery"] select { padding-right: 34px; }
+:root:root[data-theme="gallery"] textarea { font-size: 14px; }
+
+/* ---- Menus: dropdowns, the More menu, row and Studio menus ---------------- */
+:root:root[data-theme="gallery"] wa-dropdown::part(menu),
+:root:root[data-theme="gallery"] :is(.menu-panel, .st-menu-panel, .row-menu-panel) {
+  min-width: 208px; padding: 6px; background: var(--surface); border: 0; border-radius: var(--r-menu); box-shadow: var(--shadow-pop);
+}
+:root:root[data-theme="gallery"] wa-dropdown-item::part(base) { min-height: 36px; padding: 0 10px; border-radius: var(--r-item); }
+:root:root[data-theme="gallery"] wa-dropdown-item { font: 500 14px var(--font-ui); color: var(--ink-2); }
+:root:root[data-theme="gallery"] wa-dropdown-item:not([disabled])::part(base):hover,
+:root:root[data-theme="gallery"] wa-dropdown-item:focus-visible::part(base) { background: var(--tint-1); color: var(--ink); }
+:root:root[data-theme="gallery"] :is(.st-menu-panel button, .row-menu-panel .menu-item, .menu-group a, .resource-link, .rail-mood-button) {
+  min-height: 36px; padding: 0 10px; gap: 10px; border: 0; border-radius: var(--r-item);
+  color: var(--ink-2); background: transparent; font: 500 14px var(--font-ui);
+}
+:root:root[data-theme="gallery"] :is(.st-menu-panel button, .row-menu-panel .menu-item, .menu-group a, .resource-link, .rail-mood-button):hover { color: var(--ink); background: var(--tint-1); }
+:root:root[data-theme="gallery"] :is(wa-dropdown-item, .st-menu-panel, .menu-panel, .row-menu-panel) .ui-icon { width: 16px; height: 16px; color: var(--faint); }
+/* Ten themes sit in two even rows of five, never nine and an orphan. */
+:root:root[data-theme="gallery"] .rail-themes { display: grid; grid-template-columns: repeat(5, 28px); justify-content: space-between; gap: 8px; padding: 4px 10px 8px; }
+
+/* ---- Dialogs ---------------------------------------------------------------- */
+:root:root[data-theme="gallery"] dialog { border: 0; border-radius: var(--r-dialog); background: var(--surface); box-shadow: var(--shadow-pop); }
+:root:root[data-theme="gallery"] dialog::backdrop { background: rgba(17, 17, 19, .42); }
+:root:root[data-theme="gallery"] dialog h2 { font: 750 22px/1.2 var(--font-display); font-stretch: 105%; letter-spacing: -.025em; color: var(--ink); }
+:root:root[data-theme="gallery"] .dialog-close {
+  display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 999px;
+  color: var(--muted); background: var(--tint-1); box-shadow: none; font: 400 20px/1 var(--font-ui);
+}
+:root:root[data-theme="gallery"] .dialog-close:hover { color: var(--ink); background: var(--tint-2); }
+/* On the detail window the close button sits on the dark plate. */
+:root:root[data-theme="gallery"] #detail-dialog .dialog-close { color: rgba(255,255,255,.8); background: rgba(255,255,255,.1); }
+:root:root[data-theme="gallery"] #detail-dialog .dialog-close:hover { color: #fff; background: rgba(255,255,255,.18); }
+:root:root[data-theme="gallery"] #preferences-dialog .preferences-label,
+:root:root[data-theme="gallery"] #preferences-dialog :is(h3, legend) { display: block; margin: 22px 0 10px; color: var(--ink); font: 650 14px var(--font-ui); letter-spacing: -.005em; text-transform: none; }
+
+/* ---- Flare detail window --------------------------------------------------- */
+:root:root[data-theme="gallery"] #detail-dialog .detail-stage-tools input {
+  min-height: 36px; color: #fff; background: rgba(255,255,255,.08); border: 0; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+}
+:root:root[data-theme="gallery"] #detail-dialog .detail-stage-tools input::placeholder { color: rgba(255,255,255,.5); }
+:root:root[data-theme="gallery"] #detail-dialog .stage-tool { width: 36px; height: 36px; border: 0; border-radius: 999px; color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); }
+:root:root[data-theme="gallery"] .creator-link { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 560; }
+:root:root[data-theme="gallery"] .creator-link .avatar { width: 24px; height: 24px; font-size: 10px; }
+:root:root[data-theme="gallery"] .detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+:root:root[data-theme="gallery"] .detail-actions .detail-download { margin-left: auto; }
+
+/* ---- Badges: one soft pill ------------------------------------------------- */
+:root:root[data-theme="gallery"] :is(.equipped-chip, .plat-status, .moderator-badge, .artist-badge, .collection-status, .badge, .status-badge) {
+  align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 0; border-radius: 999px;
+  font: 600 12px/1 var(--font-ui); letter-spacing: 0; text-transform: none;
+}
+
+/* ---- Header controls -------------------------------------------------------- */
+:root:root[data-theme="gallery"] wa-button.topbar-search[appearance] { --_bg: var(--surface); --_ink: var(--muted); --_sh: var(--shadow-1); --_bg-h: var(--surface); --_ink-h: var(--ink); --_sh-h: var(--shadow-2); --_px: 14px; --_fs: 14px; }
+:root:root[data-theme="gallery"] wa-button.topbar-search::part(base) { justify-content: flex-start; font-weight: 500; }
+:root:root[data-theme="gallery"] #signin-button { --_bg: var(--ink); --_ink: #fff; --_sh: none; --_bg-h: #2b2b30; --_ink-h: #fff; --_sh-h: none; border-radius: 999px; padding: 0 18px; }
+
+/* ---- Notification count: a small flame dot that sits on the bell ---------- */
+:root:root[data-theme="gallery"] .notification-count { top: 2px; right: 2px; transform: translate(35%, -25%); border: 0; outline: 0; box-shadow: none; background: none; }
+:root:root[data-theme="gallery"] .notification-count::part(base) {
+  min-width: 16px; height: 16px; padding: 0 4px; border: 0; border-radius: 999px;
+  color: #fff; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); font: 700 10px/16px var(--font-ui);
+}
+
+/* ---- Page and section headings ----------------------------------------------- */
+:root:root[data-theme="gallery"] .page-heading { margin-bottom: 28px; }
+:root:root[data-theme="gallery"] .page-heading > p, :root:root[data-theme="gallery"] .page-heading .page-lede { margin-top: 8px; color: var(--muted); font-size: 15px; line-height: 1.5; }
+:root:root[data-theme="gallery"] .section-heading { margin-bottom: 16px; }
+:root:root[data-theme="gallery"] .section-heading h2 { font: 700 20px/1.25 var(--font-display); letter-spacing: -.02em; }
+:root:root[data-theme="gallery"] .section-heading p { margin-top: 4px; color: var(--muted); font-size: 14px; }
+:root:root[data-theme="gallery"] .panel > h2, :root:root[data-theme="gallery"] .panel > header h2 { font: 700 18px/1.3 var(--font-display); letter-spacing: -.02em; }
+:root:root[data-theme="gallery"] .tab-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+:root:root[data-theme="gallery"] .tab-head h2 { font: 700 20px/1.25 var(--font-display); letter-spacing: -.02em; }
+:root:root[data-theme="gallery"] .tab-head p { max-width: 62ch; margin-top: 6px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+:root:root[data-theme="gallery"] .account-tab-content:has(.followed-creators > .empty-state) [data-following-status] { display: none; }
+
+/* ---- Phone menu sheet: one surface, tiles on it, no card inside a card --- */
+@media (max-width: 1000px) {
+  :root:root[data-theme="gallery"] .app-rail.menu-open .site-navigation { background: var(--surface); border: 0; border-radius: 0 0 24px 24px; box-shadow: var(--shadow-pop); }
+  :root:root[data-theme="gallery"] .app-rail.menu-open .menu-panel { padding: 0; background: transparent; box-shadow: none; }
+  :root:root[data-theme="gallery"] .app-rail.menu-open .primary-nav a {
+    height: 52px; border: 0; border-radius: 14px; color: var(--ink-2); background: var(--bg); box-shadow: none; font: 600 15px var(--font-ui);
+  }
+  :root:root[data-theme="gallery"] .app-rail.menu-open .primary-nav a[aria-current="page"] { color: #fff; background: var(--ink); }
+  :root:root[data-theme="gallery"] .app-rail.menu-open .primary-nav a[aria-current="page"] .ui-icon { color: #fff; }
+  :root:root[data-theme="gallery"] .nav-toggle { width: 40px; height: 40px; border: 0; border-radius: 999px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); }
+  :root:root[data-theme="gallery"] .nav-toggle[aria-expanded="true"] { color: var(--ink); background: var(--tint-1); box-shadow: none; }
+}
+
+/* ---- Phones --------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  :root:root[data-theme="gallery"] .tab-head { flex-direction: column; gap: 14px; }
+  :root:root[data-theme="gallery"] .detail-actions .detail-download { margin-left: 0; }
+}

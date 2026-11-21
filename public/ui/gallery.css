@@ -47,10 +47,8 @@
 :root[data-theme="gallery"] .mono, :root[data-theme="gallery"] kbd { font-family: var(--font-mono); }
 
 /* ---- Header -------------------------------------------------------------- */
-:root[data-theme="gallery"] .site-navigation {
-  background: var(--bg); border-bottom: 0;
-  box-shadow: 0 1px 0 var(--line);
-}
+/* .site-navigation is only the group of nav links; the header draws its own line. */
+:root[data-theme="gallery"] .app-rail:not(.menu-open) .site-navigation { background: none; border-bottom: 0; box-shadow: none; }
 :root[data-theme="gallery"] .sidebar-brand { gap: 9px; font: 800 19px/1 var(--font-display); font-stretch: 112%; letter-spacing: -.03em; color: var(--ink); }
 :root[data-theme="gallery"] .primary-nav a { color: var(--muted); font-weight: 560; font-size: 14px; border-radius: var(--g-r-inner); }
 :root[data-theme="gallery"] .primary-nav a:hover { color: var(--ink); background: var(--tint-1); }

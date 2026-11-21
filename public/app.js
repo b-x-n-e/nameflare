@@ -499,7 +499,7 @@ const follows=createLikeController({
   onChange:value=>{if(value.liked)state.followingIds.add(value.id);else state.followingIds.delete(value.id);$('#following-total').textContent=String(state.followingIds.size);for(const count of document.querySelectorAll('[data-following-count]'))count.textContent=String(state.followingIds.size);for(const button of document.querySelectorAll('[data-follow-id]'))if(button.dataset.followId===value.id)updateFollowButton(button);},
   onError:(error,id)=>toast(`Follow wasn’t saved. ${error.message}`,true,()=>{if(error.status===401){try{sessionStorage.setItem('nameflare.follow',JSON.stringify({id,at:Date.now()}));}catch{}openSignIn('follow');}else requestFollow(id);}),
   onSettled:(value,error)=>{if(error)return;state.catalogLoaded=false;state.followingLoaded=false;$('#like-announcement').textContent=value.liked?'Creator followed. Their public Flares appear in Following.':'Creator unfollowed.';if(!value.liked && state.view==='following')run(()=>loadFollowing());
-    if(!value.liked && currentRoute()==='/account/following'){const card=[...document.querySelectorAll('#account-content [data-profile-id]')].find(card=>card.dataset.profileId===value.id);if(card){const focused=card.contains(document.activeElement),next=card.nextElementSibling || card.previousElementSibling;card.remove();const more=document.querySelector('[data-following-more]');if(more?.dataset.followingOffset)more.dataset.followingOffset=String(Math.max(0,Number(more.dataset.followingOffset)-1));if(focused)(next?.querySelector('[data-follow-id]') || document.querySelector('.account-tabs [aria-current]')).focus();const grid=document.querySelector('.followed-creators'),status=document.querySelector('[data-following-status]');if(status)status.textContent=`${grid.querySelectorAll('[data-profile-id]').length} followed creators shown`;if(!grid.children.length && document.querySelector('[data-following-more]')?.hidden)empty(grid,'Your next favorite creator is out there.','Follow creators to build your personal Flare feed.','/profiles','Find creators →');}}
+    if(!value.liked && currentRoute()==='/account/following'){const card=[...document.querySelectorAll('#account-content [data-profile-id]')].find(card=>card.dataset.profileId===value.id);if(card){const focused=card.contains(document.activeElement),next=card.nextElementSibling || card.previousElementSibling;card.remove();const more=document.querySelector('[data-following-more]');if(more?.dataset.followingOffset)more.dataset.followingOffset=String(Math.max(0,Number(more.dataset.followingOffset)-1));if(focused)(next?.querySelector('[data-follow-id]') || document.querySelector('.account-tabs [aria-current]')).focus();const grid=document.querySelector('.followed-creators'),status=document.querySelector('[data-following-status]');if(status)status.textContent=`${grid.querySelectorAll('[data-profile-id]').length} followed creators shown`;if(!grid.children.length && document.querySelector('[data-following-more]')?.hidden)empty(grid,'Your next favorite creator is out there.','Follow creators to build your personal Flare feed.','/profiles','Find creators');}}
   }
 });
 function updateFollowButton(button) {
@@ -636,6 +636,8 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   authorCopy.append(sub);author.append(authorCopy);head.append(author);
   if(!collection && creatorId)head.append(followButton({id:creatorId,name:cosmetic.creator || 'this creator'},follows.revision));
   const menu=node('wa-dropdown','post-menu');menu.setAttribute('placement','bottom-end');menu.setAttribute('distance','6');
+  // Open toward the side of the card with room: the trigger sits at the right edge in some layouts and mid-row in others.
+  menu.addEventListener('wa-show',()=>{const box=menu.closest('.cosmetic-card')?.getBoundingClientRect(),at=menu.querySelector('[slot="trigger"]')?.getBoundingClientRect();if(box && at)menu.setAttribute('placement',at.left+at.width/2<box.left+box.width/2?'bottom-start':'bottom-end');});
   const menuTrigger=node('wa-button','post-more');menuTrigger.setAttribute('slot','trigger');menuTrigger.setAttribute('appearance','plain');menuTrigger.setAttribute('size','s');menuTrigger.setAttribute('type','button');menuTrigger.setAttribute('aria-label',`More options for ${cosmetic.name}`);menuTrigger.append(icon('more'),node('span','sr-only',`More options for ${cosmetic.name}`));
   const menuItem=(label,fn,iconName)=>{const item=node('wa-dropdown-item');const content=node('span','wa-menu-label');content.append(icon(iconName),node('span','',label));item.append(content);item.addEventListener('click',()=>{menu.open=false;run(fn);});return item;};
   const openItem=menuItem('Open Flare',()=>openDetails(cosmetic),'arrow'),copyItem=menuItem('Copy link',()=>copyFlareLink(cosmetic.id,{name:cosmetic.name}),'link');
@@ -647,7 +649,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   }
   head.append(menu);
   const preview=node('button','card-preview');preview.type='button';preview.setAttribute('aria-label',`View ${cosmetic.name}`);
-  const name=node('strong','',collection ? (state.user?.name || 'yourname'):(previewName() || cosmetic.name || cosmetic.creator || 'yourname'));name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
+  const name=node('strong','',previewName() || cosmetic.name || cosmetic.creator || 'yourname');name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
   if(!collection && trackCatalog)catalogPreviews.set(name,cosmetic);
   const type=hasTexture(cosmetic)?'Texture':cosmetic.recipe.depth?'3D depth':cosmetic.recipe.animation==='none'?'Static':'Animated',typeLabel=node('wa-badge','corner-label',type);typeLabel.setAttribute('variant','neutral');typeLabel.setAttribute('appearance','outlined');typeLabel.setAttribute('pill','');typeLabel.setAttribute('aria-hidden','true');typeLabel.prepend(icon(hasTexture(cosmetic)?'layers':cosmetic.recipe.depth?'collection':cosmetic.recipe.animation==='none'?'spark':'motion'));
   const palette=node('span','preview-palette');palette.setAttribute('aria-hidden','true');for(const color of colors){const chip=node('i');chip.style.backgroundColor=color;palette.append(chip);}
@@ -1115,7 +1117,7 @@ async function openDetails(cosmetic) {
   return showDetails(cosmetic);
 }
 async function showDetails(cosmetic) {
-  const container=$('#detail-content');container.replaceChildren();const stage=node('div','detail-stage');const previewText=state.user?.name || cosmetic.creator || 'yourname',name=node('strong','',previewText);stage.append(name);
+  const container=$('#detail-content');container.replaceChildren();const stage=node('div','detail-stage');const typedName=previewName(),previewText=typedName || cosmetic.name || cosmetic.creator || 'yourname',name=node('strong','',previewText);stage.append(name);
   let paused=false;const update=()=>applyCosmetic(name,cosmetic,location.origin,{paused});update();
   const title=node('h2','',cosmetic.name);title.id='detail-title';
   stage.style.setProperty('--paint-color',cosmetic.recipe.colors[0]);
@@ -1126,8 +1128,8 @@ async function showDetails(cosmetic) {
   if(published)detailNote.title=`Approved ${date(cosmetic.updated_at || cosmetic.reviewed_at)}`;
   heading.append(title,description,creator,detailNote);container.append(stage,heading);
   // Preview tools live on the stage itself: your name, motion, backdrop.
-  const tools=node('div','detail-stage-tools'),input=node('input');input.maxLength=30;input.value=previewText;input.setAttribute('aria-label','Try your name');input.placeholder='Try your name';
-  input.addEventListener('input',createFrameUpdate(()=>{if(name.isConnected)updateCosmeticText(name,input.value || 'yourname');}));
+  const tools=node('div','detail-stage-tools'),input=node('input');input.maxLength=30;input.value=typedName;input.setAttribute('aria-label','Try your name');input.placeholder='Try your name';
+  input.addEventListener('input',createFrameUpdate(()=>{if(name.isConnected)updateCosmeticText(name,input.value.trim() || cosmetic.name || 'yourname');}));
   const stageButton=(iconName,label,fn)=>{const b=node('button','stage-tool');b.type='button';b.setAttribute('aria-label',label);b.title=label;b.setAttribute('aria-pressed','false');b.append(icon(iconName));b.addEventListener('click',()=>fn(b));return b;};
   const pause=stageButton('pause','Pause motion',b=>{paused=!paused;b.setAttribute('aria-pressed',String(paused));b.setAttribute('aria-label',paused?'Resume motion':'Pause motion');b.title=b.getAttribute('aria-label');b.querySelector('use').setAttribute('href',paused?'#icon-play':'#icon-pause');update();});
   const backdrop=stageButton('eye','Light backdrop',b=>{const light=stage.classList.toggle('light');b.setAttribute('aria-pressed',String(light));b.setAttribute('aria-label',light?'Dark backdrop':'Light backdrop');b.title=b.getAttribute('aria-label');});
@@ -1269,7 +1271,7 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
     const gallery=createdFlares(user,true);content.append(gallery.section);await run(gallery.load);return;
   }
   if(tab==='following') {
-    content.append(node('h2','','Your corner of the community'),node('p','form-footnote','Your follow list is private. Following a creator adds their approved public Flares to your feed; it does not like or equip them.'),link('Open Following feed','/following','button primary'));
+    {const head=node('div','tab-head'),copy=node('div','tab-head-copy');copy.append(node('h2','','Your corner of the community'),node('p','form-footnote','Your follow list is private. Following a creator adds their approved public Flares to your feed; it does not like or equip them.'));head.append(copy,link('Open Following feed','/following','button subtle'));content.append(head);}
     const grid=node('div','cosmetic-grid followed-creators'),status=node('p','form-footnote'),more=action('Load more creators ↓',()=>load());status.setAttribute('role','status');status.dataset.followingStatus='';more.dataset.followingMore='';more.hidden=true;content.append(status,grid,more);
     let offset=0,busy=false,shown=0;
     async function load(){if(busy)return;busy=true;more.disabled=true;status.textContent='Loading followed creators…';
