@@ -2167,8 +2167,26 @@ async function renderView() {
   if(!(state.view==='discover' && chapter) && $('#detail-dialog').open)$('#detail-dialog').close();
   const routeChanged=previousRoute && previousRoute!==renderedRoute;
   const accountChapterChange=previousView==='account' && state.view==='account' && routeChanged;
-  const viewChanged=previousView!==state.view || (routeChanged && (['profiles','moderation'].includes(state.view) || (state.view==='discover' && previousFeed!==state.feed)));
-  if(firstViewRender || (!accountChapterChange && viewChanged))window.scrollTo({top:0,behavior:'instant'});
+  const viewChanged=previousView!==state.view || (routeChanged && (state.view==='profiles' || (state.view==='discover' && previousFeed!==state.feed)));
+  // Switching a tab inside Account or Moderation keeps the tab bar where it was:
+  // the old content's height is held while the new tab renders, then the bar is
+  // put back at the same spot. Before, Moderation jumped to the top on every tab.
+  const tabBar={account:'.account-tabs',moderation:'.moderation-nav'}[state.view];
+  const tabSwitch=!firstViewRender && tabBar && previousView===state.view && routeChanged;
+  const hold=tabSwitch?holdTabPosition(`#view-${state.view}`,tabBar):null;
+  if(firstViewRender || (!tabSwitch && !accountChapterChange && viewChanged))window.scrollTo({top:0,behavior:'instant'});
+  try{await renderViewContent(previousView,previousFeed,chapter);}finally{hold?.release();}
+}
+function holdTabPosition(viewSelector,barSelector){
+  const view=$(viewSelector),bar=view?.querySelector(barSelector);if(!view || !bar)return null;
+  const top=bar.getBoundingClientRect().top,minHeight=view.style.minHeight;
+  view.style.minHeight=`${view.offsetHeight}px`;
+  return {release(){
+    const next=view.querySelector(barSelector);view.style.minHeight=minHeight;
+    if(next && top>=0)window.scrollTo({top:Math.max(0,window.scrollY+next.getBoundingClientRect().top-top),left:window.scrollX,behavior:'instant'});
+  }};
+}
+async function renderViewContent(previousView,previousFeed,chapter){
   firstViewRender=false;
   if(state.view==='discover') {
     if(previousFeed!==state.feed)state.catalogLoaded=false;

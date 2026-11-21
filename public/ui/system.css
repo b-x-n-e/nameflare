@@ -271,11 +271,27 @@
 :root:root[data-theme] #main-content .cosmetic-card:not(.collection-card) { column-gap: 16px; }
 /* Wearing is the widest state of the button; it keeps clear of the creator's name. */
 :root:root[data-theme] #main-content .cosmetic-card .equip-button[aria-pressed="true"] { margin-left: 8px; }
+/* Wearing: a wash of the Flare's own colours, a hairline of its first colour,
+   and the check in a dot of that colour. calm.css set this with !important. */
+:root:root[data-theme] :is(wa-button.equip-button, #detail-dialog wa-button.detail-equip)[aria-pressed="true"]::part(base),
+:root:root[data-theme] :is(wa-button.equip-button, #detail-dialog wa-button.detail-equip)[aria-pressed="true"]:hover::part(base) {
+  color: var(--ink) !important;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--paint-color, var(--accent)) 24%, var(--surface)), color-mix(in srgb, var(--paint-secondary, var(--paint-color, var(--accent))) 24%, var(--surface))) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paint-color, var(--accent)) 46%, transparent), 0 4px 14px -8px color-mix(in srgb, var(--paint-color, var(--accent)) 70%, transparent) !important;
+  transform: none; cursor: default;
+}
+:root:root[data-theme] :is(wa-button.equip-button, wa-button.detail-equip)[aria-pressed="true"] .check-icon {
+  box-sizing: content-box; width: 10px; height: 10px; padding: 3px; margin: 0 -6px 0 0; border-radius: 50%;
+  color: #111113; background: var(--paint-color, var(--accent)); stroke-width: 3;
+}
 /* Compact cards are too narrow for "Wearing ✓" beside a name: the check alone, in its tinted circle. */
 :root:root[data-theme][data-density="compact"] #main-content .cosmetic-card .post-actions .equip-button[aria-pressed="true"] {
   --_w: 30px; --_px: 0; --_fs: 0px; display: inline-block !important; position: relative; width: 30px; border-radius: 999px !important; min-width: 30px; margin-left: 0; font-size: 0 !important; gap: 0; overflow: hidden;
 }
-:root:root[data-theme][data-density="compact"] #main-content .cosmetic-card .post-actions .equip-button[aria-pressed="true"] .check-icon { position: absolute; inset: 0; width: 15px; height: 15px; margin: auto; }
+:root:root[data-theme][data-density="compact"] #main-content .cosmetic-card .post-actions .equip-button[aria-pressed="true"] .check-icon { position: absolute; inset: 0; width: 14px; height: 14px; padding: 0; margin: auto; background: none; }
+:root:root[data-theme][data-density="compact"] #main-content .cosmetic-card .post-actions wa-button.equip-button[aria-pressed="true"]::part(base) {
+  background: linear-gradient(135deg, var(--paint-color, var(--accent)), var(--paint-secondary, var(--paint-color, var(--accent)))) !important; box-shadow: none !important;
+}
 :root:root[data-theme] .post-sub .equip-stat::before { content: "· "; }
 /* The plate shows the Flare's own name until a name is typed; then the title returns. */
 :root:root[data-theme]:not([data-typed-name]) #catalog .cosmetic-card > .card-meta { display: none; }
