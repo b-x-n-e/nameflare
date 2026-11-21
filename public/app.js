@@ -1081,7 +1081,7 @@ function syncEquipButton(button) {
   button.dataset.equipSynced=String(equipped);
   controlLabel(button,equipped?'Wearing ✓':(button.dataset.equipLong?'Equip Flare':'Equip'));
   button.setAttribute('aria-pressed',String(equipped));
-  button.setAttribute('aria-label',equipped?'Wearing this Flare':'Equip this Flare');
+  button.setAttribute('aria-label',equipped?'Wearing this Flare':'Equip this Flare');button.title=equipped?'Wearing this Flare':'';
   button.closest('.cosmetic-card')?.classList.toggle('is-equipped',equipped);
   return equipped;
 }

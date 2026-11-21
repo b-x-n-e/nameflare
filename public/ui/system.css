@@ -268,6 +268,14 @@
 :root:root[data-theme] .collection-card .card-actions-end > :is(.button, wa-button) { margin-left: 0; }
 :root:root[data-theme][data-density="compact"] .cosmetic-card .card-actions :is(wa-button, .button) { --_h: 30px; --_px: 12px; --_fs: 13px; }
 :root:root[data-theme][data-density="compact"] .cosmetic-card .card-actions wa-button:is(.heart-toggle, .post-more) { --_w: 30px; --_px: 0; }
+:root:root[data-theme] #main-content .cosmetic-card:not(.collection-card) { column-gap: 16px; }
+/* Wearing is the widest state of the button; it keeps clear of the creator's name. */
+:root:root[data-theme] #main-content .cosmetic-card .equip-button[aria-pressed="true"] { margin-left: 8px; }
+/* Compact cards are too narrow for "Wearing ✓" beside a name: the check alone, in its tinted circle. */
+:root:root[data-theme][data-density="compact"] #main-content .cosmetic-card .post-actions .equip-button[aria-pressed="true"] {
+  --_w: 30px; --_px: 0; --_fs: 0px; display: inline-block !important; position: relative; width: 30px; border-radius: 999px !important; min-width: 30px; margin-left: 0; font-size: 0 !important; gap: 0; overflow: hidden;
+}
+:root:root[data-theme][data-density="compact"] #main-content .cosmetic-card .post-actions .equip-button[aria-pressed="true"] .check-icon { position: absolute; inset: 0; width: 15px; height: 15px; margin: auto; }
 :root:root[data-theme] .post-sub .equip-stat::before { content: "· "; }
 /* The plate shows the Flare's own name until a name is typed; then the title returns. */
 :root:root[data-theme]:not([data-typed-name]) #catalog .cosmetic-card > .card-meta { display: none; }
