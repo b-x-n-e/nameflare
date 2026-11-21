@@ -130,7 +130,7 @@ test('local demo serves every effect control and creator → owner review → eq
     assert.match(html,/<wa-dropdown class="catalog-sort-label sort-dropdown"/);
     assert.match(html,/<wa-dropdown-item data-sort="newest"[^>]*>Newest first/);
     assert.match(html,/Community-made name styles for Twitch, Kick, and YouTube\. Preview one, then make it yours\./);
-    assert.match(html,/<h1 id="community-title">Discover<\/h1>/);assert.ok(html.includes('<h1>Creators</h1>'));
+    assert.match(html,/<h1 id="community-title">Find your Flare<\/h1>/);assert.ok(html.includes('<h1>Creators</h1>'));
     assert.match(html,/<wa-input id="hero-preview-name"[^>]*maxlength="30"/);
     assert.match(html,/<button id="hero-pause"[^>]*aria-pressed="false"/);
     assert.equal(html.includes('class="canvas-art"'),false,'Preview keeps paint as the artwork, not decorative ribbons');

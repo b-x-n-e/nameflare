@@ -597,10 +597,12 @@ function fitFlare(element) {
   element.style.removeProperty('zoom'); element.style.removeProperty('font-size');
   const intended = parseFloat(getComputedStyle(element).fontSize) || CHAT_PX;
   element.style.fontSize = `${CHAT_PX}px`; element.style.zoom = String(Math.max(.5, intended / CHAT_PX).toFixed(3));
-  const parent = element.parentElement;
+  // A .flare-chip sizes to its name, so measure the box around the chip instead.
+  const parent = element.parentElement?.classList.contains('flare-chip') ? element.parentElement.parentElement : element.parentElement;
   // Long names stay on one line: if the preview is wider than its box, scale it down to fit.
   if (parent) {
-    const style = getComputedStyle(parent), available = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 12, width = element.getBoundingClientRect().width;
+    // Measure the text, not the box: a max-width cap clips the box while the name runs on past it.
+    const style = getComputedStyle(parent), available = parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 24, width = Math.max(element.getBoundingClientRect().width, element.scrollWidth * parseFloat(element.style.zoom || '1'));
     if (available > 0 && width > available) element.style.zoom = String(Math.max(.3, parseFloat(element.style.zoom) * available / width).toFixed(3));
   }
   if (parent && fitResize) { let set = fitParents.get(parent); if (!set) { set = new Set(); fitParents.set(parent, set); fitResize.observe(parent); } set.add(element); }
@@ -615,9 +617,9 @@ new MutationObserver(records => { for (const record of records) { if (record.typ
 document.fonts?.ready.then(() => fitFlaresIn(document.body));
 const updateCatalogNames = createFrameUpdate(() => {
   const input = previewName(),hint=$('#catalog-name-hint');
-  if(hint)hint.textContent=input?`Every preview now reads “${input}”`:'Showing each creator’s name';
+  if(hint)hint.textContent=input?`Every preview now reads “${input}”`:'Showing each Flare’s own name';
   for (const previews of [catalogPreviews, followingPreviews, showcasePreviews]) for (const [element, cosmetic] of previews) {
-    const text = input || cosmetic.creator || cosmetic.name || 'yourname';
+    const text = input || cosmetic.name || cosmetic.creator || 'yourname';
     updateCosmeticText(element, text);fitPreviewName(element, text);
   }
 });
@@ -645,7 +647,7 @@ function card(cosmetic, collection=false, trackCatalog=true) {
   }
   head.append(menu);
   const preview=node('button','card-preview');preview.type='button';preview.setAttribute('aria-label',`View ${cosmetic.name}`);
-  const name=node('strong','',collection ? (state.user?.name || 'yourname'):(previewName() || cosmetic.creator || cosmetic.name || 'yourname'));name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
+  const name=node('strong','',collection ? (state.user?.name || 'yourname'):(previewName() || cosmetic.name || cosmetic.creator || 'yourname'));name.setAttribute('aria-hidden','true');fitPreviewName(name,name.textContent);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});
   if(!collection && trackCatalog)catalogPreviews.set(name,cosmetic);
   const type=hasTexture(cosmetic)?'Texture':cosmetic.recipe.depth?'3D depth':cosmetic.recipe.animation==='none'?'Static':'Animated',typeLabel=node('wa-badge','corner-label',type);typeLabel.setAttribute('variant','neutral');typeLabel.setAttribute('appearance','outlined');typeLabel.setAttribute('pill','');typeLabel.setAttribute('aria-hidden','true');typeLabel.prepend(icon(hasTexture(cosmetic)?'layers':cosmetic.recipe.depth?'collection':cosmetic.recipe.animation==='none'?'spark':'motion'));
   const palette=node('span','preview-palette');palette.setAttribute('aria-hidden','true');for(const color of colors){const chip=node('i');chip.style.backgroundColor=color;palette.append(chip);}
@@ -877,7 +879,7 @@ function showcaseTile(cosmetic,index,kind){
   tile.setAttribute('aria-label',`${index+1}. ${cosmetic.name} by ${cosmetic.creator || 'the community'}. Open details`);
   const stage=node('span','showcase-stage'),colors=paintPalette(cosmetic.recipe);
   if(colors[0])stage.style.setProperty('--paint-color',colors[0]);if(colors.at(-1))stage.style.setProperty('--paint-secondary',colors.at(-1));
-  const text=previewName() || cosmetic.creator || cosmetic.name,name=node('strong','',text);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});fitPreviewName(name,text);showcasePreviews.set(name,cosmetic);
+  const text=previewName() || cosmetic.name || cosmetic.creator,name=node('strong','',text);applyCosmetic(name,cosmetic,location.origin,{paused:state.catalogPaused});fitPreviewName(name,text);showcasePreviews.set(name,cosmetic);
   stage.append(node('span','showcase-rank',`#${index+1}`),name);
   const likes=Number((kind==='popular'?cosmetic.like_count:(cosmetic.recent_like_count || cosmetic.like_count)) || 0),wearing=Number(cosmetic.equipped_count || 0);
   const meta=node('span','showcase-meta'),title=node('strong','',cosmetic.name),sub=node('small','',`${cosmetic.creator || 'Community'} · ${kind==='popular'?(wearing?`${compactNumber(wearing)} wearing`:'Not worn yet'):(likes?`${compactNumber(likes)} like${likes===1?'':'s'} this week`:'New this week')}`);
@@ -2232,8 +2234,6 @@ try{setFeedLayout(localStorage.getItem('nameflare.layout'),false);}catch{setFeed
 async function init(){
   const [config]=await Promise.all([api('/api/config'),refreshAccount()]);
   state.config=config;state.bootstrapped=true;
-  const catalogInput=$('#catalog-name');
-  if(state.user && catalogInput && !previewName() && catalogInput.value!==undefined){catalogInput.value=state.user.name;updateCatalogNames();}
   setRailStats(state.config.stats);
   $('#demo-banner').hidden=!state.config.demo;try{const shell=JSON.parse(localStorage.getItem('nameflare.shell.v1')||'{}');localStorage.setItem('nameflare.shell.v1',JSON.stringify({...shell,demo:Boolean(state.config.demo)}));}catch{}$('#approved-count').textContent=state.config.stats.public ?? state.config.stats.approved;$('#api-base').textContent=state.config.officialApi;
   $('[data-nav="artists"]').hidden=state.config.runtime==='cloudflare';

@@ -1,0 +1,297 @@
+/* ==========================================================================
+   Nameflare — Gallery (2026.11)
+   A calm light room where every Flare is shown like product photography: big,
+   on a chat-dark plate, captioned underneath. Chrome recedes; structure comes
+   from surfaces and soft shadow, never outlines. Loaded last. Scoped to the
+   Gallery theme so the other themes keep their own look.
+   ========================================================================== */
+
+:root[data-theme="gallery"] {
+  /* Shape tiers: inner controls, elements (plates, fields), containers. */
+  --g-r-inner: 10px;
+  --g-r-el: 16px;
+  --g-r-box: 24px;
+  --g-plate: #0e0e10;
+  --g-plate-light: rgba(255, 255, 255, .05);
+  --g-display: 800 125% var(--font-display);
+  /* Mona Sans sets small; the two smallest steps move up a pixel so labels,
+     captions and timestamps stay readable on a light room. */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --ctl-r: var(--g-r-inner);
+  --calm-radius: var(--g-r-inner);
+  --radius-sm: var(--g-r-inner);
+  --radius: 14px;
+  --radius-lg: var(--g-r-el);
+  --radius-xl: var(--g-r-box);
+  --card-radius: var(--g-r-el);
+  --tint-1: rgba(17, 17, 19, .045);
+  --tint-2: rgba(17, 17, 19, .075);
+  --tint-3: rgba(17, 17, 19, .11);
+  --stage-base: var(--g-plate);
+  --stage-grid: transparent;
+  --stage-light: var(--g-plate-light);
+  --wa-form-control-background-color: var(--surface);
+  --wa-form-control-border-color: transparent;
+  --wa-color-focus: var(--accent);
+}
+:root[data-theme="gallery"] body {
+  background: var(--bg);
+  font-family: var(--font-ui);
+  font-feature-settings: "ss01", "ss02";
+  -webkit-font-smoothing: antialiased;
+}
+:root[data-theme="gallery"] ::selection { background: rgba(241, 90, 32, .22); color: var(--ink); }
+:root[data-theme="gallery"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root[data-theme="gallery"] .mono, :root[data-theme="gallery"] kbd { font-family: var(--font-mono); }
+
+/* ---- Header -------------------------------------------------------------- */
+:root[data-theme="gallery"] .site-navigation {
+  background: var(--bg); border-bottom: 0;
+  box-shadow: 0 1px 0 var(--line);
+}
+:root[data-theme="gallery"] .sidebar-brand { gap: 9px; font: 800 19px/1 var(--font-display); font-stretch: 112%; letter-spacing: -.03em; color: var(--ink); }
+:root[data-theme="gallery"] .primary-nav a { color: var(--muted); font-weight: 560; font-size: 14px; border-radius: var(--g-r-inner); }
+:root[data-theme="gallery"] .primary-nav a:hover { color: var(--ink); background: var(--tint-1); }
+:root[data-theme="gallery"] .primary-nav a.active,
+:root[data-theme="gallery"] .primary-nav a[aria-current="page"] { color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] .primary-nav a.active::after { display: none; }
+:root[data-theme="gallery"] wa-button.topbar-search::part(base),
+:root[data-theme="gallery"] wa-button.topbar-search::part(button) { color: var(--muted); background: var(--surface); border: 0; box-shadow: var(--shadow-1); border-radius: 999px; }
+:root[data-theme="gallery"] .topbar-key { color: var(--faint); background: var(--surface-2); border: 0; font-family: var(--font-mono); }
+:root[data-theme="gallery"] wa-button.rail-create::part(base),
+:root[data-theme="gallery"] wa-button.rail-create::part(button) {
+  color: #fff; background: var(--accent-gradient); border: 0; border-radius: 999px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .25) inset, 0 6px 16px -8px rgba(236, 82, 22, .7);
+  font-weight: 650;
+}
+:root[data-theme="gallery"] wa-button.rail-create:hover::part(base),
+:root[data-theme="gallery"] wa-button.rail-create:hover::part(button) { filter: none; background: linear-gradient(180deg, #f7763d, #ee5a1f); }
+:root[data-theme="gallery"] wa-button.rail-create kbd { color: rgba(255, 255, 255, .8); background: rgba(0, 0, 0, .14); border: 0; }
+:root[data-theme="gallery"] .demo-banner { color: var(--muted); background: var(--surface); border: 0; box-shadow: var(--shadow-1); border-radius: 999px; }
+:root[data-theme="gallery"] .demo-banner button { color: var(--ink); border-radius: 999px; }
+
+/* ---- Buttons --------------------------------------------------------------- */
+:root[data-theme="gallery"] wa-button::part(button),
+:root[data-theme="gallery"] wa-button::part(base) { border-radius: 999px; font-family: var(--font-ui); font-weight: 600; letter-spacing: -.005em; box-shadow: none; }
+/* Buttons are pills. calm.css rounds every wa-button through three :not()s,
+   so this matches its weight and wins by order. Studio's dense toolbars and
+   segmented groups keep their inner radius. */
+:root:root[data-theme="gallery"] wa-button:not(:is(.studio, .segmented, .seg, .canvas-seg) wa-button)::part(button),
+:root:root[data-theme="gallery"] wa-button:not(:is(.studio, .segmented, .seg, .canvas-seg) wa-button)::part(base) { border-radius: 999px; }
+:root[data-theme="gallery"] wa-button.primary::part(button),
+:root[data-theme="gallery"] wa-button.primary::part(base) { color: #fff; background: var(--ink); border-color: transparent; }
+:root[data-theme="gallery"] wa-button.primary:not([disabled])::part(button):hover,
+:root[data-theme="gallery"] wa-button.primary:not([disabled])::part(base):hover { background: #2a2a2f; }
+:root[data-theme="gallery"] wa-button.subtle::part(button),
+:root[data-theme="gallery"] wa-button.subtle::part(base),
+:root[data-theme="gallery"] wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button)::part(button),
+:root[data-theme="gallery"] wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button)::part(base) { color: var(--ink); background: var(--surface); border-color: transparent; box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] wa-button.subtle:not([disabled])::part(button):hover,
+:root[data-theme="gallery"] wa-button.subtle:not([disabled])::part(base):hover,
+:root[data-theme="gallery"] wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button):not([disabled])::part(button):hover,
+:root[data-theme="gallery"] wa-button[appearance="outlined"]:not(.follow-button):not(.equip-button):not([disabled])::part(base):hover { background: var(--surface); box-shadow: var(--shadow-2); }
+:root[data-theme="gallery"] .button.primary { color: #fff; background: var(--ink); border-radius: 999px; }
+/* Link-buttons outside Studio match: pills, and a quiet one is a white pill on the ring. */
+:root[data-theme="gallery"] .view:not(#view-studio) :is(a, button).button { border-radius: 999px; }
+:root[data-theme="gallery"] .view:not(#view-studio) :is(a, button).button.subtle { color: var(--ink); background: var(--surface); border-color: transparent; box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] .view:not(#view-studio) :is(a, button).button.subtle:hover { background: var(--surface); box-shadow: var(--shadow-2); }
+
+/* ---- Discover head: title and the name field ------------------------------ */
+:root[data-theme="gallery"] .discover-head { align-items: end; gap: 24px 40px; margin-bottom: 30px; }
+:root[data-theme="gallery"] #community-title,
+:root[data-theme="gallery"] .page-heading h1 {
+  font: var(--g-display); font-size: clamp(38px, 4.6vw, 62px); line-height: .98; letter-spacing: -.045em; color: var(--ink);
+}
+:root[data-theme="gallery"] .discover-personalize {
+  display: grid; gap: 6px; padding: 0; background: none; border: 0; box-shadow: none;
+}
+:root[data-theme="gallery"] .personalize-copy { display: flex; justify-content: space-between; gap: 12px; padding: 0 6px; }
+:root[data-theme="gallery"] .personalize-copy strong { font-size: 13px; font-weight: 650; color: var(--ink); }
+:root[data-theme="gallery"] .personalize-copy small { font-size: 12px; color: var(--muted); }
+:root[data-theme="gallery"] #catalog-name { width: min(360px, 100%); --wa-form-control-height: 52px; }
+:root[data-theme="gallery"] #catalog-name::part(base) { min-height: 52px; padding-inline: 20px; border: 0; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-2); }
+:root[data-theme="gallery"] #catalog-name::part(input) { font: 600 18px var(--font-ui); letter-spacing: -.01em; color: var(--ink); }
+:root[data-theme="gallery"] #catalog-name::part(input)::placeholder { color: var(--faint); font-weight: 500; }
+
+/* ---- Plates: every Flare stage is one chat-dark object ------------------- */
+/* :is(#main-content, body) lends ID weight to beat stage.css, whose list includes an ID. */
+:root[data-theme="gallery"] :is(#main-content, body) :is(.card-preview, .showcase-stage, .detail-stage, .equipped-stage, .rail-identity-stage, .profile-stage, .notfound-stage, .review-preview, .pub-preview):not(.light):not(.transparent) {
+  background: radial-gradient(120% 70% at 50% -10%, rgba(255, 255, 255, .07), transparent 60%), var(--g-plate);
+  border: 0; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04);
+}
+:root[data-theme="gallery"] .card-preview::before,
+:root[data-theme="gallery"] .card-preview::after { display: none; }
+
+/* ---- Trending: large plates with big rank numerals ----------------------- */
+:root[data-theme="gallery"] .showcase { margin-bottom: 30px; padding-bottom: 0; }
+:root[data-theme="gallery"] .showcase-head { align-items: center; margin-bottom: 14px; }
+:root[data-theme="gallery"] .showcase-head h2 { font: 750 20px var(--font-display); font-stretch: 112%; letter-spacing: -.025em; }
+:root[data-theme="gallery"] .showcase-tabs { gap: 2px; padding: 3px; background: var(--tint-1); border-radius: 999px; }
+:root[data-theme="gallery"] .showcase-tabs button { min-height: 30px; padding: 0 13px; border-radius: 999px; color: var(--muted); font-weight: 600; font-size: 13px; background: none; }
+:root[data-theme="gallery"] .showcase-tabs button[aria-pressed="true"] { color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] .showcase-track { gap: 18px; grid-auto-columns: calc((100% - 36px) / 2.5); }
+@media (max-width: 640px) { :root[data-theme="gallery"] .showcase-track { grid-auto-columns: 80%; gap: 12px; } }
+:root[data-theme="gallery"] .showcase-tile { gap: 12px; padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; }
+:root[data-theme="gallery"] .showcase-stage { border-radius: var(--g-r-el); aspect-ratio: 16 / 10; transition: box-shadow var(--normal) var(--ease-out); }
+:root[data-theme="gallery"] .showcase-tile:hover .showcase-stage,
+:root[data-theme="gallery"] .showcase-tile:focus-visible .showcase-stage { box-shadow: 0 18px 40px -18px rgba(17, 17, 19, .55); }
+:root[data-theme="gallery"] .showcase-rank {
+  top: 12px; left: 16px; padding: 0; background: none; border: 0; box-shadow: none;
+  color: rgba(255, 255, 255, .42); font: 500 30px/1 var(--font-mono); letter-spacing: -.04em; font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) { :root[data-theme="gallery"] .showcase-rank { font-size: 24px; } }
+:root[data-theme="gallery"] .showcase-item:first-child .showcase-rank { color: #fff; }
+:root[data-theme="gallery"] .showcase-item:first-child .showcase-rank::after { display: none; }
+:root[data-theme="gallery"] .showcase-meta { padding: 0 4px; gap: 2px; }
+:root[data-theme="gallery"] .showcase-meta strong { font-size: 15px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); }
+:root[data-theme="gallery"] .showcase-meta small { font-size: 13px; color: var(--muted); }
+:root[data-theme="gallery"] .showcase-track::after,
+:root[data-theme="gallery"] .showcase::after { display: none; }
+
+/* ---- Tools: tabs, search, sort, filters ---------------------------------- */
+:root[data-theme="gallery"] .discover-tools { border: 0; padding-top: 0; gap: 14px; }
+:root[data-theme="gallery"] .feed-tabs { gap: 2px; padding: 3px; background: var(--tint-1); border-radius: 999px; border: 0; }
+:root[data-theme="gallery"] .feed-tabs > wa-button.feed-tab::part(base),
+:root[data-theme="gallery"] .feed-tabs > wa-button.feed-tab::part(button) { min-height: 32px; padding: 0 14px; color: var(--muted); border-radius: 999px; background: none; font-size: 13px; }
+:root[data-theme="gallery"] .feed-tabs > wa-button.feed-tab.active::part(base),
+:root[data-theme="gallery"] .feed-tabs > wa-button.feed-tab.active::part(button) { color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] .feed-tabs > wa-button.feed-tab::after, :root[data-theme="gallery"] .feed-indicator { display: none !important; }
+:root[data-theme="gallery"] .catalog-search::part(base) { border: 0; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] wa-button.sort-trigger::part(base), :root[data-theme="gallery"] wa-button.sort-trigger::part(button),
+:root[data-theme="gallery"] wa-button.filter-toggle::part(base), :root[data-theme="gallery"] wa-button.filter-toggle::part(button) { background: var(--surface); border: 0; box-shadow: var(--shadow-1); border-radius: 999px; color: var(--ink); }
+:root[data-theme="gallery"] .filters wa-button.filter-chip::part(base),
+:root[data-theme="gallery"] .filters wa-button.filter-chip::part(button) { min-height: 32px; padding: 0 14px; border-radius: 999px; background: none; color: var(--muted); font-size: 13px; font-weight: 600; }
+:root[data-theme="gallery"] .filters wa-button.filter-chip:not([disabled]):hover::part(base),
+:root[data-theme="gallery"] .filters wa-button.filter-chip:not([disabled]):hover::part(button) { color: var(--ink); background: var(--tint-1); }
+:root[data-theme="gallery"] .filters wa-button.filter-chip.active::part(base),
+:root[data-theme="gallery"] .filters wa-button.filter-chip.active::part(button) { color: #fff; background: var(--ink); }
+
+/* ---- Gallery cards: plate, then a caption. No box around them. ----------- */
+:root[data-theme="gallery"] #catalog.cosmetic-grid,
+:root[data-theme="gallery"] #main-content .cosmetic-grid { gap: 40px 22px; }
+:root[data-theme="gallery"] #main-content .cosmetic-card {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "plate plate" "meta meta" "head actions";
+  align-items: center; gap: 0; padding: 0; overflow: visible;
+  background: none; border: 0; border-radius: 0; box-shadow: none; transform: none !important;
+}
+:root[data-theme="gallery"] #main-content .cosmetic-card:hover { background: none; box-shadow: none; }
+:root[data-theme="gallery"] #main-content .cosmetic-card > .card-preview {
+  grid-area: plate; order: 0; margin: 0; padding: 18px; border-radius: var(--g-r-el); aspect-ratio: 4 / 3; min-height: 0; max-height: none;
+  transition: box-shadow var(--normal) var(--ease-out);
+}
+:root[data-theme="gallery"] #main-content .cosmetic-card:hover > .card-preview,
+:root[data-theme="gallery"] #main-content .cosmetic-card:focus-within > .card-preview { box-shadow: 0 22px 44px -22px rgba(17, 17, 19, .6); }
+:root[data-theme="gallery"] #main-content .cosmetic-card > .card-meta { grid-area: meta; order: 1; padding: 14px 4px 0; gap: 2px; }
+:root[data-theme="gallery"] #main-content .cosmetic-card > .card-meta h3 { font-size: 16px; font-weight: 650; letter-spacing: -.015em; color: var(--ink); }
+:root[data-theme="gallery"] #catalog .cosmetic-card > .card-meta .post-copy,
+:root[data-theme="gallery"] #main-content .cosmetic-card > .card-meta .card-footer { display: none; }
+:root[data-theme="gallery"] #main-content .cosmetic-card > .post-head { grid-area: head; order: 2; padding: 6px 4px 0; margin: 0; gap: 6px; min-width: 0; }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-author { gap: 7px; color: var(--muted); }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-author .avatar { width: 20px; height: 20px; font-size: 9px; }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-author-copy { display: flex; align-items: baseline; gap: 6px; }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-author-copy strong { font-size: 13px; font-weight: 560; color: var(--muted); }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-sub { font-size: 12px; color: var(--faint); }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-sub::before { content: "·"; margin-right: 6px; color: var(--faint); }
+:root[data-theme="gallery"] #main-content .cosmetic-card > .post-actions { grid-area: actions; order: 3; padding: 6px 0 0; gap: 4px; border: 0; background: none; container-type: normal; }
+:root[data-theme="gallery"] #main-content .cosmetic-card .post-social { gap: 0; }
+:root[data-theme="gallery"] #main-content .cosmetic-card wa-button.post-action-share { display: none; }
+:root[data-theme="gallery"] wa-button.like-button::part(button), :root[data-theme="gallery"] wa-button.like-button::part(base) { min-height: 32px; padding: 0 8px; color: var(--muted); background: none; }
+:root[data-theme="gallery"] wa-button.like-button:hover::part(button), :root[data-theme="gallery"] wa-button.like-button:hover::part(base) { color: var(--ink); background: var(--tint-1); }
+:root[data-theme="gallery"] wa-button.like-button[aria-pressed="true"]::part(button), :root[data-theme="gallery"] wa-button.like-button[aria-pressed="true"]::part(base) { color: #e5364f; }
+:root[data-theme="gallery"] .like-count { font: 500 12px var(--font-mono); }
+:root[data-theme="gallery"] wa-button.equip-button { min-width: 0; }
+:root[data-theme="gallery"] wa-button.equip-button::part(button), :root[data-theme="gallery"] wa-button.equip-button::part(base) {
+  min-height: 32px; min-width: 76px; padding: 0 14px; border: 0; border-radius: 999px; color: var(--ink); background: var(--surface); box-shadow: var(--shadow-1); font-size: 13px;
+}
+:root[data-theme="gallery"] wa-button.equip-button:not([disabled]):hover::part(button), :root[data-theme="gallery"] wa-button.equip-button:not([disabled]):hover::part(base) { color: #fff; background: var(--ink); box-shadow: none; }
+:root[data-theme="gallery"] wa-button.equip-button[aria-pressed="true"]::part(button), :root[data-theme="gallery"] wa-button.equip-button[aria-pressed="true"]::part(base) {
+  color: var(--ink); background: color-mix(in srgb, var(--paint-color, var(--success)) 18%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paint-color, var(--success)) 45%, transparent);
+}
+:root[data-theme="gallery"] .post-more::part(button), :root[data-theme="gallery"] .post-more::part(base) { width: 28px; min-height: 28px; color: var(--faint); background: none; border: 0; }
+
+/* The name fills the plate by its length, like a product filling its frame. */
+:root[data-theme="gallery"] #main-content .cosmetic-card > .card-preview > strong { font-size: clamp(24px, calc(var(--name-scale, 12) * .92cqw), 64px); }
+:root[data-theme="gallery"] #main-content .cosmetic-card:hover > .card-preview { filter: none; }
+
+/* ---- Companion column ---------------------------------------------------- */
+:root[data-theme="gallery"] .right-rail { gap: 16px; }
+:root[data-theme="gallery"] .rail-panel {
+  padding: 18px; background: var(--surface); border: 0; border-radius: var(--g-r-box); box-shadow: var(--shadow-1);
+}
+:root[data-theme="gallery"] .rail-panel + .rail-panel { border-top: 0; margin-top: 0; }
+:root[data-theme="gallery"] .rail-heading h2 { font: 700 15px var(--font-display); font-stretch: 108%; letter-spacing: -.02em; color: var(--ink); }
+:root[data-theme="gallery"] .rail-heading a { color: var(--muted); font-size: 13px; }
+:root[data-theme="gallery"] .rail-identity-stage, :root[data-theme="gallery"] .rail-lens-stage { border-radius: var(--g-r-el); }
+:root[data-theme="gallery"] .rail-identity-stage.is-empty .rail-identity-name { color: rgba(255, 255, 255, .78); }
+:root[data-theme="gallery"] .rail-footer { padding: 4px 6px; border: 0; color: var(--muted); }
+
+/* ---- Site footer --------------------------------------------------------- */
+:root[data-theme="gallery"] .site-footer { border-top-color: var(--line-strong); }
+:root[data-theme="gallery"] .sf-mark { font: 800 17px var(--font-display); font-stretch: 112%; letter-spacing: -.03em; }
+:root[data-theme="gallery"] .sf-links h2 { font-weight: 650; }
+
+/* ---- Avatars: initials on a soft tint of the creator's hue --------------- */
+:root[data-theme="gallery"] .avatar, :root[data-theme="gallery"] wa-avatar.avatar {
+  --background-color: hsl(var(--avatar-hue, 18) 70% 90%);
+  --text-color: hsl(var(--avatar-hue, 18) 55% 26%);
+  color: hsl(var(--avatar-hue, 18) 55% 26%); background: hsl(var(--avatar-hue, 18) 70% 90%);
+  border: 0; opacity: 1; mask-image: none; box-shadow: none;
+}
+/* The peeking next plate already says the row scrolls; a fade over a dark
+   plate in a light room reads as a smear. */
+:root[data-theme="gallery"] .showcase-track { -webkit-mask-image: none; mask-image: none; }
+/* Working pages (Account, Moderation, Guide…) title quietly; only Discover's
+   "Find your Flare" takes the full display size. */
+:root[data-theme="gallery"] .page-heading h1 { font-size: clamp(30px, 3vw, 40px); letter-spacing: -.035em; }
+
+/* ---- Fields: one white field everywhere, ringed by a hairline shadow ------ */
+:root[data-theme="gallery"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), textarea, select) {
+  background-color: var(--surface); border-color: transparent; border-radius: 12px; box-shadow: var(--shadow-1);
+}
+:root[data-theme="gallery"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), textarea, select):hover {
+  border-color: transparent; box-shadow: 0 1px 2px rgba(17, 17, 19, .06), 0 0 0 1px rgba(17, 17, 19, .14);
+}
+:root[data-theme="gallery"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), textarea, select):focus {
+  border-color: transparent; box-shadow: 0 0 0 1px var(--accent), var(--ring);
+}
+:root[data-theme="gallery"] wa-input::part(base),
+:root[data-theme="gallery"] wa-textarea::part(base),
+:root[data-theme="gallery"] wa-select::part(combobox) { background: var(--surface); border-color: transparent; border-radius: 12px; box-shadow: var(--shadow-1); }
+
+/* ---- Wells: quiet recesses inside white surfaces. No borders, no dashes. -- */
+:root[data-theme="gallery"] :is(.insight-chart-empty, .profile-edit-preview, .integration-grid code, .integration-grid .status-note) { background: var(--bg); border: 0; border-radius: 14px; }
+:root[data-theme="gallery"] .integration-grid pre {
+  padding: 16px 18px; color: #e9e9ec; background: var(--g-plate); border: 0; border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04);
+}
+:root[data-theme="gallery"] .insight-table-wrap { border: 0; border-radius: 0; }
+:root[data-theme="gallery"] .insight-table-wrap th { background: none; border-bottom: 1px solid var(--line-strong); }
+:root[data-theme="gallery"] .insight-table-wrap:has(> .insight-empty) { padding: 18px 20px; background: var(--surface); border-radius: var(--g-r-box); box-shadow: var(--shadow-1); }
+
+/* ---- Disclosures: white cards on the room, like every other surface ------ */
+:root[data-theme="gallery"] .guide-content details,
+:root[data-theme="gallery"] .moderation-checklist { background: var(--surface); border: 0; border-radius: 14px; box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] .guide-content details > summary:hover { color: var(--ink); }
+:root[data-theme="gallery"] .guide-content details[open] { box-shadow: var(--shadow-2); }
+
+/* ---- Profile pages: the byline is the creator's own, so only the time remains. */
+:root[data-theme="gallery"] #main-content .profile-created-flares .cosmetic-card .post-sub::before { content: none; }
+
+/* ---- First run: the name field sits directly above, so a second "Try your
+   name" button would only repeat it. The three steps stay. --------------- */
+:root[data-theme="gallery"] .first-run { background: var(--surface); border: 0; border-radius: var(--g-r-el); box-shadow: var(--shadow-1); }
+:root[data-theme="gallery"] .first-run-try { display: none; }
+
+/* ---- Phone tab bar: an opaque shelf; Flares must not ghost through it. --- */
+:root[data-theme="gallery"] .mobile-tabbar {
+  background: rgba(244, 244, 242, .97); border-top: 0; box-shadow: 0 -1px 0 var(--line-strong);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+}
+
+/* ---- A Flare is authored for chat-dark backgrounds. Where a name is worn
+   inline on a light surface, it gets a small plate of its own. ----------- */
+:root[data-theme="gallery"] .flare-chip {
+  display: block; width: fit-content; max-width: 100%; padding: 1px 8px 2px; border-radius: 7px; background: var(--g-plate); overflow: hidden;
+}

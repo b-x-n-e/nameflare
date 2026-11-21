@@ -36,7 +36,7 @@ body[data-view="moderation"] .app-column { max-width: 1240px; }
 .moderation-nav-link[aria-current="page"]::after { transform: scaleX(1); }
 wa-button.moderation-nav-link::part(base), wa-button.moderation-nav-link::part(button) { background: transparent; border: 0; }
 
-.moderation-workspace { display: grid; gap: 18px; animation: nf-rise var(--slow) var(--ease-out); }
+.moderation-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; animation: nf-rise var(--slow) var(--ease-out); }
 .moderation-section { display: grid; gap: 14px; }
 .moderation-section-heading {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 16px;
@@ -298,8 +298,8 @@ wa-button.moderation-nav-link::part(base), wa-button.moderation-nav-link::part(b
   .review-facts { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .review-status-tabs { width: 100%; }
-  .review-status-tab { flex: 1; justify-content: center; padding: 0 6px; }
+  .review-status-tabs { width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .review-status-tab { flex: 1 0 auto; justify-content: center; padding: 0 10px; }
   .review-status-tab > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .review-search { max-width: none; }
   .review-preview { height: 150px; }

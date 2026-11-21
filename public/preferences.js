@@ -1,4 +1,5 @@
 export const THEMES = [
+  { id:'gallery', name:'Gallery', note:'Light room · flame', bg:'#f4f4f2', palette:['#f4f4f2','#ffffff','#f15a20','#111113'] },
   { id:'ink', name:'Ink', note:'Warm black · ember', bg:'#0c0b09', palette:['#0c0b09','#17140f','#ff6b45','#f5f0e7'] },
   { id:'paper', name:'Paper', note:'Warm paper · vermilion', bg:'#f5f1e8', palette:['#f5f1e8','#fffdf8','#c8451f','#191510'] },
   { id:'sand', name:'Sand', note:'Oat · burnt sienna', bg:'#efe7d8', palette:['#efe7d8','#fbf6ec','#a75f28','#2a2118'] },
@@ -13,7 +14,7 @@ const STORAGE_KEY = 'nameflare.appearance.v1';
 // repeats the scheme maths so it applies before first paint.
 const HEX = /^#[0-9a-f]{6}$/i;
 export const CUSTOM_DEFAULT = { bg:'#14121a', accent:'#ff5a36' };
-const DEFAULTS = { theme:'ink', density:'comfortable', motion:'system', custom:CUSTOM_DEFAULT };
+const DEFAULTS = { theme:'gallery', density:'comfortable', motion:'system', custom:CUSTOM_DEFAULT };
 const knownTheme = id => id === 'custom' || THEMES.some(item => item.id === id);
 export function luminance(hex) {
   const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);

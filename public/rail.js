@@ -102,7 +102,11 @@ function renderCreators(users, followButton) {
     link.href = `/profiles/${encodeURIComponent(user.id)}`;
     const copy = node('span', 'rail-creator-copy');
     const flares = Number(user.stats?.paints || 0), likes = Number(user.stats?.likes || 0);
-    copy.append(flareText(user.name, user.cosmetic, 'rail-creator-name'), node('small', '', [`${flares} Flare${flares === 1 ? '' : 's'}`, likes ? `${compactNumber(likes)} like${likes === 1 ? '' : 's'}` : '', user.cosmetic ? `wearing ${user.cosmetic.name}` : ''].filter(Boolean).join(' · ')));
+    const flareName = flareText(user.name, user.cosmetic, 'rail-creator-name');
+    let nameSlot = flareName;
+    // A Flare is authored for chat-dark backgrounds; the plate keeps it legible on light themes without restyling the Flare.
+    if (user.cosmetic?.recipe) { nameSlot = node('span', 'flare-chip'); nameSlot.append(flareName); }
+    copy.append(nameSlot, node('small', '', [`${flares} Flare${flares === 1 ? '' : 's'}`, likes ? `${compactNumber(likes)} like${likes === 1 ? '' : 's'}` : '', user.cosmetic ? `wearing ${user.cosmetic.name}` : ''].filter(Boolean).join(' · ')));
     link.append(avatar(user, 'rail-creator-avatar'), copy);
     row.append(link);
     if (typeof followButton === 'function') {

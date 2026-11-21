@@ -293,8 +293,10 @@ wa-button.rail-create kbd { display: none; }
 }
 .empty-state h3 { font-size: 22px; font-weight: 700; }
 .empty-state p { font-size: var(--text-sm); }
-.empty-state:has(> wa-button + wa-button, > .button + .button) { grid-template-columns: max-content max-content; justify-content: center; column-gap: 8px; }
-.empty-state:has(> wa-button + wa-button, > .button + .button) > :not(wa-button):not(.button) { grid-column: 1 / -1; }
+/* Two actions share a row and wrap on narrow screens. Flex, not max-content
+   grid tracks: a spanning paragraph's full text width would size those tracks. */
+.empty-state:has(> wa-button + wa-button, > .button + .button) { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 8px; }
+.empty-state:has(> wa-button + wa-button, > .button + .button) > :not(wa-button):not(.button) { flex: 0 0 100%; min-width: 0; max-width: none; padding-inline: max(0px, calc((100% - 46ch) / 2)); }
 .empty-glyph { display: none; }
 .eyebrow { display: none; }
 

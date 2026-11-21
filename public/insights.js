@@ -94,7 +94,8 @@ function personalSection(analytics) {
   return section;
 }
 
-const pageLabel = path => path==='/discover' ? 'Discover' : path.startsWith('/discover/') ? 'Flare detail' : path==='/following' ? 'Following' : path==='/profiles' ? 'Creator directory' : path.startsWith('/profiles/') ? 'Creator profile' : path==='/studio' ? 'Flare studio' : path==='/artists' ? 'Artists' : path==='/guide' || path.startsWith('/guide/') ? 'Guide' : path==='/integrations' ? 'Integrations' : path;
+const PAGE_LABELS = { '/': 'Home', '/discover': 'Discover', '/following': 'Following', '/profiles': 'Creator directory', '/artists': 'Artists', '/studio': 'Flare studio', '/collection': 'Collection', '/account': 'Account', '/account/settings': 'Account settings', '/analytics': 'Insights', '/moderation': 'Moderation', '/integrations': 'Integrations', '/donate': 'Support Nameflare' };
+const pageLabel = path => PAGE_LABELS[path] || (path.startsWith('/discover/') ? 'Flare detail' : path.startsWith('/profiles/') ? 'Creator profile' : path==='/guide' || path.startsWith('/guide/') ? 'Guide' : path);
 
 function platformSection(analytics) {
   const section = node('section', 'insights-section');
