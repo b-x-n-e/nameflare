@@ -2231,9 +2231,36 @@ function setFeedLayout(layout,remember=true){
 }
 for(const button of document.querySelectorAll('.layout-toggle [data-layout]'))button.addEventListener('click',()=>setFeedLayout(button.dataset.layout));
 try{setFeedLayout(localStorage.getItem('nameflare.layout'),false);}catch{setFeedLayout('grid',false);}
+// Startup must survive a busy or briefly unreachable server. Before, one failed
+// /api/config or /api/me left Discover empty for good: no Flares, endless
+// placeholders, no message. Config retries with backoff while the feed says so;
+// an account that can't be read yet shows the signed-out view and retries quietly.
+function startupProblem(retry) {
+  const grid=$('#catalog');if(!grid)return;
+  $('#catalog-status').textContent='Can’t reach Nameflare right now. Retrying…';
+  empty(grid,'Can’t reach Nameflare right now.','Retrying automatically. Your connection or the server may be busy.',null);
+  grid.firstElementChild.append(action('Try again',retry,'button primary'));
+}
+async function loadConfig(){
+  for(let attempt=0;;attempt++){
+    try{return await api('/api/config');}
+    catch(error){
+      let skip;const pause=new Promise(resolve=>{skip=resolve;setTimeout(resolve,Math.min(20000,2000*2**attempt));});
+      startupProblem(()=>skip());await pause;
+    }
+  }
+}
+function retryAccount(delay=3000){
+  setTimeout(()=>run(async()=>{
+    try{await refreshAccount();}catch{return retryAccount(Math.min(30000,delay*2));}
+    editor.accountChanged();state.catalogLoaded=false;await renderView();
+  }),delay);
+}
 async function init(){
-  const [config]=await Promise.all([api('/api/config'),refreshAccount()]);
+  let accountFailed=false;
+  const [config]=await Promise.all([loadConfig(),refreshAccount().catch(()=>{accountFailed=true;})]);
   state.config=config;state.bootstrapped=true;
+  if(accountFailed)retryAccount();
   setRailStats(state.config.stats);
   $('#demo-banner').hidden=!state.config.demo;try{const shell=JSON.parse(localStorage.getItem('nameflare.shell.v1')||'{}');localStorage.setItem('nameflare.shell.v1',JSON.stringify({...shell,demo:Boolean(state.config.demo)}));}catch{}$('#approved-count').textContent=state.config.stats.public ?? state.config.stats.approved;$('#api-base').textContent=state.config.officialApi;
   $('[data-nav="artists"]').hidden=state.config.runtime==='cloudflare';
