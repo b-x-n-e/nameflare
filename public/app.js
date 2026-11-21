@@ -1320,9 +1320,12 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
   const count=node('p','form-footnote',`${bio.value.length}/280 characters`);bio.setAttribute('aria-describedby','bio-count');count.id='bio-count';bio.addEventListener('input',()=>count.textContent=`${bio.value.length}/280 characters`);
   const colorLabel=node('label','','Profile accent'),color=node('input');color.type='color';color.name='profile_color';color.value=user.profile_color || '#ff355e';colorLabel.append(color);
   const preview=node('div','profile-edit-preview');preview.style.setProperty('--profile-color',color.value);preview.append(avatar(user,'avatar-large'),node('strong','',user.name),node('p','',bio.value || 'Your story goes here.'));
-  color.addEventListener('input',()=>preview.style.setProperty('--profile-color',color.value));bio.addEventListener('input',()=>preview.lastChild.textContent=bio.value || 'Your story goes here.');
+  color.addEventListener('input',()=>preview.style.setProperty('--profile-color',color.value));
+  // The preview shows the chosen platform's name and picture straight away.
+  const asSource=provider=>{const item=user.identities.find(identity=>identity.provider===provider);return item?{...user,name:item.display_name || user.name,avatar_url:item.avatar_url || '',profile_provider:provider}:user;};
+  select.addEventListener('change',()=>{const shown=asSource(select.value);preview.firstElementChild.replaceWith(avatar(shown,'avatar-large'));preview.querySelector('strong').textContent=shown.name;});bio.addEventListener('input',()=>preview.lastChild.textContent=bio.value || 'Your story goes here.');
   const save=node('button','button primary','Save profile');save.type='submit';settings.append(preview,label,bioLabel,count,colorLabel,save,node('p','form-footnote','Favorites, pending submissions, and review notes stay private. Approved unlisted Flares can still be seen when equipped or shared by link.'));
-  settings.addEventListener('submit',event=>{event.preventDefault();run(async()=>{save.disabled=true;try{await api('/api/account/profile',{provider:select.value,bio:bio.value,profile_color:color.value});await refreshAccount();if(request===accountRequest && state.view==='account'){summary.style.setProperty('--profile-color',state.user.profile_color);identity.querySelector('h2').textContent=state.user.name;toast('Profile saved. Your public page is up to date.');}}finally{if(save.isConnected)save.disabled=false;}});});content.append(settings);return;
+  settings.addEventListener('submit',event=>{event.preventDefault();run(async()=>{save.disabled=true;try{await api('/api/account/profile',{provider:select.value,bio:bio.value,profile_color:color.value});await refreshAccount();if(request===accountRequest && state.view==='account'){summary.style.setProperty('--profile-color',state.user.profile_color);identity.querySelector('h2').textContent=state.user.name;identityHead.querySelector('.avatar')?.replaceWith(avatar(state.user,'avatar-large'));toast('Profile saved. Your public page is up to date.');}}finally{if(save.isConnected)save.disabled=false;}});});content.append(settings);return;
   }
   const linked=user.identities.length,total=Object.keys(providerNames).length;
   const head=node('div','plat-head');head.append(node('h2','account-section-title','Connected platforms'),node('span','plat-count',`${linked} of ${total} linked`));
@@ -1355,13 +1358,15 @@ async function renderAccount(chapter=(currentRoute().split('/')[2] || 'overview'
 function platformMenu(user,provider,title,row,actions){
   const changes=state.config.features?.identity_changes;
   if(!changes)return link('Refresh',`/auth/${provider}`,'button ghost sm');
-  const menu=node('details','row-menu'),summary=node('summary','button ghost sm','Change');summary.setAttribute('aria-label',`Change linked ${title} account`);
+  const menu=node('details','row-menu account-change'),summary=node('summary','button sm','Change');summary.append(icon('chevron','chevron-down'));summary.setAttribute('aria-label',`Change linked ${title} account`);
   const panel=node('div','row-menu-panel');
-  const go=(label,href,hint)=>{const item=node('a','menu-item');item.href=href;item.append(node('span','',label));if(hint)item.append(node('small','',hint));return item;};
-  panel.append(go('Refresh name & picture',`/auth/${provider}`,`Sign in to ${title} again with the same account`),go(`Switch to another ${title} account`,`/auth/${provider}?mode=replace`,'Your Flare moves to the new account'));
+  // Each choice: an icon, a short label and one line saying what happens.
+  const body=(iconName,label,hint)=>{const text=node('span','menu-item-text');text.append(node('span','menu-item-label',label));if(hint)text.append(node('small','',hint));return [icon(iconName),text];};
+  const go=(iconName,label,href,hint)=>{const item=node('a','menu-item');item.href=href;item.append(...body(iconName,label,hint));return item;};
+  panel.append(go('redo','Refresh name & picture',`/auth/${provider}`,`Sign in to ${title} again with the same account`),go('shuffle',`Switch to another ${title} account`,`/auth/${provider}?mode=replace`,'Your Flare moves to the new account'),node('hr','menu-sep'));
   const staffTwitch=provider==='twitch' && ['owner','moderator'].includes(user.role),only=user.identities.length<2;
   const why=only?'You need at least one linked platform to sign in':staffTwitch?(user.role==='owner'?'The owner account keeps Twitch linked':'Staff accounts keep Twitch linked'):'';
-  const unlink=node('button','menu-item danger');unlink.type='button';unlink.append(node('span','',`Unlink ${title}`));if(why){unlink.disabled=true;unlink.append(node('small','',why));}
+  const unlink=node('button','menu-item danger');unlink.type='button';unlink.append(...body('link',`Unlink ${title}`,why || `Remove ${title} from this account`));if(why)unlink.disabled=true;
   unlink.addEventListener('click',()=>{menu.open=false;confirmUnlink(provider,title,row,actions);});
   panel.append(unlink);menu.append(summary,panel);return menu;
 }
@@ -1501,7 +1506,8 @@ function creatorCard(user, readRevision) {
   const sub=node('div','cc-sub');if(user.identities?.length){sub.append(platformLink(user.identities[0],{cls:'cc-plat'}));for(const extra of user.identities.slice(1))sub.append(platformLink(extra,{compact:true,cls:'cc-plat'}));}else sub.append(node('span','',`Joined ${joined(user.created_at)}`));
   const badge=profileBadge(user);if(badge)sub.append(badge);
   text.append(nameRow,sub);who.append(avatar(user,'cc-avatar'),text,followButton(user,readRevision));body.append(who);
-  if(user.bio)body.append(node('p','cc-bio',user.bio));
+  // Every card keeps a two-line bio slot, filled or not, so cards in a row match.
+  const bio=node('p','cc-bio',user.bio || '');if(!user.bio)bio.setAttribute('aria-hidden','true');body.append(bio);
   body.append(profileStats(user,'cc-stats'));card.append(stage,body);return card;
 }
 function profileHero(user, readRevision) {
