@@ -4,7 +4,7 @@
 #    include "mocks/BaseApplication.hpp"
 #endif
 #include "providers/nameflare/NameflarePaint.hpp"
-#include "providers/seventv/paints/UrlPaint.hpp"
+#include "messages/Image.hpp"
 #include "singletons/Settings.hpp"
 #include "Test.hpp"
 
@@ -12,6 +12,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QPainter>
+#include <QPixmap>
 
 using namespace chatterino;
 
@@ -109,12 +110,22 @@ TEST_F(NameflarePaintsTest, EffectsBecomeDropShadowsInStackingOrderAndAreCapped)
 
 TEST_F(NameflarePaintsTest, ImageLayersOnlyLoadWellFormedTexturesFromTheOrigin)
 {
-    const auto image = NameflarePaints::paintFromCosmetic(
-        cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none","layers":[
-            {"type":"image","opacity":1,"textureId":"86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif"}]})"),
-        ORIGIN);
+    const auto image = std::dynamic_pointer_cast<NameflarePaint>(
+        NameflarePaints::paintFromCosmetic(
+            cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none","layers":[
+            {"type":"image","opacity":1,"size":[100,240],"at":[50,40],"textureId":"86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif"},
+            {"type":"linear","opacity":1,"angle":90,"stops":[{"at":0,"color":"#ff0000"},{"at":1,"color":"#0000ff"}]}]})"),
+            ORIGIN));
     ASSERT_NE(image, nullptr);
-    EXPECT_NE(dynamic_cast<UrlPaint *>(image.get()), nullptr);
+    ASSERT_EQ(image->layers().size(), 2U);  // bottom first: gradient, then image
+    EXPECT_EQ(image->layers()[0].kind, NameflarePaint::Kind::Linear);
+    const auto &top = image->layers()[1];
+    EXPECT_EQ(top.kind, NameflarePaint::Kind::Image);
+    ASSERT_NE(top.image, nullptr);
+    EXPECT_EQ(top.image->url().string,
+              ORIGIN + u"/textures/86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif");
+    EXPECT_NEAR(top.size.height(), 2.4, 1e-9);  // Studio's crop is kept
+    EXPECT_NEAR(top.at.y(), 0.4, 1e-9);
 
     for (const auto *bad : {"../../etc/passwd", "https://evil.example/x.gif",
                             "86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.exe"})
@@ -124,9 +135,69 @@ TEST_F(NameflarePaintsTest, ImageLayersOnlyLoadWellFormedTexturesFromTheOrigin)
         inner["layers"] = QJsonArray{QJsonObject{
             {"type", "image"}, {"opacity", 1}, {"textureId", bad}}};
         recipe["recipe"] = inner;
-        EXPECT_EQ(NameflarePaints::paintFromCosmetic(recipe, ORIGIN), nullptr)
-            << bad;
+        // Nothing is fetched; the name falls back to the Flare's palette.
+        const auto paint = std::dynamic_pointer_cast<NameflarePaint>(
+            NameflarePaints::paintFromCosmetic(recipe, ORIGIN));
+        ASSERT_NE(paint, nullptr) << bad;
+        for (const auto &layer : paint->layers())
+        {
+            EXPECT_EQ(layer.image, nullptr) << bad;
+        }
     }
+}
+
+TEST_F(NameflarePaintsTest, LayersAreSizedPlacedTiledAndStackedLikeTheSite)
+{
+    // A red half-width layer on the right, over a full-width blue one.
+    const auto paint = NameflarePaints::paintFromCosmetic(
+        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
+            {"type":"solid","opacity":1,"color":"#ff0000","size":[50,100],"at":[100,50]},
+            {"type":"solid","opacity":1,"color":"#0000ff"}]})"),
+        ORIGIN);
+    ASSERT_NE(paint, nullptr);
+    const auto left = sample(*paint, {20, 20});
+    const auto right = sample(*paint, {180, 20});
+    EXPECT_GT(left.blue(), 200);
+    EXPECT_LT(left.red(), 40);
+    EXPECT_GT(right.red(), 200);
+    EXPECT_LT(right.blue(), 40);
+
+    // repeat-x tiles a quarter-width layer across the whole name.
+    const auto tiled = NameflarePaints::paintFromCosmetic(
+        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
+            {"type":"solid","opacity":1,"color":"#00ff00","size":[25,100],"at":[0,0],"canvasRepeat":"repeat-x"}]})"),
+        ORIGIN);
+    ASSERT_NE(tiled, nullptr);
+    EXPECT_GT(sample(*tiled, {190, 20}).green(), 200);
+    const auto single = NameflarePaints::paintFromCosmetic(
+        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
+            {"type":"solid","opacity":1,"color":"#00ff00","size":[25,100],"at":[0,0],"canvasRepeat":"no-repeat"}]})"),
+        ORIGIN);
+    EXPECT_EQ(sample(*single, {190, 20}).alpha(), 0);
+}
+
+TEST_F(NameflarePaintsTest, ImagesAreDrawnIntoTheNameAtTheirCrop)
+{
+    // A 2×1 image: red on the left, blue on the right.
+    QPixmap pixmap(2, 1);
+    {
+        QImage pixels(2, 1, QImage::Format_ARGB32);
+        pixels.setPixelColor(0, 0, Qt::red);
+        pixels.setPixelColor(1, 0, Qt::blue);
+        pixmap = QPixmap::fromImage(pixels);
+    }
+    NameflarePaint::Layer layer;
+    layer.kind = NameflarePaint::Kind::Image;
+    layer.image = Image::fromResourcePixmap(pixmap);
+    const NameflarePaint paint("Image", "image", {layer}, {}, {});
+    EXPECT_TRUE(paint.loaded());
+    EXPECT_FALSE(paint.animated());
+    const auto left = sample(paint, {40, 20});
+    const auto right = sample(paint, {160, 20});
+    EXPECT_GT(left.red(), 200);
+    EXPECT_LT(left.blue(), 60);
+    EXPECT_GT(right.blue(), 200);
+    EXPECT_LT(right.red(), 60);
 }
 
 TEST_F(NameflarePaintsTest, FlowMovesFollowingSpeedAndDirection)

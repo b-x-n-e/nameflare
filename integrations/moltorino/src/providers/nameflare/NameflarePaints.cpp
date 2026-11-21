@@ -6,7 +6,6 @@
 #include "common/QLogging.hpp"
 #include "messages/Image.hpp"
 #include "providers/nameflare/NameflarePaint.hpp"
-#include "providers/seventv/paints/UrlPaint.hpp"
 #include "providers/seventv/SeventvPaints.hpp"
 #include "singletons/Settings.hpp"
 #include "singletons/WindowManager.hpp"
@@ -476,86 +475,143 @@ std::shared_ptr<Paint> NameflarePaints::paintFromCosmetic(
     {
         return nullptr;
     }
-    const auto name = u"Nameflare · "_s + cosmetic.value("name").toString().left(60);
+    const auto name =
+        u"Nameflare · "_s + cosmetic.value("name").toString().left(60);
     const auto id = u"nameflare:"_s + cosmetic.value("id").toString().left(80);
     const auto palette = paletteStops(recipe);
     auto shadows = shadowsFrom(recipe, palette);
 
-    // The top visible layer is the fill; older recipes use the palette.
-    QJsonObject layer;
-    for (const auto &value : recipe.value("layers").toArray())
-    {
-        const auto candidate = value.toObject();
-        if (clampNumber(candidate.value("opacity"), 0, 1, 1) > 0)
-        {
-            layer = candidate;
-            break;
-        }
-    }
-    const auto type = layer.isEmpty() ? QString{} : layer.value("type").toString();
-    const auto opacity = clampNumber(layer.value("opacity"), 0, 1, 1);
-
-    // Image and GIF fills: only from the configured Nameflare origin.
-    const auto textureID = type == u"image" ? layer.value("textureId").toString()
-                           : layer.isEmpty() ? recipe.value("textureId").toString()
-                                             : QString{};
-    if (!textureID.isEmpty())
-    {
-        if (!validTextureID(textureID))
-        {
-            return nullptr;
-        }
-        auto image = Image::fromUrl(Url{origin + u"/textures/"_s + textureID});
-        return std::make_shared<UrlPaint>(name, id, image, std::move(shadows));
-    }
-
-    NameflarePaint::Fill fill;
+    NameflarePaint::Timing timing;
     const auto animation = recipe.value("animation").toString();
     if (animation == u"flow" || animation == u"shimmer")
     {
-        fill.motion = NameflarePaint::Motion::Flow;
+        timing.motion = NameflarePaint::Motion::Flow;
     }
-    fill.periodMs = int(clampNumber(recipe.value("speed"), 1, 20, 4) * 1000);
-    fill.direction = directionFrom(recipe.value("direction").toString());
+    timing.periodMs = int(clampNumber(recipe.value("speed"), 1, 20, 4) * 1000);
+    timing.direction = directionFrom(recipe.value("direction").toString());
 
-    if (type == u"solid")
-    {
-        const auto color = cssColor(layer.value("color").toString());
-        if (!color)
+    const auto imageLayer = [&](const QString &textureID,
+                                NameflarePaint::Layer layer)
+        -> std::optional<NameflarePaint::Layer> {
+        // Only well-formed texture IDs, only from the configured origin.
+        if (!validTextureID(textureID))
         {
-            return nullptr;
+            return std::nullopt;
         }
-        fill.kind = NameflarePaint::Kind::Solid;
-        fill.stops = {{0.0, withOpacity(*color, opacity)}};
-        fill.motion = NameflarePaint::Motion::None;
-    }
-    else if (type == u"linear" || type == u"radial" || type == u"conic")
+        layer.kind = NameflarePaint::Kind::Image;
+        layer.image = Image::fromUrl(Url{origin + u"/textures/"_s + textureID});
+        return layer;
+    };
+
+    // Layers are top first in the recipe; paint them bottom first.
+    std::vector<NameflarePaint::Layer> layers;
+    const auto recipeLayers = recipe.value("layers").toArray();
+    for (qsizetype i = recipeLayers.size() - 1; i >= 0; i--)
     {
-        fill.kind = type == u"linear"   ? NameflarePaint::Kind::Linear
-                    : type == u"radial" ? NameflarePaint::Kind::Radial
-                                        : NameflarePaint::Kind::Conic;
-        fill.stops = stopsFrom(layer.value("stops").toArray(), opacity);
-        fill.angle = float(clampNumber(layer.value("angle"), 0, 360, 90));
-        fill.repeat = layer.value("repeat").toBool();
-        const auto at = layer.value("at").toArray();
+        if (layers.size() >= 6)
+        {
+            break;
+        }
+        const auto source = recipeLayers[i].toObject();
+        NameflarePaint::Layer layer;
+        layer.opacity = clampNumber(source.value("opacity"), 0, 1, 1);
+        if (layer.opacity <= 0)
+        {
+            continue;
+        }
+        const auto size = source.value("size").toArray();
+        if (size.size() == 2)
+        {
+            layer.size = {clampNumber(size[0], 1, 500, 100) / 100.0,
+                          clampNumber(size[1], 1, 500, 100) / 100.0};
+        }
+        const auto at = source.value("at").toArray();
         if (at.size() == 2)
         {
-            fill.center = {clampNumber(at[0], 0, 100, 50) / 100.0,
-                           clampNumber(at[1], 0, 100, 50) / 100.0};
+            layer.at = {clampNumber(at[0], 0, 100, 50) / 100.0,
+                        clampNumber(at[1], 0, 100, 50) / 100.0};
+            layer.center = layer.at;  // radial/conic centre (CSS "at")
+        }
+        const auto tiling = source.value("canvasRepeat").toString();
+        layer.repeatX = tiling == u"repeat" || tiling == u"repeat-x";
+        layer.repeatY = tiling == u"repeat" || tiling == u"repeat-y";
+        const auto blend = source.value("blendMode").toString();
+        layer.blend = blend == u"multiply"   ? QPainter::CompositionMode_Multiply
+                      : blend == u"screen"   ? QPainter::CompositionMode_Screen
+                      : blend == u"overlay"  ? QPainter::CompositionMode_Overlay
+                      : blend == u"soft-light"
+                          ? QPainter::CompositionMode_SoftLight
+                          : QPainter::CompositionMode_SourceOver;
+
+        const auto type = source.value("type").toString();
+        if (type == u"image")
+        {
+            if (auto image = imageLayer(source.value("textureId").toString(), layer))
+            {
+                layers.push_back(std::move(*image));
+            }
+            continue;
+        }
+        if (type == u"solid")
+        {
+            const auto color = cssColor(source.value("color").toString());
+            if (!color)
+            {
+                continue;
+            }
+            layer.kind = NameflarePaint::Kind::Solid;
+            layer.stops = {{0.0, *color}};
+        }
+        else if (type == u"linear" || type == u"radial" || type == u"conic")
+        {
+            layer.kind = type == u"linear"   ? NameflarePaint::Kind::Linear
+                         : type == u"radial" ? NameflarePaint::Kind::Radial
+                                             : NameflarePaint::Kind::Conic;
+            layer.stops = stopsFrom(source.value("stops").toArray(), 1.0);
+            layer.angle = float(clampNumber(source.value("angle"), 0, 360, 90));
+            layer.repeat = source.value("repeat").toBool();
+        }
+        else
+        {
+            continue;
+        }
+        if (!layer.stops.isEmpty())
+        {
+            layers.push_back(std::move(layer));
         }
     }
-    else
+
+    // Older recipes: the palette as a linear gradient at `angle`, under the
+    // legacy top-level image when there is one.
+    if (layers.empty())
     {
-        // Legacy recipe: the palette as a linear gradient at `angle`.
-        fill.kind = NameflarePaint::Kind::Linear;
-        fill.stops = palette;
-        fill.angle = float(clampNumber(recipe.value("angle"), 0, 360, 90));
+        if (!palette.isEmpty())
+        {
+            NameflarePaint::Layer fallback;
+            fallback.kind = NameflarePaint::Kind::Linear;
+            fallback.stops = palette;
+            fallback.angle =
+                float(clampNumber(recipe.value("angle"), 0, 360, 90));
+            layers.push_back(std::move(fallback));
+        }
+        const auto legacyTexture = recipe.value("textureId").toString();
+        if (!legacyTexture.isEmpty())
+        {
+            if (auto image = imageLayer(legacyTexture, {}))
+            {
+                layers.push_back(std::move(*image));
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
     }
-    if (fill.stops.isEmpty())
+    if (layers.empty())
     {
         return nullptr;
     }
-    return std::make_shared<NameflarePaint>(name, id, std::move(fill),
+    return std::make_shared<NameflarePaint>(name, id, std::move(layers), timing,
                                             std::move(shadows));
 }
 

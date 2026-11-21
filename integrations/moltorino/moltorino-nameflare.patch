@@ -112,16 +112,18 @@ index 449c0b7..0e941a8 100644
  
 diff --git a/src/providers/nameflare/NameflarePaint.cpp b/src/providers/nameflare/NameflarePaint.cpp
 new file mode 100644
-index 0000000..29936ac
+index 0000000..27cbf31
 --- /dev/null
 +++ b/src/providers/nameflare/NameflarePaint.cpp
-@@ -0,0 +1,195 @@
+@@ -0,0 +1,394 @@
 +#include "providers/nameflare/NameflarePaint.hpp"
 +
++#include "messages/Image.hpp"
 +#include "singletons/Settings.hpp"
 +
 +#include <QDateTime>
 +#include <QLineF>
++#include <QPixmap>
 +
 +#include <algorithm>
 +#include <cmath>
@@ -156,41 +158,149 @@ index 0000000..29936ac
 +    const auto radians = qDegreesToRadians(double(angle));
 +    const auto dx = std::sin(radians);
 +    const auto dy = -std::cos(radians);
-+    const auto half = (std::abs(rect.width() * dx) + std::abs(rect.height() * dy)) / 2.0;
++    const auto half =
++        (std::abs(rect.width() * dx) + std::abs(rect.height() * dy)) / 2.0;
 +    const QPointF center = rect.center();
 +    return {center - QPointF(dx, dy) * half, center + QPointF(dx, dy) * half};
 +}
 +
++QColor faded(QColor color, qreal opacity)
++{
++    color.setAlphaF(std::clamp(color.alphaF() * opacity, 0.0, 1.0));
++    return color;
++}
++
++/// The layer's box inside `area`, as CSS background-size and
++/// background-position place it.
++QRectF layerBox(const NameflarePaint::Layer &layer, const QRectF &area)
++{
++    const QSizeF size(std::max(1.0, area.width() * layer.size.width()),
++                      std::max(1.0, area.height() * layer.size.height()));
++    return {area.left() + (area.width() - size.width()) * layer.at.x(),
++            area.top() + (area.height() - size.height()) * layer.at.y(),
++            size.width(), size.height()};
++}
++
++/// Every copy of `box` that a repeating background tiles across `area`.
++template <typename Fn>
++void forEachTile(const NameflarePaint::Layer &layer, const QRectF &box,
++                 const QRectF &area, Fn &&draw)
++{
++    const auto startX = layer.repeatX
++                            ? box.left() - std::ceil((box.left() - area.left()) /
++                                                     box.width()) *
++                                               box.width()
++                            : box.left();
++    const auto startY = layer.repeatY
++                            ? box.top() - std::ceil((box.top() - area.top()) /
++                                                    box.height()) *
++                                              box.height()
++                            : box.top();
++    int guard = 0;
++    for (auto y = startY;
++         (layer.repeatY ? y < area.bottom() : y == startY) && guard < 400;
++         y += box.height())
++    {
++        for (auto x = startX;
++             (layer.repeatX ? x < area.right() : x == startX) && guard < 400;
++             x += box.width())
++        {
++            draw(QRectF(x, y, box.width(), box.height()));
++            guard++;
++        }
++    }
++}
++
 +}  // namespace
 +
-+NameflarePaint::NameflarePaint(QString name, QString id, Fill fill,
++NameflarePaint::NameflarePaint(QString name, QString id,
++                               std::vector<Layer> layers, Timing timing,
 +                               std::vector<PaintDropShadow> dropShadows)
 +    : Paint(std::move(name), std::move(id))
-+    , fill_(std::move(fill))
++    , layers_(std::move(layers))
++    , timing_(timing)
 +    , dropShadows_(std::move(dropShadows))
 +{
 +}
 +
++const std::vector<NameflarePaint::Layer> &NameflarePaint::layers() const
++{
++    return this->layers_;
++}
++
++bool NameflarePaint::gradientMoves() const
++{
++    if (this->timing_.motion == Motion::None || !getSettings()->animateEmotes)
++    {
++        return false;
++    }
++    return std::ranges::any_of(this->layers_, [](const Layer &layer) {
++        return layer.kind != Kind::Solid && layer.kind != Kind::Image &&
++               layer.stops.size() > 1;
++    });
++}
++
 +bool NameflarePaint::animated() const
 +{
-+    return this->fill_.motion != Motion::None &&
-+           this->fill_.kind != Kind::Solid &&
-+           this->fill_.stops.size() > 1 && getSettings()->animateEmotes;
++    if (this->gradientMoves())
++    {
++        return true;
++    }
++    return std::ranges::any_of(this->layers_, [](const Layer &layer) {
++        return layer.image && layer.image->animated();
++    });
++}
++
++bool NameflarePaint::loaded() const
++{
++    return std::ranges::all_of(this->layers_, [](const Layer &layer) {
++        return !layer.image || layer.image->loaded();
++    });
++}
++
++bool NameflarePaint::failed() const
++{
++    // Only an image-only Flare whose every image failed has nothing to draw.
++    return !this->layers_.empty() &&
++           std::ranges::all_of(this->layers_, [](const Layer &layer) {
++               return layer.image && layer.image->loaded() &&
++                      layer.image->isEmpty();
++           });
++}
++
++void NameflarePaint::ensureLoaded(bool retry) const
++{
++    for (const auto &layer : this->layers_)
++    {
++        if (!layer.image)
++        {
++            continue;
++        }
++        if (retry)
++        {
++            layer.image->retryLoad();
++        }
++        else
++        {
++            layer.image->load();
++        }
++    }
 +}
 +
 +double NameflarePaint::phaseAt(qint64 msecs) const
 +{
-+    const auto period = std::max(1000, this->fill_.periodMs);
-+    const bool alternate = this->fill_.direction == Direction::Alternate ||
-+                           this->fill_.direction == Direction::AlternateReverse;
++    const auto period = std::max(1000, this->timing_.periodMs);
++    const bool alternate =
++        this->timing_.direction == Direction::Alternate ||
++        this->timing_.direction == Direction::AlternateReverse;
 +    const auto cycle = alternate ? qint64(period) * 2 : qint64(period);
 +    auto t = double(msecs % cycle) / double(period);  // 0..1 or 0..2
 +    if (alternate)
 +    {
 +        t = t <= 1.0 ? t : 2.0 - t;
 +    }
-+    if (this->fill_.direction == Direction::Reverse ||
-+        this->fill_.direction == Direction::AlternateReverse)
++    if (this->timing_.direction == Direction::Reverse ||
++        this->timing_.direction == Direction::AlternateReverse)
 +    {
 +        t = 1.0 - t;
 +    }
@@ -199,60 +309,70 @@ index 0000000..29936ac
 +
 +double NameflarePaint::phase() const
 +{
-+    return this->animated()
++    return this->gradientMoves()
 +               ? this->phaseAt(QDateTime::currentMSecsSinceEpoch())
 +               : 0.0;
 +}
 +
 +qint64 NameflarePaint::sourcePixmapCacheKey() const
 +{
-+    // Animated fills change every frame; 30 steps per second is plenty for a
-+    // name and keeps the shared pixmap cache from churning faster than paint.
-+    return this->animated() ? QDateTime::currentMSecsSinceEpoch() / 33 : 0;
++    // The shared pixmap cache must see a new key whenever the picture changes:
++    // a new motion frame (30 per second is plenty for a name) or a new GIF frame.
++    qint64 key = this->gradientMoves()
++                     ? QDateTime::currentMSecsSinceEpoch() / 33
++                     : 0;
++    for (const auto &layer : this->layers_)
++    {
++        if (!layer.image)
++        {
++            continue;
++        }
++        if (const auto pixmap = layer.image->pixmapOrLoad())
++        {
++            key = key * 1000003 + pixmap->cacheKey();
++        }
++        else
++        {
++            key = key * 1000003 + 1;  // not loaded yet
++        }
++    }
++    return key;
 +}
 +
-+QBrush NameflarePaint::asBrush(const QColor userColor,
-+                               const QRectF drawingRect) const
++QBrush NameflarePaint::gradientBrush(const Layer &layer, QRectF box,
++                                     double phase, qreal opacity) const
 +{
-+    const auto &stops = this->fill_.stops;
-+    if (stops.empty())
++    const auto &stops = layer.stops;
++    if (layer.kind == Kind::Solid || stops.size() == 1)
 +    {
-+        return {userColor};
++        return {faded(stops.front().second, opacity)};
 +    }
-+    if (this->fill_.kind == Kind::Solid || stops.size() == 1)
-+    {
-+        return {stops.front().second};
-+    }
-+
-+    const auto phase = this->phase();
 +    const bool moving = phase > 0.0;
 +
-+    if (this->fill_.kind == Kind::Conic)
++    if (layer.kind == Kind::Conic)
 +    {
 +        // Conic Flow rotates from the original angle through one full turn.
 +        // Qt's conical gradients run counter-clockwise from 3 o'clock; CSS
 +        // runs clockwise from 12, so mirror the positions and offset by 90°.
-+        const QPointF center(
-+            drawingRect.left() + drawingRect.width() * this->fill_.center.x(),
-+            drawingRect.top() + drawingRect.height() * this->fill_.center.y());
-+        QConicalGradient gradient(
-+            center, 90.0 - double(this->fill_.angle) - phase * 360.0);
++        const QPointF center(box.left() + box.width() * layer.center.x(),
++                             box.top() + box.height() * layer.center.y());
++        QConicalGradient gradient(center,
++                                  90.0 - double(layer.angle) - phase * 360.0);
 +        for (const auto &[position, color] : stops)
 +        {
-+            gradient.setColorAt(std::clamp(1.0 - position, 0.0, 1.0), color);
++            gradient.setColorAt(std::clamp(1.0 - position, 0.0, 1.0),
++                                faded(color, opacity));
 +        }
 +        return {gradient};
 +    }
 +
-+    if (this->fill_.kind == Kind::Radial)
++    if (layer.kind == Kind::Radial)
 +    {
-+        const QPointF center(
-+            drawingRect.left() + drawingRect.width() * this->fill_.center.x(),
-+            drawingRect.top() + drawingRect.height() * this->fill_.center.y());
-+        const auto radius =
-+            std::hypot(drawingRect.width(), drawingRect.height()) / 2.0;
++        const QPointF center(box.left() + box.width() * layer.center.x(),
++                             box.top() + box.height() * layer.center.y());
++        const auto radius = std::hypot(box.width(), box.height()) / 2.0;
 +        QRadialGradient gradient(center, radius);
-+        if (moving || this->fill_.repeat)
++        if (moving || layer.repeat)
 +        {
 +            double period = 1.0;
 +            const auto closed = closedStops(stops, period);
@@ -260,30 +380,31 @@ index 0000000..29936ac
 +            gradient.setRadius(radius * period);
 +            for (const auto &[position, color] : closed)
 +            {
-+                auto offset = std::fmod((position - closed.front().first) /
-+                                                period +
-+                                            phase,
-+                                        1.0);
-+                gradient.setColorAt(std::clamp(offset, 0.0, 1.0), color);
++                const auto offset = std::fmod(
++                    (position - closed.front().first) / period + phase, 1.0);
++                gradient.setColorAt(std::clamp(offset, 0.0, 1.0),
++                                    faded(color, opacity));
 +            }
 +            return {gradient};
 +        }
 +        for (const auto &[position, color] : stops)
 +        {
-+            gradient.setColorAt(std::clamp(position, 0.0, 1.0), color);
++            gradient.setColorAt(std::clamp(position, 0.0, 1.0),
++                                faded(color, opacity));
 +        }
 +        return {gradient};
 +    }
 +
 +    // Linear: the CSS gradient line, shifted along itself by one closed
 +    // period per cycle while moving so the sweep never jumps.
-+    const auto line = cssGradientLine(drawingRect, this->fill_.angle);
-+    if (!moving && !this->fill_.repeat)
++    const auto line = cssGradientLine(box, layer.angle);
++    if (!moving && !layer.repeat)
 +    {
 +        QLinearGradient gradient(line.p1(), line.p2());
 +        for (const auto &[position, color] : stops)
 +        {
-+            gradient.setColorAt(std::clamp(position, 0.0, 1.0), color);
++            gradient.setColorAt(std::clamp(position, 0.0, 1.0),
++                                faded(color, opacity));
 +        }
 +        return {gradient};
 +    }
@@ -300,9 +421,87 @@ index 0000000..29936ac
 +    {
 +        gradient.setColorAt(
 +            std::clamp((position - closed.front().first) / period, 0.0, 1.0),
-+            color);
++            faded(color, opacity));
 +    }
 +    return {gradient};
++}
++
++QBrush NameflarePaint::asBrush(const QColor userColor,
++                               const QRectF drawingRect) const
++{
++    if (this->layers_.empty() || drawingRect.isEmpty())
++    {
++        return {userColor};
++    }
++    const auto phase = this->phase();
++
++    // Fast path: one full-size gradient or solid layer is just a brush.
++    if (this->layers_.size() == 1)
++    {
++        const auto &layer = this->layers_.front();
++        if (layer.kind != Kind::Image && !layer.stops.isEmpty() &&
++            layer.size == QSizeF(1.0, 1.0) &&
++            layer.blend == QPainter::CompositionMode_SourceOver)
++        {
++            return this->gradientBrush(layer, drawingRect, phase,
++                                       layer.opacity);
++        }
++    }
++
++    // Composite every layer, bottom first, into a texture the size of the
++    // name, at twice the resolution so images stay sharp on HiDPI screens.
++    constexpr qreal SCALE = 2.0;
++    const QRectF area(QPointF(0, 0), drawingRect.size());
++    QPixmap target((drawingRect.size() * SCALE).toSize());
++    target.setDevicePixelRatio(SCALE);
++    target.fill(Qt::transparent);
++
++    bool drewSomething = false;
++    {
++        QPainter painter(&target);
++        painter.setRenderHint(QPainter::SmoothPixmapTransform);
++        painter.setRenderHint(QPainter::Antialiasing);
++        for (const auto &layer : this->layers_)
++        {
++            const auto box = layerBox(layer, area);
++            painter.setCompositionMode(layer.blend);
++            painter.setOpacity(layer.opacity);
++            if (layer.kind == Kind::Image)
++            {
++                const auto pixmap =
++                    layer.image ? layer.image->pixmapOrLoad() : std::nullopt;
++                if (!pixmap || pixmap->isNull())
++                {
++                    continue;  // still loading: the layer is transparent
++                }
++                forEachTile(layer, box, area, [&](const QRectF &tile) {
++                    painter.drawPixmap(tile, *pixmap, pixmap->rect());
++                });
++                drewSomething = true;
++                continue;
++            }
++            if (layer.stops.isEmpty())
++            {
++                continue;
++            }
++            forEachTile(layer, box, area, [&](const QRectF &tile) {
++                painter.fillRect(tile.intersected(area),
++                                 this->gradientBrush(layer, tile, phase, 1.0));
++            });
++            drewSomething = true;
++        }
++    }
++    if (!drewSomething)
++    {
++        // Images still downloading and nothing else to show: the plain name.
++        return {userColor};
++    }
++
++    QBrush brush(target);
++    // The texture starts at the brush origin; line it up with the name.
++    brush.setTransform(QTransform::fromTranslate(drawingRect.left(),
++                                                 drawingRect.top()));
++    return brush;
 +}
 +
 +const std::vector<PaintDropShadow> &NameflarePaint::getDropShadows() const
@@ -313,26 +512,33 @@ index 0000000..29936ac
 +}  // namespace chatterino
 diff --git a/src/providers/nameflare/NameflarePaint.hpp b/src/providers/nameflare/NameflarePaint.hpp
 new file mode 100644
-index 0000000..b5742e7
+index 0000000..3a8aa92
 --- /dev/null
 +++ b/src/providers/nameflare/NameflarePaint.hpp
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,93 @@
 +#pragma once
 +
 +#include "providers/seventv/paints/Paint.hpp"
 +
 +#include <QGradient>
++#include <QPainter>
 +
 +#include <cstdint>
-+
++#include <memory>
 +#include <vector>
 +
 +namespace chatterino {
 +
-+/// A Nameflare Flare drawn with Moltorino's paint pipeline: the top visible
-+/// gradient or solid layer of a recipe, with Flow and Shimmer motion. Image
-+/// layers use UrlPaint instead; effects (depth, outline, glow, shadows) are
-+/// drop shadows built by NameflarePaints.
++class Image;
++using ImagePtr = std::shared_ptr<Image>;
++
++/// A Nameflare Flare drawn with Moltorino's paint pipeline. Every visible
++/// layer of the recipe is composited bottom to top the way the site's CSS
++/// renderer does it: each layer is sized to `size` percent of the name box,
++/// placed at `at` percent, tiled by `canvasRepeat`, faded by `opacity` and
++/// blended with `blendMode`. Gradient layers move with Flow and Shimmer;
++/// image layers (PNG, WebP, GIF) animate with their own frames. Effects
++/// (depth, outline, glow, shadows) are drop shadows built by NameflarePaints.
 +class NameflarePaint : public Paint
 +{
 +public:
@@ -341,6 +547,7 @@ index 0000000..b5742e7
 +        Linear,
 +        Radial,
 +        Conic,
++        Image,
 +    };
 +    enum class Motion : std::uint8_t {
 +        None,
@@ -353,42 +560,61 @@ index 0000000..b5742e7
 +        AlternateReverse,
 +    };
 +
-+    struct Fill {
++    struct Layer {
 +        Kind kind = Kind::Solid;
-+        QGradientStops stops;  // positions 0..1, ascending
-+        float angle = 90.F;    // CSS degrees: 0 = to top, 90 = to right
-+        bool repeat = false;
-+        QPointF center{0.5, 0.5};  // radial/conic centre in the name box
++        QGradientStops stops;    // positions 0..1, ascending (no layer opacity)
++        float angle = 90.F;      // CSS degrees: 0 = to top, 90 = to right
++        bool repeat = false;     // repeating gradient
++        QPointF center{0.5, 0.5};  // radial/conic centre in the layer box
++        QSizeF size{1.0, 1.0};   // fraction of the name box (CSS background-size)
++        QPointF at{0.5, 0.5};    // fraction (CSS background-position)
++        bool repeatX = false;    // CSS background-repeat
++        bool repeatY = false;
++        qreal opacity = 1.0;
++        QPainter::CompositionMode blend = QPainter::CompositionMode_SourceOver;
++        ImagePtr image;          // Kind::Image only
++    };
++
++    struct Timing {
 +        Motion motion = Motion::None;
 +        Direction direction = Direction::Normal;
 +        int periodMs = 4000;
 +    };
 +
-+    NameflarePaint(QString name, QString id, Fill fill,
-+                   std::vector<PaintDropShadow> dropShadows);
++    /// `layers` is bottom first (the order they are painted in).
++    NameflarePaint(QString name, QString id, std::vector<Layer> layers,
++                   Timing timing, std::vector<PaintDropShadow> dropShadows);
 +
 +    QBrush asBrush(QColor userColor, QRectF drawingRect) const override;
 +    const std::vector<PaintDropShadow> &getDropShadows() const override;
 +    bool animated() const override;
++    bool loaded() const override;
++    bool failed() const override;
++    void ensureLoaded(bool retry = false) const override;
 +
 +    /// Phase of the motion cycle in [0, 1) at a point in time (for tests).
 +    double phaseAt(qint64 msecs) const;
++    const std::vector<Layer> &layers() const;
 +
 +private:
 +    qint64 sourcePixmapCacheKey() const override;
 +    double phase() const;
++    bool gradientMoves() const;
++    QBrush gradientBrush(const Layer &layer, QRectF box, double phase,
++                         qreal opacity) const;
 +
-+    const Fill fill_;
++    const std::vector<Layer> layers_;
++    const Timing timing_;
 +    const std::vector<PaintDropShadow> dropShadows_;
 +};
 +
 +}  // namespace chatterino
 diff --git a/src/providers/nameflare/NameflarePaints.cpp b/src/providers/nameflare/NameflarePaints.cpp
 new file mode 100644
-index 0000000..79b0080
+index 0000000..e38989c
 --- /dev/null
 +++ b/src/providers/nameflare/NameflarePaints.cpp
-@@ -0,0 +1,584 @@
+@@ -0,0 +1,640 @@
 +#include "providers/nameflare/NameflarePaints.hpp"
 +
 +#include "Application.hpp"
@@ -397,7 +623,6 @@ index 0000000..79b0080
 +#include "common/QLogging.hpp"
 +#include "messages/Image.hpp"
 +#include "providers/nameflare/NameflarePaint.hpp"
-+#include "providers/seventv/paints/UrlPaint.hpp"
 +#include "providers/seventv/SeventvPaints.hpp"
 +#include "singletons/Settings.hpp"
 +#include "singletons/WindowManager.hpp"
@@ -867,86 +1092,143 @@ index 0000000..79b0080
 +    {
 +        return nullptr;
 +    }
-+    const auto name = u"Nameflare · "_s + cosmetic.value("name").toString().left(60);
++    const auto name =
++        u"Nameflare · "_s + cosmetic.value("name").toString().left(60);
 +    const auto id = u"nameflare:"_s + cosmetic.value("id").toString().left(80);
 +    const auto palette = paletteStops(recipe);
 +    auto shadows = shadowsFrom(recipe, palette);
 +
-+    // The top visible layer is the fill; older recipes use the palette.
-+    QJsonObject layer;
-+    for (const auto &value : recipe.value("layers").toArray())
-+    {
-+        const auto candidate = value.toObject();
-+        if (clampNumber(candidate.value("opacity"), 0, 1, 1) > 0)
-+        {
-+            layer = candidate;
-+            break;
-+        }
-+    }
-+    const auto type = layer.isEmpty() ? QString{} : layer.value("type").toString();
-+    const auto opacity = clampNumber(layer.value("opacity"), 0, 1, 1);
-+
-+    // Image and GIF fills: only from the configured Nameflare origin.
-+    const auto textureID = type == u"image" ? layer.value("textureId").toString()
-+                           : layer.isEmpty() ? recipe.value("textureId").toString()
-+                                             : QString{};
-+    if (!textureID.isEmpty())
-+    {
-+        if (!validTextureID(textureID))
-+        {
-+            return nullptr;
-+        }
-+        auto image = Image::fromUrl(Url{origin + u"/textures/"_s + textureID});
-+        return std::make_shared<UrlPaint>(name, id, image, std::move(shadows));
-+    }
-+
-+    NameflarePaint::Fill fill;
++    NameflarePaint::Timing timing;
 +    const auto animation = recipe.value("animation").toString();
 +    if (animation == u"flow" || animation == u"shimmer")
 +    {
-+        fill.motion = NameflarePaint::Motion::Flow;
++        timing.motion = NameflarePaint::Motion::Flow;
 +    }
-+    fill.periodMs = int(clampNumber(recipe.value("speed"), 1, 20, 4) * 1000);
-+    fill.direction = directionFrom(recipe.value("direction").toString());
++    timing.periodMs = int(clampNumber(recipe.value("speed"), 1, 20, 4) * 1000);
++    timing.direction = directionFrom(recipe.value("direction").toString());
 +
-+    if (type == u"solid")
-+    {
-+        const auto color = cssColor(layer.value("color").toString());
-+        if (!color)
++    const auto imageLayer = [&](const QString &textureID,
++                                NameflarePaint::Layer layer)
++        -> std::optional<NameflarePaint::Layer> {
++        // Only well-formed texture IDs, only from the configured origin.
++        if (!validTextureID(textureID))
 +        {
-+            return nullptr;
++            return std::nullopt;
 +        }
-+        fill.kind = NameflarePaint::Kind::Solid;
-+        fill.stops = {{0.0, withOpacity(*color, opacity)}};
-+        fill.motion = NameflarePaint::Motion::None;
-+    }
-+    else if (type == u"linear" || type == u"radial" || type == u"conic")
++        layer.kind = NameflarePaint::Kind::Image;
++        layer.image = Image::fromUrl(Url{origin + u"/textures/"_s + textureID});
++        return layer;
++    };
++
++    // Layers are top first in the recipe; paint them bottom first.
++    std::vector<NameflarePaint::Layer> layers;
++    const auto recipeLayers = recipe.value("layers").toArray();
++    for (qsizetype i = recipeLayers.size() - 1; i >= 0; i--)
 +    {
-+        fill.kind = type == u"linear"   ? NameflarePaint::Kind::Linear
-+                    : type == u"radial" ? NameflarePaint::Kind::Radial
-+                                        : NameflarePaint::Kind::Conic;
-+        fill.stops = stopsFrom(layer.value("stops").toArray(), opacity);
-+        fill.angle = float(clampNumber(layer.value("angle"), 0, 360, 90));
-+        fill.repeat = layer.value("repeat").toBool();
-+        const auto at = layer.value("at").toArray();
++        if (layers.size() >= 6)
++        {
++            break;
++        }
++        const auto source = recipeLayers[i].toObject();
++        NameflarePaint::Layer layer;
++        layer.opacity = clampNumber(source.value("opacity"), 0, 1, 1);
++        if (layer.opacity <= 0)
++        {
++            continue;
++        }
++        const auto size = source.value("size").toArray();
++        if (size.size() == 2)
++        {
++            layer.size = {clampNumber(size[0], 1, 500, 100) / 100.0,
++                          clampNumber(size[1], 1, 500, 100) / 100.0};
++        }
++        const auto at = source.value("at").toArray();
 +        if (at.size() == 2)
 +        {
-+            fill.center = {clampNumber(at[0], 0, 100, 50) / 100.0,
-+                           clampNumber(at[1], 0, 100, 50) / 100.0};
++            layer.at = {clampNumber(at[0], 0, 100, 50) / 100.0,
++                        clampNumber(at[1], 0, 100, 50) / 100.0};
++            layer.center = layer.at;  // radial/conic centre (CSS "at")
++        }
++        const auto tiling = source.value("canvasRepeat").toString();
++        layer.repeatX = tiling == u"repeat" || tiling == u"repeat-x";
++        layer.repeatY = tiling == u"repeat" || tiling == u"repeat-y";
++        const auto blend = source.value("blendMode").toString();
++        layer.blend = blend == u"multiply"   ? QPainter::CompositionMode_Multiply
++                      : blend == u"screen"   ? QPainter::CompositionMode_Screen
++                      : blend == u"overlay"  ? QPainter::CompositionMode_Overlay
++                      : blend == u"soft-light"
++                          ? QPainter::CompositionMode_SoftLight
++                          : QPainter::CompositionMode_SourceOver;
++
++        const auto type = source.value("type").toString();
++        if (type == u"image")
++        {
++            if (auto image = imageLayer(source.value("textureId").toString(), layer))
++            {
++                layers.push_back(std::move(*image));
++            }
++            continue;
++        }
++        if (type == u"solid")
++        {
++            const auto color = cssColor(source.value("color").toString());
++            if (!color)
++            {
++                continue;
++            }
++            layer.kind = NameflarePaint::Kind::Solid;
++            layer.stops = {{0.0, *color}};
++        }
++        else if (type == u"linear" || type == u"radial" || type == u"conic")
++        {
++            layer.kind = type == u"linear"   ? NameflarePaint::Kind::Linear
++                         : type == u"radial" ? NameflarePaint::Kind::Radial
++                                             : NameflarePaint::Kind::Conic;
++            layer.stops = stopsFrom(source.value("stops").toArray(), 1.0);
++            layer.angle = float(clampNumber(source.value("angle"), 0, 360, 90));
++            layer.repeat = source.value("repeat").toBool();
++        }
++        else
++        {
++            continue;
++        }
++        if (!layer.stops.isEmpty())
++        {
++            layers.push_back(std::move(layer));
 +        }
 +    }
-+    else
++
++    // Older recipes: the palette as a linear gradient at `angle`, under the
++    // legacy top-level image when there is one.
++    if (layers.empty())
 +    {
-+        // Legacy recipe: the palette as a linear gradient at `angle`.
-+        fill.kind = NameflarePaint::Kind::Linear;
-+        fill.stops = palette;
-+        fill.angle = float(clampNumber(recipe.value("angle"), 0, 360, 90));
++        if (!palette.isEmpty())
++        {
++            NameflarePaint::Layer fallback;
++            fallback.kind = NameflarePaint::Kind::Linear;
++            fallback.stops = palette;
++            fallback.angle =
++                float(clampNumber(recipe.value("angle"), 0, 360, 90));
++            layers.push_back(std::move(fallback));
++        }
++        const auto legacyTexture = recipe.value("textureId").toString();
++        if (!legacyTexture.isEmpty())
++        {
++            if (auto image = imageLayer(legacyTexture, {}))
++            {
++                layers.push_back(std::move(*image));
++            }
++            else
++            {
++                return nullptr;
++            }
++        }
 +    }
-+    if (fill.stops.isEmpty())
++    if (layers.empty())
 +    {
 +        return nullptr;
 +    }
-+    return std::make_shared<NameflarePaint>(name, id, std::move(fill),
++    return std::make_shared<NameflarePaint>(name, id, std::move(layers), timing,
 +                                            std::move(shadows));
 +}
 +
@@ -1160,17 +1442,17 @@ index 182413e..6d18085 100644
      ${CMAKE_CURRENT_LIST_DIR}/src/Filters.cpp
 diff --git a/tests/src/NameflarePaints.cpp b/tests/src/NameflarePaints.cpp
 new file mode 100644
-index 0000000..831eacd
+index 0000000..6c23d0c
 --- /dev/null
 +++ b/tests/src/NameflarePaints.cpp
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,241 @@
 +#include "providers/nameflare/NameflarePaints.hpp"
 +
 +#ifndef NAMEFLARE_STANDALONE
 +#    include "mocks/BaseApplication.hpp"
 +#endif
 +#include "providers/nameflare/NameflarePaint.hpp"
-+#include "providers/seventv/paints/UrlPaint.hpp"
++#include "messages/Image.hpp"
 +#include "singletons/Settings.hpp"
 +#include "Test.hpp"
 +
@@ -1178,6 +1460,7 @@ index 0000000..831eacd
 +#include <QJsonArray>
 +#include <QJsonDocument>
 +#include <QPainter>
++#include <QPixmap>
 +
 +using namespace chatterino;
 +
@@ -1275,12 +1558,22 @@ index 0000000..831eacd
 +
 +TEST_F(NameflarePaintsTest, ImageLayersOnlyLoadWellFormedTexturesFromTheOrigin)
 +{
-+    const auto image = NameflarePaints::paintFromCosmetic(
-+        cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none","layers":[
-+            {"type":"image","opacity":1,"textureId":"86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif"}]})"),
-+        ORIGIN);
++    const auto image = std::dynamic_pointer_cast<NameflarePaint>(
++        NameflarePaints::paintFromCosmetic(
++            cosmetic(R"({"colors":["#ff0000","#0000ff"],"animation":"none","layers":[
++            {"type":"image","opacity":1,"size":[100,240],"at":[50,40],"textureId":"86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif"},
++            {"type":"linear","opacity":1,"angle":90,"stops":[{"at":0,"color":"#ff0000"},{"at":1,"color":"#0000ff"}]}]})"),
++            ORIGIN));
 +    ASSERT_NE(image, nullptr);
-+    EXPECT_NE(dynamic_cast<UrlPaint *>(image.get()), nullptr);
++    ASSERT_EQ(image->layers().size(), 2U);  // bottom first: gradient, then image
++    EXPECT_EQ(image->layers()[0].kind, NameflarePaint::Kind::Linear);
++    const auto &top = image->layers()[1];
++    EXPECT_EQ(top.kind, NameflarePaint::Kind::Image);
++    ASSERT_NE(top.image, nullptr);
++    EXPECT_EQ(top.image->url().string,
++              ORIGIN + u"/textures/86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.gif");
++    EXPECT_NEAR(top.size.height(), 2.4, 1e-9);  // Studio's crop is kept
++    EXPECT_NEAR(top.at.y(), 0.4, 1e-9);
 +
 +    for (const auto *bad : {"../../etc/passwd", "https://evil.example/x.gif",
 +                            "86ae5a333ab4da7858c28062a144dfd4fe54d0258992748d48cc338ba65ee045.exe"})
@@ -1290,9 +1583,69 @@ index 0000000..831eacd
 +        inner["layers"] = QJsonArray{QJsonObject{
 +            {"type", "image"}, {"opacity", 1}, {"textureId", bad}}};
 +        recipe["recipe"] = inner;
-+        EXPECT_EQ(NameflarePaints::paintFromCosmetic(recipe, ORIGIN), nullptr)
-+            << bad;
++        // Nothing is fetched; the name falls back to the Flare's palette.
++        const auto paint = std::dynamic_pointer_cast<NameflarePaint>(
++            NameflarePaints::paintFromCosmetic(recipe, ORIGIN));
++        ASSERT_NE(paint, nullptr) << bad;
++        for (const auto &layer : paint->layers())
++        {
++            EXPECT_EQ(layer.image, nullptr) << bad;
++        }
 +    }
++}
++
++TEST_F(NameflarePaintsTest, LayersAreSizedPlacedTiledAndStackedLikeTheSite)
++{
++    // A red half-width layer on the right, over a full-width blue one.
++    const auto paint = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
++            {"type":"solid","opacity":1,"color":"#ff0000","size":[50,100],"at":[100,50]},
++            {"type":"solid","opacity":1,"color":"#0000ff"}]})"),
++        ORIGIN);
++    ASSERT_NE(paint, nullptr);
++    const auto left = sample(*paint, {20, 20});
++    const auto right = sample(*paint, {180, 20});
++    EXPECT_GT(left.blue(), 200);
++    EXPECT_LT(left.red(), 40);
++    EXPECT_GT(right.red(), 200);
++    EXPECT_LT(right.blue(), 40);
++
++    // repeat-x tiles a quarter-width layer across the whole name.
++    const auto tiled = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
++            {"type":"solid","opacity":1,"color":"#00ff00","size":[25,100],"at":[0,0],"canvasRepeat":"repeat-x"}]})"),
++        ORIGIN);
++    ASSERT_NE(tiled, nullptr);
++    EXPECT_GT(sample(*tiled, {190, 20}).green(), 200);
++    const auto single = NameflarePaints::paintFromCosmetic(
++        cosmetic(R"({"colors":["#ffffff","#000000"],"animation":"none","layers":[
++            {"type":"solid","opacity":1,"color":"#00ff00","size":[25,100],"at":[0,0],"canvasRepeat":"no-repeat"}]})"),
++        ORIGIN);
++    EXPECT_EQ(sample(*single, {190, 20}).alpha(), 0);
++}
++
++TEST_F(NameflarePaintsTest, ImagesAreDrawnIntoTheNameAtTheirCrop)
++{
++    // A 2×1 image: red on the left, blue on the right.
++    QPixmap pixmap(2, 1);
++    {
++        QImage pixels(2, 1, QImage::Format_ARGB32);
++        pixels.setPixelColor(0, 0, Qt::red);
++        pixels.setPixelColor(1, 0, Qt::blue);
++        pixmap = QPixmap::fromImage(pixels);
++    }
++    NameflarePaint::Layer layer;
++    layer.kind = NameflarePaint::Kind::Image;
++    layer.image = Image::fromResourcePixmap(pixmap);
++    const NameflarePaint paint("Image", "image", {layer}, {}, {});
++    EXPECT_TRUE(paint.loaded());
++    EXPECT_FALSE(paint.animated());
++    const auto left = sample(paint, {40, 20});
++    const auto right = sample(paint, {160, 20});
++    EXPECT_GT(left.red(), 200);
++    EXPECT_LT(left.blue(), 60);
++    EXPECT_GT(right.blue(), 200);
++    EXPECT_LT(right.red(), 60);
 +}
 +
 +TEST_F(NameflarePaintsTest, FlowMovesFollowingSpeedAndDirection)

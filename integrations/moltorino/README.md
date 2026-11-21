@@ -23,21 +23,31 @@ paint settings.
 
 ## How a Flare maps onto a Moltorino paint
 
+Every visible layer is drawn, bottom to top, the way the site's CSS renderer
+does it: each layer is sized to its `size` (percent of the name), placed at
+its `at` position, tiled by `canvasRepeat`, faded by `opacity` and combined
+with its `blendMode` (normal, multiply, screen, overlay, soft light).
+
 | Flare | Moltorino |
 |---|---|
-| Linear, radial, conic gradient layers; solid fills; the legacy palette | `NameflarePaint` (a `Paint` subclass; Qt has the conic gradient 7TV paints lack) |
-| Image and GIF layers | the existing `UrlPaint`, which already animates GIFs |
+| Image and GIF layers (PNG, WebP, JPEG, GIF) | loaded with Moltorino's own image loader (the one emotes and 7TV image paints use), drawn at the crop set in Studio, GIFs animated frame by frame; the plain name shows until the image arrives |
+| Linear, radial, conic gradients; solid fills; the legacy palette | gradients in the name box (Qt has the conic gradient 7TV paints lack) |
 | Flow and Shimmer | the gradient slides by one closed period per cycle (`speed`, `direction`), as on the site; follows the *Animate GIFs* setting |
 | 3D depth, outline, glow, drop shadow, extra shadows | drop shadows, applied in the web renderer's stacking order, capped at 14 blur passes |
-| Pulse, Spectrum, blend modes, lower layers | not drawn (static top layer); everything else stays readable |
+| Pulse, Spectrum | static |
+
+Layers with zero opacity are skipped, as on the site. A malformed texture
+ID is never fetched; that layer is left out and the name falls back to the
+Flare's palette.
 
 ## Files
 
-- `src/providers/nameflare/NameflarePaint.{hpp,cpp}`: the paint.
+- `src/providers/nameflare/NameflarePaint.{hpp,cpp}`: the paint: layer compositing, images, motion.
 - `src/providers/nameflare/NameflarePaints.{hpp,cpp}`: lookup, cache and
   recipe parsing; `usernamePaint()` is what the renderer asks.
 - `tests/src/NameflarePaints.cpp`: recipe → paint, colours, effects cap,
-  texture validation, motion timing.
+  texture validation, layer size/position/tiling/stacking, images drawn at
+  their crop, motion timing.
 - `moltorino-nameflare.patch`: all of the above plus the small hooks in
   Moltorino's own files (settings, settings page, Twitch and Kick message
   builders, the nametag renderer and the user card).
