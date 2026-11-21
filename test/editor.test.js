@@ -118,8 +118,13 @@ test('local demo serves every effect control and creator → owner review → eq
   try{
     const html=await (await request('/')).text();
     for(const path of ['/discover','/studio','/profiles/user-123','/account/settings','/guide/effects']){const response=await request(path);assert.equal(response.status,200);assert.equal(await response.text(),html);}
+    // Versioned assets: an import map and modulepreloads name every module with ?v=<hash>; those URLs are cached for a year.
+    assert.match(html,/<script type="importmap">\{"imports":\{[^<]*"\/app\.js":"\/app\.js\?v=[0-9a-f]{12}"/);assert.match(html,/<link rel="modulepreload" href="\/vendor\/webawesome\/components\/button\/button\.js">/);
+    const versioned=html.match(/src="(\/app\.js\?v=[0-9a-f]{12})"/)[1];assert.equal((await request(versioned)).headers.get('cache-control'),'public, max-age=31536000, immutable');
+    assert.equal((await request('/app.js?v=000000000000')).headers.get('cache-control'),'public, no-cache');assert.equal((await request('/app.js')).headers.get('cache-control'),'public, no-cache');
+    assert.match((await request('/')).headers.get('content-security-policy'),/script-src 'self' 'sha256-[A-Za-z0-9+/=]+'/);
     assert.equal((await request('/not-a-route')).status,404);assert.equal((await request('/api/unknown')).status,404);assert.equal((await request('/routes.js')).status,200);
-    assert.ok(html.includes('Preview font'));assert.match(html,/<option value="segoe" selected>Segoe UI<\/option>/);assert.doesNotMatch(html.replace(/<[^>]*>/g,''),/\bpaints?\b/i);
+    assert.ok(html.includes('Preview font'));assert.match(html,/<option value="segoe" selected>Segoe UI<\/option>/);assert.doesNotMatch(html.replace(/<script[^>]*>[\s\S]*?<\/script>/g,'').replace(/<[^>]*>/g,''),/\bpaints?\b/i);
     assert.ok(html.includes('Keyboard shortcuts'));assert.ok(html.includes('id="studio-keyboard-status"'));
     assert.match(html,/href="\/discover"/);assert.doesNotMatch(html,/href="#(?:discover|profiles|studio|account|guide)/);
     for(const key of ['direction','letterSpacing','glow','glowColor','shadowX','shadowY','shadowBlur','shadowOpacity','shadowColor','outline','outlineColor','depth','depthAngle','depthColor'])assert.ok(html.includes(`name="${key}"`),`Missing editor field ${key}`);

@@ -2,11 +2,11 @@ import http from 'node:http';
 import { isAppPath } from './public/routes.js';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, realpathSync, statSync, readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { brotliCompress, gzip, constants as zlibConstants } from 'node:zlib';
+import { brotliCompress, brotliCompressSync, gzip, gzipSync, constants as zlibConstants } from 'node:zlib';
 import { promisify } from 'node:util';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { timingSafeEqual, randomBytes } from 'node:crypto';
+import { timingSafeEqual, randomBytes, createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { Store, digest, RETENTION, REPORT_REASONS } from './lib/store.js';
 import { createImageProcessor, createScanner } from './lib/media.js';
@@ -51,8 +51,67 @@ function staticEntry(file) {
   staticCache.set(full,entry);
   return entry;
 }
+// ---- Versioned assets -----------------------------------------------------
+// The page names every module, stylesheet and script with ?v=<content hash>,
+// and an import map gives modules imported by relative path the same URLs.
+// Those URLs never change content, so browsers keep them for a year and a
+// repeat visit makes a handful of requests instead of ~140 revalidations.
+// modulepreload links for the whole module graph (ours and the Web Awesome
+// components the page uses) let the first visit fetch it in one parallel wave
+// instead of discovering it import by import.
+export const IMMUTABLE = 'public, max-age=31536000, immutable';
+const versionOf = file => staticEntry(file).etag.slice(1, 13);
+const servable = file => Object.values(pages).includes(file);
+export const isCurrentVersion = (file, v) => Boolean(v) && servable(file) && v === versionOf(file);
+// Static imports only: anything loaded with import() is loaded on demand and is not preloaded.
+const importsOf = source => [...source.matchAll(/(?:\bfrom\s*|\bimport\s*)["']([^"'\s]+\.js)["']/g)].map(match => match[1]);
+function moduleGraph(entries) {
+  const seen = new Set(), queue = [...entries];
+  while (queue.length) {
+    const file = queue.shift();
+    if (seen.has(file)) continue;
+    try { statSync(join(root, 'public', file)); } catch { continue; }
+    seen.add(file);
+    for (const spec of importsOf(staticEntry(file).body.toString())) {
+      if (/^[a-z]+:/i.test(spec)) continue;
+      const target = spec.startsWith('/') ? spec.slice(1) : join(dirname(file), spec).replace(/\\/g, '/');
+      if (!target.startsWith('..')) queue.push(target);
+    }
+  }
+  return [...seen];
+}
+let indexCache = null;
+function indexEntry() {
+  const raw = staticEntry('index.html'), html = raw.body.toString();
+  const entries = [...html.matchAll(/<script type="module" src="\/([^"?]+\.js)"/g)].map(match => match[1]).filter(file => !file.startsWith('vendor/'));
+  const appModules = moduleGraph(entries).filter(servable);
+  // Web Awesome components the page and our modules create, with every chunk they import.
+  const tags = new Set();
+  for (const match of html.matchAll(/<wa-([a-z][a-z-]*[a-z])\b/g)) tags.add(match[1]);
+  for (const file of appModules) for (const match of staticEntry(file).body.toString().matchAll(/\b(?:node|el|createElement)\(\s*['"]wa-([a-z][a-z-]*[a-z])['"]/g)) tags.add(match[1]);
+  const components = [...tags].map(tag => `vendor/webawesome/components/${tag}/${tag}.js`).filter(file => { try { statSync(join(root, 'public', file)); return true; } catch { return false; } });
+  const vendorModules = moduleGraph(['vendor/webawesome/webawesome.loader.js', ...components]);
+  const signature = [raw.etag, ...appModules.map(versionOf), ...html.matchAll(/(?:href|src)="\/([\w./-]+\.(?:css|js))"/g)].map(item => Array.isArray(item) ? item[1] + (servable(item[1]) ? versionOf(item[1]) : '') : item).join('|') + vendorModules.length;
+  if (indexCache?.signature === signature) return indexCache;
+  const versioned = file => `/${file}?v=${versionOf(file)}`;
+  const importMap = JSON.stringify({ imports: Object.fromEntries(appModules.map(file => [`/${file}`, versioned(file)])) });
+  const preloads = [...appModules.map(versioned), ...vendorModules.map(file => `/${file}`)].map(href => `<link rel="modulepreload" href="${href}">`).join('');
+  let body = html.replace(/(href|src)="\/([\w./-]+\.(?:css|js))"/g, (match, attribute, file) => servable(file) ? `${attribute}="${versioned(file)}"` : match);
+  // The map goes before any script; the preloads go after the stylesheets so they never hold up first paint.
+  body = body.replace('<script src="/theme-init.js', `<script type="importmap">${importMap}</script><script src="/theme-init.js`);
+  body = body.replace('<script type="module"', `${preloads}<script type="module"`);
+  const buffer = Buffer.from(body);
+  indexCache = {
+    signature, body: buffer, type: raw.type, mtime: raw.mtime, size: buffer.length,
+    etag: `"${digest(body).slice(0, 27)}"`,
+    br: brotliCompressSync(buffer, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 10 } }), gzip: gzipSync(buffer, { level: 9 }),
+    scriptHash: `'sha256-${createHash('sha256').update(importMap).digest('base64')}'`
+  };
+  return indexCache;
+}
 export function sendStatic(req, res, file, cacheControl, status = 200) {
-  const entry = staticEntry(file);
+  const entry = file === 'index.html' ? indexEntry() : staticEntry(file);
+  if (entry.scriptHash) { const policy = res.getHeader('Content-Security-Policy'); if (policy) res.setHeader('Content-Security-Policy', String(policy).replace("script-src 'self'", `script-src 'self' ${entry.scriptHash}`)); }
   res.setHeader('Cache-Control',cacheControl);res.setHeader('ETag',entry.etag);res.setHeader('Vary','Accept-Encoding');
   if (status === 200 && req.headers['if-none-match'] === entry.etag) { res.writeHead(304); return res.end(); }
   const accept = String(req.headers['accept-encoding'] || '');
@@ -61,6 +120,8 @@ export function sendStatic(req, res, file, cacheControl, status = 200) {
   res.writeHead(status,{ 'Content-Type':entry.type, 'Content-Length':body.length, ...(encoding ? { 'Content-Encoding':encoding } : {}) });
   return res.end(req.method === 'HEAD' ? undefined : body);
 }
+// Every file the site serves by path. Anything else is a 404.
+const pages = { '/fonts/BricolageGrotesque.ttf':'fonts/BricolageGrotesque.ttf', '/fonts/OFL.txt':'fonts/OFL.txt', '/fonts/NotoSans-latin.woff2':'fonts/NotoSans-latin.woff2', '/fonts/NotoSans-latin-ext.woff2':'fonts/NotoSans-latin-ext.woff2', '/fonts/NotoSans-OFL.txt':'fonts/NotoSans-OFL.txt', '/fonts/GeistMono-latin.woff2':'fonts/GeistMono-latin.woff2', '/fonts/MonaSans-latin.woff2':'fonts/MonaSans-latin.woff2', '/fonts/MonaSansMono-latin.woff2':'fonts/MonaSansMono-latin.woff2', '/fonts/MonaSans-OFL.txt':'fonts/MonaSans-OFL.txt', '/fonts/Geist-OFL.txt':'fonts/Geist-OFL.txt', '/fonts/BricolageGrotesque-latin.woff2':'fonts/BricolageGrotesque-latin.woff2', '/logo.svg':'logo.svg', '/favicon.ico':'logo.svg', '/':'index.html', '/guide':'index.html', '/overlay':'overlay.html', '/index.html':'index.html', '/overlay.html':'overlay.html', '/ui/tokens.css':'ui/tokens.css', '/ui/kit.css':'ui/kit.css', '/ui/shell.css':'ui/shell.css', '/ui/frame.css':'ui/frame.css', '/ui/views.css':'ui/views.css', '/ui/studio.css':'ui/studio.css', '/ui/admin.css':'ui/admin.css', '/ui/stage.css':'ui/stage.css', '/ui/slim.css':'ui/slim.css', '/ui/profiles.css':'ui/profiles.css', '/ui/calm.css':'ui/calm.css', '/ui/gallery.css':'ui/gallery.css', '/ui/system.css':'ui/system.css', '/icons.js':'icons.js', '/wa-test.html':'wa-test.html', '/app.js':'app.js', '/routes.js':'routes.js', '/likes.js':'likes.js', '/style.css':'style.css', '/redesign.css':'redesign.css', '/social.css':'social.css', '/theme-init.js':'theme-init.js', '/social.js':'social.js', '/preferences.js':'preferences.js', '/insights.js':'insights.js', '/rail.js':'rail.js', '/experience.js':'experience.js', '/vendor/basecoat/basecoat.css':'vendor/basecoat/basecoat.css', '/vendor/basecoat/all.min.js':'vendor/basecoat/all.min.js', '/vendor/basecoat/LICENSE.md':'vendor/basecoat/LICENSE.md', '/fonts.js':'fonts.js', '/google-fonts.json':'google-fonts.json', '/renderer.js':'renderer.js', '/overlay.js':'overlay.js', '/overlay.css':'overlay.css', '/effects.css':'effects.css', '/paints.js':'paints.js', '/editor.js':'editor.js', '/client.js':'client.js', '/SDK-LICENSE.md':'SDK-LICENSE.md', '/donate.js':'donate.js', '/vendor/qrcode/qrcode.js':'vendor/qrcode/qrcode.js', '/vendor/qrcode/LICENSE.txt':'vendor/qrcode/LICENSE.txt' };
 export const pageAliases = { '/creators':'/profiles', '/insights':'/analytics', '/settings':'/account/settings', '/support':'/donate' };
 export const wantsPage = (req, path) => /\btext\/html\b/.test(String(req.headers.accept || '')) && !/\.[a-z0-9]{1,8}$/i.test(path) && !/^\/(?:api|auth|textures|vendor|fonts|ui)\//.test(path);
 const staticCacheControl = file => file.startsWith('fonts/') ? 'public, max-age=2592000, immutable' : file.startsWith('vendor/') ? 'public, max-age=604800' : 'public, no-cache';
@@ -798,9 +859,8 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         res.writeHead(200,{'Content-Type':types[`.${id.split('.').pop()}`],'Content-Length':bytes.length}); return res.end(bytes);
       }
       if (method === 'GET' || method === 'HEAD') {
-        const pages = { '/fonts/BricolageGrotesque.ttf':'fonts/BricolageGrotesque.ttf', '/fonts/OFL.txt':'fonts/OFL.txt', '/fonts/NotoSans-latin.woff2':'fonts/NotoSans-latin.woff2', '/fonts/NotoSans-latin-ext.woff2':'fonts/NotoSans-latin-ext.woff2', '/fonts/NotoSans-OFL.txt':'fonts/NotoSans-OFL.txt', '/fonts/GeistMono-latin.woff2':'fonts/GeistMono-latin.woff2', '/fonts/MonaSans-latin.woff2':'fonts/MonaSans-latin.woff2', '/fonts/MonaSansMono-latin.woff2':'fonts/MonaSansMono-latin.woff2', '/fonts/MonaSans-OFL.txt':'fonts/MonaSans-OFL.txt', '/fonts/Geist-OFL.txt':'fonts/Geist-OFL.txt', '/fonts/BricolageGrotesque-latin.woff2':'fonts/BricolageGrotesque-latin.woff2', '/logo.svg':'logo.svg', '/favicon.ico':'logo.svg', '/':'index.html', '/guide':'index.html', '/overlay':'overlay.html', '/index.html':'index.html', '/overlay.html':'overlay.html', '/ui/tokens.css':'ui/tokens.css', '/ui/kit.css':'ui/kit.css', '/ui/shell.css':'ui/shell.css', '/ui/frame.css':'ui/frame.css', '/ui/views.css':'ui/views.css', '/ui/studio.css':'ui/studio.css', '/ui/admin.css':'ui/admin.css', '/ui/stage.css':'ui/stage.css', '/ui/slim.css':'ui/slim.css', '/ui/profiles.css':'ui/profiles.css', '/ui/calm.css':'ui/calm.css', '/ui/gallery.css':'ui/gallery.css', '/ui/system.css':'ui/system.css', '/icons.js':'icons.js', '/wa-test.html':'wa-test.html', '/app.js':'app.js', '/likes.js':'likes.js', '/style.css':'style.css', '/redesign.css':'redesign.css', '/social.css':'social.css', '/theme-init.js':'theme-init.js', '/social.js':'social.js', '/preferences.js':'preferences.js', '/insights.js':'insights.js', '/rail.js':'rail.js', '/experience.js':'experience.js', '/vendor/basecoat/basecoat.css':'vendor/basecoat/basecoat.css', '/vendor/basecoat/all.min.js':'vendor/basecoat/all.min.js', '/vendor/basecoat/LICENSE.md':'vendor/basecoat/LICENSE.md', '/fonts.js':'fonts.js', '/google-fonts.json':'google-fonts.json', '/renderer.js':'renderer.js', '/overlay.js':'overlay.js', '/overlay.css':'overlay.css', '/effects.css':'effects.css', '/paints.js':'paints.js', '/editor.js':'editor.js', '/client.js':'client.js', '/SDK-LICENSE.md':'SDK-LICENSE.md', '/donate.js':'donate.js', '/vendor/qrcode/qrcode.js':'vendor/qrcode/qrcode.js', '/vendor/qrcode/LICENSE.txt':'vendor/qrcode/LICENSE.txt' };
         const file = isAppPath(path) ? 'index.html' : path==='/routes.js' ? 'routes.js' : pages[path];
-        if (file) return sendStatic(req,res,file,staticCacheControl(file));
+        if (file) return sendStatic(req,res,file,isCurrentVersion(file,url.searchParams.get('v')) ? IMMUTABLE : staticCacheControl(file));
         // Web Awesome is vendored verbatim so the component runtime and its
         // lazy-loaded chunks work without a build step or a CDN dependency.
         if (path.startsWith('/vendor/webawesome/') && /^\/vendor\/webawesome\/[A-Za-z0-9._/-]+$/.test(path) && !path.includes('..')) {
