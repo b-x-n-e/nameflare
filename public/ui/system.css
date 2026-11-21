@@ -404,6 +404,15 @@
   :root:root[data-theme] .nav-toggle[aria-expanded="true"] { color: var(--ink); background: var(--tint-1); box-shadow: none; }
 }
 
+/* ---- Phone header: search is an icon circle like the menu button -------
+   Its pill kept the desktop padding and spilled under the avatar or Sign in. */
+@media (max-width: 1000px) {
+  :root:root[data-theme] wa-button.topbar-search[appearance] { --_w: 40px; --_h: 40px; --_px: 0; flex: 0 0 40px; width: 40px; }
+  :root:root[data-theme] wa-button.topbar-search::part(base) { justify-content: center; gap: 0; }
+  :root:root[data-theme] wa-button.topbar-search::part(label), :root:root[data-theme] wa-button.topbar-search::part(end) { display: none; }
+  :root:root[data-theme] wa-button.topbar-search::part(start) { margin: 0; }
+}
+
 /* ---- Phones --------------------------------------------------------------------- */
 @media (max-width: 640px) {
   :root:root[data-theme] .tab-head { flex-direction: column; gap: 14px; }
