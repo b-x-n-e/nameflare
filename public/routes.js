@@ -46,7 +46,11 @@ export function installNavigation() {
     if(!anchor || event.defaultPrevented || event.button!==0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.hasAttribute('download') || (anchor.target && anchor.target!=='_self'))return;
     const url=new URL(anchor.href,location.href);
     if(url.origin!==location.origin || url.hash || url.search || !isAppPath(url.pathname))return;
-    event.preventDefault();navigate(url.pathname);
+    event.preventDefault();
+    // The tab you are already on: no reload (that rebuilt the page and replayed its
+    // entrance), just back to the top. A link with filters still resets them.
+    if(url.pathname===location.pathname && !location.search){if(window.scrollY>0)window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});return;}
+    navigate(url.pathname);
   });
   window.addEventListener('hashchange',()=>{const old=legacyRoute();if(old)navigate(old,{replace:true});});
 }

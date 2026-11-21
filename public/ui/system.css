@@ -53,7 +53,7 @@
 :where(:root[data-theme]) :where(.st-icon, .icon-toggle, .showcase-nav button) { display: inline-grid; }
 :where(:root[data-theme]) :where(.showcase-tabs, .canvas-seg, .segmented, .review-status-tabs, .audit-filters, .account-status-filters, .layout-toggle,
   .showcase-tabs > button, .canvas-seg > button, .seg > button, .seg > label, .segmented > button, .review-status-tabs > button, .audit-filters > button, .layout-toggle > button,
-  .equipped-chip, .plat-status, .moderator-badge, .artist-badge, .collection-status, .badge, .status-badge) { display: inline-flex; }
+  .equipped-chip, .plat-status, .moderator-badge, .artist-badge, .badge, .status-badge) { display: inline-flex; }
 
 /* Variants. Secondary (white on the ring) is the default above. */
 :root:root[data-theme] :is(wa-button, .button, .btn, .st-btn).primary:not(.equip-button) {
@@ -207,6 +207,14 @@
 :root:root[data-theme] #detail-dialog .detail-stage-tools input:focus { box-shadow: inset 0 0 0 1px var(--accent), var(--ring); }
 :root:root[data-theme] #detail-dialog .detail-stage-tools input::placeholder { color: rgba(255,255,255,.5); }
 :root:root[data-theme] #detail-dialog .stage-tool { width: 36px; height: 36px; border: 0; border-radius: 999px; color: rgba(255,255,255,.8); background: rgba(255,255,255,.08); }
+:root:root[data-theme] #detail-dialog .stage-tool[aria-pressed="true"] { color: #fff; background: rgba(255,255,255,.2); }
+/* Light backdrop: the stage controls were white on white and disappeared. */
+:root:root[data-theme] #detail-dialog:has(.detail-stage.light) .dialog-close { color: rgba(17,17,19,.72); background: rgba(17,17,19,.08); }
+:root:root[data-theme] #detail-dialog:has(.detail-stage.light) .dialog-close:hover { color: #111113; background: rgba(17,17,19,.14); }
+:root:root[data-theme] #detail-dialog .detail-stage.light .detail-stage-tools input { color: #111113 !important; background: rgba(17,17,19,.06) !important; box-shadow: inset 0 0 0 1px rgba(17,17,19,.14); }
+:root:root[data-theme] #detail-dialog .detail-stage.light .detail-stage-tools input::placeholder { color: rgba(17,17,19,.5); }
+:root:root[data-theme] #detail-dialog .detail-stage.light .stage-tool { color: rgba(17,17,19,.75); background: rgba(17,17,19,.08); }
+:root:root[data-theme] #detail-dialog .detail-stage.light .stage-tool[aria-pressed="true"] { color: #111113; background: rgba(17,17,19,.16); }
 :root:root[data-theme] .creator-link { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 560; }
 :root:root[data-theme] .creator-link .avatar { width: 24px; height: 24px; font-size: 10px; }
 :root:root[data-theme] .detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -217,7 +225,7 @@
 :root:root[data-theme] :is(.panel, .rail-panel, dialog) .empty-state { box-shadow: none; }
 
 /* ---- Badges: one soft pill ------------------------------------------------- */
-:root:root[data-theme] :is(.equipped-chip, .plat-status, .moderator-badge, .artist-badge, .collection-status, .badge, .status-badge) {
+:root:root[data-theme] :is(.equipped-chip, .plat-status, .moderator-badge, .artist-badge, .badge, .status-badge) {
   align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 0; border-radius: 999px;
   font: 600 12px/1 var(--font-ui); letter-spacing: 0; text-transform: none;
 }
@@ -352,6 +360,28 @@
 :root:root[data-theme] .showcase-item:hover .showcase-stage { box-shadow: 0 18px 40px -18px var(--lift); }
 @media (prefers-reduced-motion: reduce) { :root:root[data-theme] .showcase-item:is(:hover, :has(> .showcase-tile:focus-visible)) > * { transform: none; } }
 :root[data-motion="reduced"] .showcase-item > * { transform: none !important; }
+
+/* ---- Collection cards: status, note and actions stack, never overlap ---
+   The status row wraps (badge, submitted date, listing) and the reviewer note
+   sits below it with room; cards in a row share their top edge and keep their
+   actions on one bottom line. */
+:root:root[data-theme] :is(#collection-grid, .created-flares .cosmetic-grid, .cosmetic-grid):has(> .collection-card) { align-items: stretch; }
+:root:root[data-theme] #main-content .collection-card { display: flex; flex-direction: column; align-self: stretch; }
+:root:root[data-theme] #main-content .collection-card > .card-meta { display: flex; flex: 1; flex-direction: column; gap: 6px; }
+:root:root[data-theme] .collection-card .collection-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; height: auto; min-height: 0; margin: 4px 0 0; padding: 0; background: none; font: 500 12px/1.4 var(--font-ui); color: var(--faint); }
+:root:root[data-theme] .collection-card .collection-status .card-note { margin: 0; }
+:root:root[data-theme] .collection-card .collection-note { display: grid; gap: 4px; margin: 6px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+:root:root[data-theme] .collection-card > .card-meta > .card-actions { margin-top: auto; padding-top: 10px; }
+
+/* ---- Nothing moves under the pointer -------------------------------------
+   Older layers nudged controls 1–3px on hover and squeezed them on press
+   (translateY, scale .97–.98), which read as elements slipping out of place.
+   Feedback is colour and shadow only; plates lift by shadow, never position. */
+:root:root[data-theme] :is(button, wa-button, a.button, .button, .btn, .st-btn, .st-icon, .icon-button, .icon-toggle, .feed-tab, .filter-chip, .review-item, .start-option,
+  .preset-tile, .rail-theme, .hero-preset, .color-swatch, .creator-profile, .creator-tile, .cosmetic-card, .showcase-tile, .showcase-item > wa-button):is(:hover, :active, :focus-visible) { transform: none !important; }
+:root:root[data-theme] wa-button:is(:hover, :active)::part(base),
+:root:root[data-theme] wa-button:is(:hover, :active)::part(button) { transform: none !important; }
+:root:root[data-theme] .showcase-item:is(:hover, :has(> .showcase-tile:focus-visible)) > * { transform: none !important; }
 
 /* ---- Studio: the image template tile ------------------------------------ */
 :root:root[data-theme] .preset-image .preset-stage { display: grid; place-items: center; }
