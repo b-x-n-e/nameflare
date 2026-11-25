@@ -24,6 +24,28 @@ function watchVisibility(element, retry = true) {
   if (observed.has(element)) return;
   observed.add(element); visibility.observe(element);
 }
+// Reduced motion and paused previews show an image layer's first frame rather
+// than dropping it to the palette. Windows reports reduced motion whenever
+// "Animation effects" is off, so many PCs would otherwise never see the image.
+// GIF, WebP and PNG (APNG) can animate; JPEG cannot and is used as is.
+const stills = new Map();
+const canAnimate = id => !id.endsWith('.jpg');
+function stillFrame(url) {
+  if (stills.has(url)) return stills.get(url);
+  if (typeof Image !== 'function' || typeof document?.createElement !== 'function' || typeof URL.createObjectURL !== 'function') return null;
+  const pending = (async () => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous'; image.src = url; await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    canvas.getContext('2d').drawImage(image, 0, 0);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('No still frame.');
+    return URL.createObjectURL(blob);
+  })().then(still => { stills.set(url, still); return still; }, () => { stills.set(url, null); return null; });
+  stills.set(url, pending);
+  return pending;
+}
 // Keep a user's custom preview on ordinary refresh; reset it on account changes.
 export function createPreviewNameBinding(input) {
   let accountId, automatic='yourname', custom=false;
@@ -96,14 +118,22 @@ export function applyCosmetic(element, cosmetic, apiOrigin = location.origin, { 
   element.style.setProperty('--nameflare-shadows',shadows.join(',') || 'none');
   const fallback=`linear-gradient(${bounded(r.angle,120,0,360)}deg, ${r.colors.join(', ')}, ${r.colors[0]})`;
   const textureUrl=id => {
-    if(!isTextureId(id) || reduced || paused)return null;
+    if(!isTextureId(id))return null;
     const local=previewTextures[id];
     if(typeof local==='string' && /^blob:/.test(local))return local;
     try{const base=new URL(apiOrigin);if(['http:','https:'].includes(base.protocol))return `${base.origin}/textures/${id}`;}catch{}
     return null;
   };
   const styleLayer=(target,layer) => {
-    target.style.backgroundImage=layerBackground(layer,textureUrl(layer.textureId),{flow:['flow','shimmer'].includes(r.animation) && !reduced}) || fallback;
+    let url=textureUrl(layer.textureId);
+    if(url && (reduced || paused) && canAnimate(layer.textureId)){
+      const still=stillFrame(url);
+      url=typeof still==='string' ? still:null;
+      // The palette shows until the frame is ready, then the image replaces it
+      // unless this element has been repainted with something else meanwhile.
+      if(still && typeof still.then==='function')still.then(frame=>{if(frame && target.isConnected!==false && renderedPaints.get(element)===signature)target.style.backgroundImage=layerBackground(layer,frame);});
+    }
+    target.style.backgroundImage=layerBackground(layer,url,{flow:['flow','shimmer'].includes(r.animation) && !reduced}) || fallback;
     target.style.backgroundSize=`${layer.size[0]}% ${layer.size[1]}%`;
     target.style.backgroundRepeat=layer.canvasRepeat;
     target.style.backgroundPosition=`${layer.at[0]}% ${layer.at[1]}%`;

@@ -110,10 +110,31 @@ test('layered renderer preserves text, removes stale layers, clamps fonts, and h
     element.contains=child=>children.includes(child);children.splice(0);element.firstChild={nodeType:3,data:'Renamed'};element.textContent='Renamed';
     applyCosmetic(element,{recipe:r},'https://example.com',{previewTextures:{[textureId]:'blob:https://example.com/local'}});
     assert.equal(children.length,2,'Detached fills are rebuilt instead of leaving an invisible name');assert.equal(children[0].dataset.text,'Renamed');assert.equal(animations[0].currentTime,1234);
-    window.matchMedia=()=>({matches:true});applyCosmetic(element,{recipe:r},'https://example.com');assert.doesNotMatch(children[1].style.backgroundImage,/url/);assert.doesNotMatch(children[0].style.backgroundImage,/nameflare-phase/);
+    window.matchMedia=()=>({matches:true});applyCosmetic(element,{recipe:r},'https://example.com');assert.doesNotMatch(children[1].style.backgroundImage,/url/,'Without a canvas an animated texture keeps the palette');assert.doesNotMatch(children[0].style.backgroundImage,/nameflare-phase/);
+    const jpg=`${'c'.repeat(64)}.jpg`;applyCosmetic(element,{recipe:{...r,layers:[r.layers[0],{...r.layers[1],textureId:jpg}]}},'https://example.com');assert.match(children[1].style.backgroundImage,new RegExp(`textures/${jpg}`),'Reduced motion still shows a still image');
     applyCosmetic(element,{recipe:{...r,animation:'spectrum'}},'https://example.com',{paused:true});assert.equal(element.dataset.paused,'true');assert.doesNotMatch(children[1].style.backgroundImage,/url/);assert.equal(values.get('--nameflare-filter'),'brightness(1)');
     applyCosmetic(element,null,'https://example.com');assert.equal(children.length,0);assert.equal(classes.has('nameflare-name'),false);
   }finally{if(previousDoc===undefined)delete globalThis.document;else globalThis.document=previousDoc;if(previousWindow===undefined)delete globalThis.window;else globalThis.window=previousWindow;}
+});
+test('reduced motion and paused previews show a GIF layer as its first frame, not the palette',async()=>{
+  const previous={document:globalThis.document,window:globalThis.window,Image:globalThis.Image},createObjectURL=URL.createObjectURL;
+  const children=[],loaded=[];
+  globalThis.document={createElement:tag=>tag==='canvas'?{getContext:()=>({drawImage(){}}),toBlob:done=>done({})}:{dataset:{},style:{},setAttribute(){},remove(){const i=children.indexOf(this);if(i>=0)children.splice(i,1);}}};
+  globalThis.window={matchMedia:()=>({matches:true})};
+  globalThis.Image=class{naturalWidth=40;naturalHeight=20;set src(url){loaded.push([url,this.crossOrigin]);}decode(){return Promise.resolve();}};
+  URL.createObjectURL=()=>'blob:https://example.com/still';
+  const element={textContent:'Still',dataset:{},append:child=>children.push(child),classList:{add(){},remove(){}},style:{setProperty(){},removeProperty(){}}};
+  try{
+    const gif=`${'b'.repeat(64)}.gif`,r=validateRecipe({...base,layers:[linear,{type:'image',textureId:gif,opacity:1}]});
+    applyCosmetic(element,{recipe:r},'https://example.com');
+    assert.match(children[1].style.backgroundImage,/linear-gradient/,'The palette shows while the frame is prepared');
+    await new Promise(resolve=>setTimeout(resolve));
+    assert.deepEqual(loaded,[[`https://example.com/textures/${gif}`,'anonymous']]);
+    assert.match(children[1].style.backgroundImage,/blob:https:\/\/example.com\/still/);
+    window.matchMedia=()=>({matches:false});applyCosmetic(element,{recipe:r},'https://example.com',{paused:true});
+    assert.match(children[1].style.backgroundImage,/blob:https:\/\/example.com\/still/,'Paused previews reuse the cached frame');assert.equal(loaded.length,1);
+    applyCosmetic(element,{recipe:r},'https://example.com');assert.match(children[1].style.backgroundImage,new RegExp(`textures/${gif}`),'Motion on plays the GIF');
+  }finally{URL.createObjectURL=createObjectURL;for(const [key,value] of Object.entries(previous))if(value===undefined)delete globalThis[key];else globalThis[key]=value;}
 });
 test('text-only renderer updates preserve plain text and avoid redundant DOM writes',()=>{
   let writes=0;const text={nodeType:3,_data:'Initial',get data(){return this._data;},set data(value){writes++;this._data=value;}};
