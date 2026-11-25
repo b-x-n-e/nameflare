@@ -244,7 +244,112 @@ spellings. Run it after changing the nginx file.
 Behind Cloudflare or another CDN, `$remote_addr` would be the CDN. Use nginx's
 `real_ip` module with the CDN's published address ranges first, then these
 limits still apply per visitor. Cloudflare's own rate-limiting rules can add a
-further layer at its edge.
+further layer at its edge. For Cloudflare, the next section has the steps.
+
+## Micro-cache and feed pacing
+
+These need no outside service and are on in the Oracle template.
+
+- **Overlays trust the change feed.** The SDK keeps a chatter's result for 10
+  minutes while the feed is healthy, instead of rechecking every chatter every
+  minute. Every equip, unequip, revocation, ban or unlink arrives as a feed
+  event and is refetched within one poll, and any feed failure or silence drops
+  results back to the 12-second expiry at once. Identity lookups mostly come
+  from new chatters now.
+- **nginx micro-cache.** Node marks what nginx may store with
+  `X-Accel-Expires`: the change feed for 2 seconds and approved textures for 5.
+  Simultaneous identical feed polls reach Node once (`proxy_cache_lock`), and
+  nginx sends repeat image bytes itself. Nothing else is stored. Responses carry
+  `X-Cache-Status` (`HIT`, `MISS`, `EXPIRED`, `REVALIDATED`) for checking.
+  The cache lives in `/var/cache/nginx/nameflare` (up to 1 GB, usually far less).
+- **Feed pacing** (`lib/pace.js`). Every feed answer says how long to wait
+  (`poll_ms`). The server estimates how many overlays are polling and, past
+  `FEED_POLL_TARGET_RPS` polls a second (default 100, which is 400 overlays at
+  4 s), asks them to slow down, up to `FEED_POLL_MAX_MS` (default 15 s). Changes
+  then take up to that long to reach overlays. The estimate rises at once and
+  eases back over about a minute.
+
+  Because the micro-cache answers most polls, Node alone undercounts. Set
+  `NGINX_STATUS_URL=http://127.0.0.1:8081/nginx_status`: the template serves
+  nginx's `stub_status` there, on loopback only, and pacing counts its active
+  connections (one per overlay). If it can't be read, pacing logs once and uses
+  Node's own count.
+
+After updating the nginx file: `sudo nginx -t && sudo systemctl reload nginx`,
+then check `curl -sI "https://nameflare.bxne.dev/api/v1/changes?since=&epoch=" | grep -i x-cache-status`
+twice in a row (`MISS`, then `HIT`). `npm run edgetest` checks the cache rules
+in a real nginx alongside the rate limits.
+
+## Cloudflare edge cache
+
+One E2.1.Micro can't answer thousands of overlays alone. Every overlay polls
+the change feed every 4 seconds and downloads each image Flare it meets, so
+10,000 overlays would mean about 2,500 feed polls a second and hundreds of
+gigabytes of images. Cloudflare in front answers most of that from its cache.
+
+What Nameflare does once `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_PURGE_TOKEN` are
+set (`lib/edge.js`):
+
+- **Approved textures** get `Cloudflare-CDN-Cache-Control: public, max-age=86400`
+  (`EDGE_TEXTURE_TTL`). Texture IDs are SHA-256 hashes of the file, so the bytes
+  behind a URL never change. Browsers keep the 15-second window and revalidate
+  against the nearest Cloudflare location, which answers 304 itself.
+- **Revocation purges.** When a Flare is disapproved (including by a ban) or
+  deleted, every image of it that no other approved Flare uses is purged from
+  Cloudflare by URL, retried up to three times, and purged once more 30
+  seconds later. A purge that still fails is logged with the URLs to purge by
+  hand; the edge lifetime bounds how long such an image can stay up.
+- **The change feed** gets `Cloudflare-CDN-Cache-Control: public, max-age=2`
+  (`EDGE_FEED_TTL`). Every up-to-date overlay asks for the same cursor, so one
+  answer per location serves them all. Changes reach overlays at most 2 seconds
+  later than before.
+- Pending textures, identity lookups (`POST /api/v1/resolve`), sessions and
+  errors keep `no-store` and are never cached.
+
+`Cloudflare-CDN-Cache-Control` is read only by Cloudflare. Without the two
+settings Nameflare sends no edge headers at all, so a CDN put in front without
+purge access can't hold a revoked image past 15 seconds.
+
+### Setting it up
+
+1. **Token.** In Cloudflare, create an API token with only *Zone → Cache Purge
+   → Purge* on the `bxne.dev` zone. Put it and the zone ID (zone overview page)
+   in `.env`.
+2. **Real client addresses.** Write the nginx snippet from Cloudflare's
+   published ranges, then uncomment its `include` in
+   `/etc/nginx/sites-available/nameflare`:
+
+   ```sh
+   { for v in 4 6; do curl -fsS https://www.cloudflare.com/ips-v$v | sed 's/.*/set_real_ip_from &;/'; done
+     echo 'real_ip_header CF-Connecting-IP;'; } | sudo tee /etc/nginx/snippets/nameflare-cloudflare-ips.conf
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+   Do this **before** switching the proxy on, or the rate limits will treat
+   every visitor as one of a few Cloudflare addresses. Cloudflare changes its
+   ranges rarely; rerun the command when it announces a change.
+3. **Cache rule for the feed.** Cloudflare caches images by extension already,
+   but not API paths. Add a Cache Rule: *URI Path equals `/api/v1/changes`* →
+   *Eligible for cache*, edge TTL *Use cache-control header if present*, cache
+   key including the query string (the default).
+4. **SSL/TLS mode:** Full (strict). The origin keeps its Let's Encrypt
+   certificate. Leave *Always Use HTTPS* off: nginx already redirects port 80,
+   and that redirect skips `/.well-known/acme-challenge/`, which certificate
+   renewal needs.
+5. **Proxy on.** Turn the `nameflare` DNS record to Proxied (orange cloud),
+   then restart Nameflare so it reads the new `.env`.
+6. **Check:**
+
+   ```sh
+   curl -sI https://nameflare.bxne.dev/textures/<an approved texture id> | grep -i cf-cache-status   # HIT on a repeat
+   curl -sI "https://nameflare.bxne.dev/api/v1/changes?since=&epoch=" | grep -i cf-cache-status
+   ```
+
+   Then disapprove a test Flare with an image and confirm its texture URL
+   returns 401 through Cloudflare within a few seconds.
+
+Optional: once everything works, allow ports 80 and 443 on the instance only
+from Cloudflare's ranges, so nobody can go around the cache to the origin.
 
 ## Load testing
 

@@ -8,7 +8,9 @@ import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { timingSafeEqual, randomBytes, createHash } from 'node:crypto';
 import { isIP } from 'node:net';
-import { Store, digest, RETENTION, REPORT_REASONS } from './lib/store.js';
+import { Store, digest, RETENTION, REPORT_REASONS, recipeTextureIds } from './lib/store.js';
+import { createEdge } from './lib/edge.js';
+import { createFeedPace } from './lib/pace.js';
 import { createImageProcessor, createScanner } from './lib/media.js';
 import { assert, HttpError, validateRecipe, validateTexture, text, publishingFlag, catalogFilters } from './lib/cosmetics.js';
 import { beginOAuth, finishOAuth, providerConfig, avatarSources } from './lib/oauth.js';
@@ -156,7 +158,7 @@ export function clientAddress(req, trustLoopbackProxy = false) {
   return peer;
 }
 
-export function createApp({ store, baseUrl = 'http://localhost:3000', demo = false, dataDir = join(root, 'data'), env = process.env } = {}) {
+export function createApp({ store, baseUrl = 'http://localhost:3000', demo = false, dataDir = join(root, 'data'), env = process.env, edgeFetch } = {}) {
   baseUrl = baseUrl.replace(/\/$/, '');
   assert([undefined,'','false','true'].includes(env.TRUST_PROXY_LOOPBACK),500,'TRUST_PROXY_LOOPBACK must be true or false.');
   const trustLoopbackProxy = env.TRUST_PROXY_LOOPBACK === 'true' && !demo;
@@ -214,6 +216,12 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   // is computed at most once per few seconds and revalidated with an ETag.
   const publicCache = new Map(), PUBLIC_TTL = 10000, MAX_PUBLIC_ENTRIES = 500;
   const textureApproval = new Map();
+  // instr() narrows to recipes that mention the ID before any JSON is parsed.
+  const textureApproved = id => Boolean(store.db.prepare("SELECT c.id FROM cosmetics c WHERE c.status='approved' AND instr(c.recipe,?)>0 AND (json_extract(c.recipe,'$.textureId')=? OR EXISTS (SELECT 1 FROM json_each(c.recipe,'$.layers') layer WHERE json_extract(layer.value,'$.textureId')=?)) LIMIT 1").get(id,id,id));
+  // Optional Cloudflare edge cache for textures and the change feed (lib/edge.js).
+  const edge = createEdge({ env, baseUrl, ...(edgeFetch ? { fetchImpl:edgeFetch } : {}) });
+  // Asks overlays to poll the change feed less often when many are connected (lib/pace.js).
+  const pace = createFeedPace({ env });
   // An entry is fresh while young AND no moderation/publishing write happened since.
   const fresh = entry => entry && entry.expires > Date.now() && entry.generation === store.generation;
   let cachedStats = null, uploadsInFlight = 0, sourceBundle = null, licenseText = null;
@@ -225,6 +233,14 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
   // random epoch tells a client after a restart (or a gap) to revalidate everything.
   const feed = { epoch:randomBytes(6).toString('hex'), seq:0, events:[] };
   const FEED_MAX_EVENTS = 20000, FEED_MAX_AGE = 15 * 60000, FEED_MAX_IDENTITIES = 1000;
+  // A Flare was moderated or deleted: any of its images that are no longer
+  // public come off the edge. Events fire inside the store's transaction, so
+  // the check waits for the commit. A deleted Flare's event carries its images.
+  const queueEdgePurge = event => {
+    const ids = event.textures || recipeTextureIds(store.getCosmetic(event.id)?.recipe);
+    if (!ids.length) return;
+    setImmediate(() => { try { edge.purge(ids.filter(id => !textureApproved(id))); } catch (error) { console.error('Edge purge check failed:', error.message); } });
+  };
   const unsubscribe = store.onEvent?.(event => {
     const entry = { seq:++feed.seq, at:Date.now() };
     if (event.type === 'user') entry.identities = store.identities(event.id).map(identity => [identity.provider, identity.provider_id]);
@@ -234,6 +250,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
     while (drop < feed.events.length && (feed.events.length - drop > FEED_MAX_EVENTS || feed.events[drop].at < entry.at - FEED_MAX_AGE)) drop++;
     if (drop) feed.events.splice(0, drop);
     resolvedCosmetics.delete(event.id);
+    if (edge.enabled && event.type === 'cosmetic') queueEdgePurge(event);
   });
   // Resolve answers carry the wearer's Flare; most chatters share a few Flares,
   // so each Flare is read once per few seconds rather than once per chatter.
@@ -373,7 +390,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
           assert(source.protocol === 'https:',500,'SOURCE_URL must be a public HTTPS repository URL.');
           res.writeHead(302, { Location:source.toString() }); return res.end();
         }
-        const sourceFiles = ['package.json','server.js','lib/cosmetics.js','lib/store.js','lib/oauth.js','lib/images.js','lib/image-worker.js','lib/vendor/jpeg-js/LICENSE','docs/FEATURES.md','lib/media.js','lib/backup.js','scripts/backup.js','scripts/restore.js','scripts/loadtest.js','scripts/check-edge-limits.mjs','scripts/precompress.js','test/safety.test.js','test/backup.test.js','test/capacity.test.js','test/integrations.test.js','test/donate.test.js','docs/OPERATIONS.md','docs/PRIVACY.md','docs/oracle/nameflare-backup.service','docs/oracle/nameflare-backup.timer','public/index.html','public/fonts/OFL.txt','public/logo.svg','public/style.css','public/redesign.css','public/social.css','public/ui/tokens.css','public/ui/kit.css','public/ui/shell.css','public/ui/views.css','public/icons.js','public/effects.css','public/app.js','public/likes.js','public/routes.js','public/theme-init.js','public/social.js','public/preferences.js','public/insights.js','public/rail.js','public/experience.js','public/fonts.js','public/google-fonts.json','scripts/update-google-fonts.js','public/editor.js','public/renderer.js','public/paints.js','public/client.js','public/donate.js','public/vendor/qrcode/LICENSE.txt','public/SDK-LICENSE.md','public/vendor/basecoat/LICENSE.md','test/client.test.js','public/overlay.html','public/overlay.css','public/overlay.js','test/nameflare.test.js','test/likes.test.js','test/accounts.test.js','test/editor.test.js','test/fonts.test.js','test/paints.test.js','test/social.test.js','README.md','DESIGN.md','LICENSE','SECURITY.md','docs/API.md','docs/UX.md','docs/DESIGN-2026.md','docs/DEPLOYMENT.md','docs/CLOUDFLARE.md','docs/ORACLE.md','docs/oracle/nameflare.service','docs/oracle/nameflare.nginx.conf','docs/oracle/nameflare-http.nginx.conf','cloudflare/worker.js','cloudflare/store.js','cloudflare/migrations/0001_initial.sql','cloudflare/migrations/0002_profile_avatars.sql','wrangler.jsonc','test/cloudflare.test.js','cloudflare/migrations/0003_flare_publication.sql','cloudflare/migrations/0004_account_moderation.sql','cloudflare/migrations/0005_cosmetic_likes.sql','cloudflare/migrations/0006_full_profiles.sql','cloudflare/migrations/0007_creator_follows.sql','cloudflare/migrations/0008_flare_submission_limit.sql','package-lock.json','Dockerfile','compose.yaml','.env.example','.gitignore','.dockerignore'];
+        const sourceFiles = ['package.json','server.js','lib/cosmetics.js','lib/store.js','lib/edge.js','lib/pace.js','lib/oauth.js','lib/images.js','lib/image-worker.js','lib/vendor/jpeg-js/LICENSE','docs/FEATURES.md','lib/media.js','lib/backup.js','scripts/backup.js','scripts/restore.js','scripts/loadtest.js','scripts/check-edge-limits.mjs','scripts/precompress.js','test/safety.test.js','test/backup.test.js','test/capacity.test.js','test/integrations.test.js','test/donate.test.js','test/edge.test.js','test/pace.test.js','docs/OPERATIONS.md','docs/PRIVACY.md','docs/oracle/nameflare-backup.service','docs/oracle/nameflare-backup.timer','public/index.html','public/fonts/OFL.txt','public/logo.svg','public/style.css','public/redesign.css','public/social.css','public/ui/tokens.css','public/ui/kit.css','public/ui/shell.css','public/ui/views.css','public/icons.js','public/effects.css','public/app.js','public/likes.js','public/routes.js','public/theme-init.js','public/social.js','public/preferences.js','public/insights.js','public/rail.js','public/experience.js','public/fonts.js','public/google-fonts.json','scripts/update-google-fonts.js','public/editor.js','public/renderer.js','public/paints.js','public/client.js','public/donate.js','public/vendor/qrcode/LICENSE.txt','public/SDK-LICENSE.md','public/vendor/basecoat/LICENSE.md','test/client.test.js','public/overlay.html','public/overlay.css','public/overlay.js','test/nameflare.test.js','test/likes.test.js','test/accounts.test.js','test/editor.test.js','test/fonts.test.js','test/paints.test.js','test/social.test.js','README.md','DESIGN.md','LICENSE','SECURITY.md','docs/API.md','docs/UX.md','docs/DESIGN-2026.md','docs/DEPLOYMENT.md','docs/CLOUDFLARE.md','docs/ORACLE.md','docs/oracle/nameflare.service','docs/oracle/nameflare.nginx.conf','docs/oracle/nameflare-http.nginx.conf','cloudflare/worker.js','cloudflare/store.js','cloudflare/migrations/0001_initial.sql','cloudflare/migrations/0002_profile_avatars.sql','wrangler.jsonc','test/cloudflare.test.js','cloudflare/migrations/0003_flare_publication.sql','cloudflare/migrations/0004_account_moderation.sql','cloudflare/migrations/0005_cosmetic_likes.sql','cloudflare/migrations/0006_full_profiles.sql','cloudflare/migrations/0007_creator_follows.sql','cloudflare/migrations/0008_flare_submission_limit.sql','package-lock.json','Dockerfile','compose.yaml','.env.example','.gitignore','.dockerignore'];
         // Built once: rebuilding this multi-megabyte bundle per request was a cheap way to pin the CPU.
         sourceBundle ||= JSON.stringify({ name:'Nameflare', format:'source-file-bundle', license:'AGPL-3.0-only', files:Object.fromEntries(sourceFiles.filter(file => existsSync(join(root,file))).map(file => [file,readFileSync(join(root,file),'utf8')])) });
         res.writeHead(200, { 'Content-Type':'application/json; charset=utf-8', 'Content-Disposition':'attachment; filename="nameflare-source.json"' });
@@ -743,7 +760,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         return publicJson(req,res,() => ({ version:1, name:'Nameflare', origin, features:{ resolve:true, batch:true, lookup:true, changes:true, stats:true, wearers:true },
           endpoints:['GET /api/v1/stats','GET /api/v1/cosmetics','GET /api/v1/cosmetics/:id','GET /api/v1/cosmetics/:id/stats','GET /api/v1/cosmetics/:id/wearers','GET /api/v1/profiles/:id/likes','GET /api/v1/cosmetics/batch?ids=','GET /api/v1/cosmetics/lookup?name=','GET /api/v1/profiles','GET /api/v1/profiles/:id','GET /api/v1/profiles/:id/cosmetics','GET /api/v1/profiles/:id/accounts','GET /api/v1/profiles/:id/stats','GET /api/v1/artists','GET /api/v1/users/:provider/:id','GET /api/v1/users/:provider/:id/profile','GET /api/v1/users/:provider/:id/cosmetics','POST /api/v1/resolve','GET /api/v1/changes'],
           limits:{ resolve_ids:100, batch_ids:100, page:100, reads_per_minute:600, resolves_per_minute:240 },
-          timing:{ public_cache_s:PUBLIC_TTL/1000, changes_poll_ms:4000, client_refresh_ms:7000, client_expiry_ms:12000 } }));
+          timing:{ public_cache_s:PUBLIC_TTL/1000, changes_poll_ms:pace.pollMs(), client_refresh_ms:7000, client_expiry_ms:12000, feed_covered_refresh_ms:600000, feed_covered_expiry_ms:660000 } }));
       }
       if (method === 'GET' && path === '/api/v1/cosmetics/batch') {
         const ids = [...new Set((url.searchParams.get('ids') || '').split(',').filter(Boolean))];
@@ -756,8 +773,14 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
       }
       if (method === 'GET' && path === '/api/v1/changes') {
         res.setHeader('Access-Control-Allow-Origin','*');
+        // The answer is the same for every client at the same cursor. Browsers
+        // still get no-store; only Cloudflare may hold it, for a second or two.
+        if (edge.feedHeader) res.setHeader('Cloudflare-CDN-Cache-Control',edge.feedHeader);
+        // nginx's micro-cache may hold it for 2s (read and stripped by nginx).
+        res.setHeader('X-Accel-Expires','2');
         const since = Number(url.searchParams.get('since') ?? NaN), oldest = feed.events[0]?.seq ?? feed.seq + 1;
-        const base = { epoch:feed.epoch, cursor:feed.seq, poll_ms:4000 };
+        pace.seen();
+        const base = { epoch:feed.epoch, cursor:feed.seq, poll_ms:pace.pollMs() };
         // Unknown epoch, a cursor from the future, or one older than the retained
         // window: the client cannot know what it missed, so it revalidates all.
         if (url.searchParams.get('epoch') !== feed.epoch || !Number.isInteger(since) || since < 0 || since > feed.seq || since < oldest - 1) return json(res,200,{ ...base, reset:true, identities:[], cosmetics:[] });
@@ -846,9 +869,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
         assert(existsSync(join(dataDir,'textures',id)),404,'Texture not found.');
         let approval = textureApproval.get(id);
         if (!fresh(approval)) {
-          // instr() narrows to recipes that mention the ID before any JSON is parsed.
-          const approved = Boolean(store.db.prepare("SELECT c.id FROM cosmetics c WHERE c.status='approved' AND instr(c.recipe,?)>0 AND (json_extract(c.recipe,'$.textureId')=? OR EXISTS (SELECT 1 FROM json_each(c.recipe,'$.layers') layer WHERE json_extract(layer.value,'$.textureId')=?)) LIMIT 1").get(id,id,id));
-          approval = { approved, expires:Date.now() + PUBLIC_TTL, generation:store.generation };
+          approval = { approved:textureApproved(id), expires:Date.now() + PUBLIC_TTL, generation:store.generation };
           if (textureApproval.size >= 5000) textureApproval.clear();
           textureApproval.set(id, approval);
         }
@@ -856,7 +877,15 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
           const session = requireUser(req);
           assert(['owner','moderator'].includes(session.role) || store.db.prepare('SELECT id FROM textures WHERE id=? AND owner_id=?').get(id,session.id),403,'This texture is awaiting approval.');
           res.setHeader('Cache-Control','private, no-store');
-        } else { res.setHeader('Access-Control-Allow-Origin','*'); res.setHeader('Cache-Control','public, max-age=15, must-revalidate'); }
+        } else {
+          res.setHeader('Access-Control-Allow-Origin','*'); res.setHeader('Cache-Control','public, max-age=15, must-revalidate');
+          // Only with purge configured: revocation takes the copy back off the edge.
+          if (edge.textureHeader) res.setHeader('Cloudflare-CDN-Cache-Control',edge.textureHeader);
+          // nginx's micro-cache may hold it for 5s. nginx sends no Age header,
+          // so a browser can add its own 15s on top: a revoked image is gone
+          // everywhere within about 20s. Private textures never get this header.
+          res.setHeader('X-Accel-Expires','5');
+        }
         // The ID is the file's SHA-256, so it is a perfect validator.
         res.setHeader('ETag',`"${id}"`);
         if (req.headers['if-none-match'] === `"${id}"`) { res.writeHead(304); return res.end(); }
@@ -891,7 +920,7 @@ export function createApp({ store, baseUrl = 'http://localhost:3000', demo = fal
     }
   });
   server.headersTimeout = 15000; server.requestTimeout = 20000;
-  server.on('close',() => { clearInterval(cleanup); clearTimeout(firstMaintenance); clearInterval(maintenanceTimer); images.close(); unsubscribe?.(); });
+  server.on('close',() => { clearInterval(cleanup); clearTimeout(firstMaintenance); clearInterval(maintenanceTimer); images.close(); unsubscribe?.(); edge.close(); pace.close(); });
   return { server, store, maintenance };
 }
 

@@ -26,8 +26,8 @@ These are Node-only. Clients should feature-detect through `GET /api/v1`, or tre
   - `identities` lists people whose worn Flare may have changed since `cursor`: they equipped or unequipped, linked a platform, or were banned or unbanned.
   - `cosmetics` lists Flares that were reviewed, revoked or deleted. Recheck every identity currently showing one of them.
   - `reset: true` means the client cannot know what it missed: a first call, a server restart (new `epoch`), or a cursor older than the 15-minute or 20,000-event window. Revalidate everything, then continue from the returned `cursor`.
-  - Poll every `poll_ms` (4 s). Responses are `no-store` and count against the 300/min read budget.
-  - **Use it to keep results longer, not to skip revalidation.** While the feed is healthy, a result fetched after the feed's baseline can be trusted for up to 90 s. If a poll fails or resets, fall back to the 12 s expiry at once.
+  - Poll every `poll_ms`: 4 s normally, up to 15 s when the server is busy (it slows polling when many overlays are connected). Honour whatever value arrives, clamped to 2–30 s. Responses are `no-store` and count against the 300/min read budget.
+  - **Use it to keep results longer, not to skip revalidation.** While the feed is healthy, a result fetched after the feed's baseline can be trusted for up to 11 minutes (the SDK rechecks it after 10), because every change that could alter it arrives as an event. The feed is healthy while the last good poll is no older than `poll_ms` plus 6 s. If a poll fails, resets or goes quiet, fall back to the 12 s expiry at once.
 
 ### Statistics and listings (Oracle/Node, 2026.11)
 
@@ -281,7 +281,7 @@ Kick, YouTube and multi-platform chat are Banechat's job ([chat.bxne.dev](https:
 
 Adapter contract:
 1. Resolve real platform user IDs from chat messages and batch `/resolve` queries.
-2. Cache for at most 15 seconds and invalidate on expiration; support removed designs and null results. Clients that follow `/api/v1/changes` may keep feed-covered results for up to 90 seconds, as described above.
+2. Cache for at most 15 seconds and invalidate on expiration; support removed designs and null results. Clients that follow `/api/v1/changes` may keep feed-covered results for up to 11 minutes while the feed stays healthy, as described above.
 3. Implement gradient animation, bounded outline/shadow/extrusion, and GIF/WebP image decoding in the client's rendering pipeline. A CSS recipe is not directly executable in Qt. Apply frame-count/decode/memory limits and reduced-motion controls.
 4. Maintain text selection, Unicode shaping, clipping, badges, readable fallback colors, and high-DPI scaling. Cosmetics must never replace authoritative identity or moderation status.
 5. Let users choose the official origin or an explicitly trusted self-hosted fork; never silently fetch arbitrary asset origins embedded by another user.

@@ -60,23 +60,28 @@ async function readJSON(response) {
 }
 export class NameflareClient {
   // live: follow GET /api/v1/changes. While the feed is healthy, verified
-  // results are kept for 90s instead of 12s and a change (equip, revocation,
-  // ban) is applied within one poll. Any feed failure or reset falls back to
-  // the short timings at once, so revocation stays fail-closed.
+  // results are trusted for 10 minutes instead of 12s, because every change
+  // that could alter one (equip, unequip, revocation, ban, unlink) arrives as
+  // a feed event and is refetched within one poll. Any feed failure, reset or
+  // silence falls back to the short timings at once, so revocation stays
+  // fail-closed. The server may slow polling under load (poll_ms, 2-30s).
   constructor({origin=OFFICIAL_ORIGIN,fetchImpl=globalThis.fetch,now=Date.now,onChange=()=>{},batchDelay=80,live=false}={}) {
     this.origin=serviceOrigin(origin);if(!this.origin)throw new Error('Use an HTTPS service origin, or HTTP on localhost.');
     // Native window.fetch requires its receiver; never invoke it as a client method.
     this.fetch=(...args)=>fetchImpl(...args);this.now=now;this.onChange=onChange;this.batchDelay=batchDelay;
     this.cosmeticCache=new Map();this.cosmeticRequests=new Map();
     this.cache=new Map();this.pending=new Map();this.inflight=new Set();this.controllers=new Set();this.timer=null;this.generation=0;this.closed=false;
-    this.live=Boolean(live);this.feedTimer=null;this.feedEpoch=null;this.feedCursor=null;this.feedBaseline=null;this.feedOkAt=-Infinity;this.feedDelay=4000;
+    this.live=Boolean(live);this.feedTimer=null;this.feedEpoch=null;this.feedCursor=null;this.feedBaseline=null;this.feedOkAt=-Infinity;this.feedDelay=4000;this.feedPollMs=4000;
   }
   // A result fetched after the feed's baseline is covered by the feed: every
   // later change to it arrives as an event, so it can be trusted for longer.
-  feedCovers(started){return this.live && this.feedBaseline!==null && started>=this.feedBaseline && this.now()-this.feedOkAt<10000;}
+  // Healthy: the last good poll is no older than the interval the server asked
+  // for, plus the 4s request timeout and 2s of slack.
+  feedHealthy(){return this.now()-this.feedOkAt<this.feedPollMs+6000;}
+  feedCovers(started){return this.live && this.feedBaseline!==null && started>=this.feedBaseline && this.feedHealthy();}
   timing(started,ok) {
     if(!ok)return {expires:started+5000,refreshAt:started+5000};
-    return this.feedCovers(started) ? {expires:started+90000,refreshAt:started+60000} : {expires:started+12000,refreshAt:started+7000};
+    return this.feedCovers(started) ? {expires:started+660000,refreshAt:started+600000} : {expires:started+12000,refreshAt:started+7000};
   }
   // Pull every result back to the short, fail-closed timings (feed lost or reset).
   degrade() {
@@ -112,7 +117,7 @@ export class NameflareClient {
       // fetched from now on are covered again.
       if(this.feedBaseline===null)this.feedBaseline=this.now();
       this.feedEpoch=data.epoch;this.feedCursor=data.cursor;this.feedOkAt=this.now();
-      delay=Math.min(30000,Math.max(2000,Number.isFinite(data.poll_ms)?data.poll_ms:4000));
+      delay=Math.min(30000,Math.max(2000,Number.isFinite(data.poll_ms)?data.poll_ms:4000));this.feedPollMs=delay;
     } catch {
       if(generation===this.generation && !this.closed && this.feedBaseline!==null)this.degrade();
     } finally {
@@ -205,7 +210,7 @@ export class NameflareClient {
   }
   expire() {
     if(this.closed)return;
-    if(this.feedBaseline!==null && this.now()-this.feedOkAt>=10000)this.degrade();
+    if(this.feedBaseline!==null && !this.feedHealthy())this.degrade();
     for(const [key,value]of this.cache) {
       if(value.expires<=this.now()){this.cache.delete(key);this.onChange(key,null);}
       else if(value.refreshAt<=this.now()) {

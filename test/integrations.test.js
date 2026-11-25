@@ -94,7 +94,8 @@ test('SDK live mode keeps feed-covered results longer, applies events, and degra
     assert.ok(urls[0].includes('/api/v1/changes?since=&epoch='));
     await client.flush();
     assert.equal(client.get('twitch', '1').id, 'p1');
-    assert.equal(client.cache.get('twitch:1').expires, 90000, 'Covered by the feed: long expiry');
+    assert.equal(client.cache.get('twitch:1').expires, 660000, 'Covered by the feed: long expiry');
+    assert.equal(client.cache.get('twitch:1').refreshAt, 600000, 'No blanket re-check while the feed is healthy');
 
     // An unequip arrives as an event and is applied without waiting for expiry.
     equipped = false; feed = { epoch: 'e1', cursor: 6, reset: false, identities: [{ provider: 'twitch', provider_id: '1' }], cosmetics: [], poll_ms: 4000 };
@@ -105,9 +106,31 @@ test('SDK live mode keeps feed-covered results longer, applies events, and degra
 
     // Feed loss: everything returns to the short, fail-closed timings.
     equipped = true; client.cache.get('twitch:1').refreshAt = 0; client.expire(); await client.flush();
-    assert.equal(client.cache.get('twitch:1').expires, 93000);
+    assert.equal(client.cache.get('twitch:1').expires, 663000);
     feedDown = true; time = 20000; await client.pollFeed();
     assert.ok(client.cache.get('twitch:1').expires <= 32000);
+    assert.equal(client.feedBaseline, null);
+  } finally { client.close(); }
+});
+
+test('SDK feed health follows the poll interval the server asks for', async () => {
+  let time = 0;
+  const client = new NameflareClient({ live: true, batchDelay: 60000, now: () => time, fetchImpl: async (url, options) => {
+    if (url.includes('/api/v1/changes')) return Response.json({ epoch: 'e1', cursor: 1, reset: true, identities: [], cosmetics: [], poll_ms: 15000 });
+    const { provider, ids } = JSON.parse(options.body);
+    return Response.json({ users: ids.map(id => ({ provider, provider_id: id, cosmetic: paint })) });
+  } });
+  try {
+    await client.pollFeed(); assert.equal(client.feedPollMs, 15000);
+    client.get('twitch', '1'); await client.flush();
+    assert.equal(client.cache.get('twitch:1').expires, 660000);
+    // A busy server polls every 15s: 20s of quiet is still healthy (15s + 6s).
+    time = 20000; client.expire();
+    assert.equal(client.cache.get('twitch:1').expires, 660000);
+    assert.notEqual(client.feedBaseline, null);
+    // Past the window, the feed counts as lost and results fall back at once.
+    time = 21001; client.expire();
+    assert.ok(client.cache.get('twitch:1').expires <= 33001);
     assert.equal(client.feedBaseline, null);
   } finally { client.close(); }
 });

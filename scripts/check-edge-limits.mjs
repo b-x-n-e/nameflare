@@ -8,7 +8,10 @@
 // port) and one test-only line: nginx takes the client address from an
 // X-Edge-Test-Client header, so one machine can play many clients.
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { Store } from '../lib/store.js';
+import { validateRecipe } from '../lib/cosmetics.js';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +50,17 @@ const expect = (name, ok, detail) => { checks.push({ name, ok, detail }); consol
 
 try {
   writeFileSync(join(scratch, 'nginx.conf'), testConfig());
+  // One approved and one pending texture for the micro-cache checks.
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==', 'base64');
+  const textureId = bytes => `${createHash('sha256').update(bytes).digest('hex')}`;
+  const approvedTexture = `${textureId(gif)}.gif`, pendingTexture = `${textureId(png)}.png`;
+  mkdirSync(join(scratch, 'data', 'textures'), { recursive:true });
+  writeFileSync(join(scratch, 'data', 'textures', approvedTexture), gif); writeFileSync(join(scratch, 'data', 'textures', pendingTexture), png);
+  const seed = new Store(join(scratch, 'data', 'nameflare.sqlite')); seed.seedDemo();
+  seed.addTexture(approvedTexture, 'demo-owner'); seed.addTexture(pendingTexture, 'demo-creator');
+  seed.submit('demo-owner', 'Edge cache', '', validateRecipe({ colors:['#71f5bd','#b798ff'], animation:'flow', speed:4, angle:120, glow:0, textureId:approvedTexture }));
+  seed.close();
   server = spawn(process.execPath, [join(root, 'server.js')], { env:{ ...process.env, PORT:String(NODE_PORT), HOST:'127.0.0.1', DATA_DIR:join(scratch, 'data'), TRUST_PROXY_LOOPBACK:'true', PUBLIC_BASE_URL:'http://localhost', NODE_ENV:'test' }, stdio:'ignore' });
   execFileSync('docker', ['run', '--rm', '-d', '--name', container, '--network', 'host', '-v', `${join(scratch, 'nginx.conf')}:/etc/nginx/nginx.conf:ro`, values.image], { stdio:'ignore' });
   for (let i = 0; i < 50; i++) { try { if ((await fetch(`http://127.0.0.1:${EDGE_PORT}/healthz`)).ok) break; } catch {} await sleep(200); }
@@ -78,6 +92,32 @@ try {
   expect('sign-in: burst of 10, then 429', r.passed === 11, `${r.passed} through`);
   r = await burst(['198.51.100.10'], '/api/likes', 30, { method:'POST', body:'{}' });
   expect('writes: burst of 10, then 429', r.passed === 11, `${r.passed} through`);
+
+  // Micro-cache.
+  const get = (path, client) => fetch(`http://127.0.0.1:${EDGE_PORT}${path}`, { headers:{ 'X-Edge-Test-Client':client } });
+  const feedPath = '/api/v1/changes?since=&epoch=edge-check';
+  const feed = await Promise.all(Array.from({ length:20 }, (_, i) => get(feedPath, `192.0.2.${i + 1}`)));
+  const misses = feed.filter(response => response.headers.get('x-cache-status') === 'MISS').length;
+  expect('feed: 20 simultaneous identical polls reach Node once', feed.every(response => response.ok) && misses === 1, `${misses} misses, statuses ${[...new Set(feed.map(response => response.headers.get('x-cache-status')))].join('/')}`);
+  expect('feed: browsers still get no-store, X-Accel-Expires stays inside', feed[0].headers.get('cache-control') === 'no-store' && feed[0].headers.get('x-accel-expires') === null, `${feed[0].headers.get('cache-control')}`);
+  await sleep(3600); // 2s, in whole seconds
+  const later = await get(feedPath, '192.0.2.50');
+  expect('feed: held for 2s only', ['MISS', 'EXPIRED'].includes(later.headers.get('x-cache-status')), later.headers.get('x-cache-status'));
+
+  const first = await get(`/textures/${approvedTexture}`, '192.0.2.60'), second = await get(`/textures/${approvedTexture}`, '192.0.2.61');
+  expect('approved texture: the repeat comes from nginx', first.status === 200 && second.status === 200 && second.headers.get('x-cache-status') === 'HIT', `${first.headers.get('x-cache-status')} then ${second.headers.get('x-cache-status')}`);
+  expect('approved texture: browsers keep the 15s window', second.headers.get('cache-control') === 'public, max-age=15, must-revalidate' && second.headers.get('x-accel-expires') === null, second.headers.get('cache-control'));
+  const conditional = await fetch(`http://127.0.0.1:${EDGE_PORT}/textures/${approvedTexture}`, { headers:{ 'X-Edge-Test-Client':'192.0.2.62', 'If-None-Match':`"${approvedTexture}"` } });
+  expect('approved texture: nginx answers revalidation with 304', conditional.status === 304, `${conditional.status}`);
+  // nginx keeps time in whole seconds, so a 5s entry can last almost 6s.
+  await sleep(7000);
+  const stale = await get(`/textures/${approvedTexture}`, '192.0.2.63');
+  expect('approved texture: rechecked with Node after 5s', ['REVALIDATED', 'EXPIRED', 'MISS'].includes(stale.headers.get('x-cache-status')), stale.headers.get('x-cache-status'));
+
+  const pending = [await get(`/textures/${pendingTexture}`, '192.0.2.70'), await get(`/textures/${pendingTexture}`, '192.0.2.71')];
+  expect('pending texture: never stored', pending.every(response => response.status === 401 && response.headers.get('x-cache-status') === 'MISS'), pending.map(response => `${response.status} ${response.headers.get('x-cache-status')}`).join(', '));
+  const missing = [await get(`/textures/${'0'.repeat(64)}.gif`, '192.0.2.72'), await get(`/textures/${'0'.repeat(64)}.gif`, '192.0.2.73')];
+  expect('unknown texture: 404s are never stored', missing.every(response => response.status === 404 && response.headers.get('x-cache-status') === 'MISS'), missing.map(response => `${response.status} ${response.headers.get('x-cache-status')}`).join(', '));
 } catch (error) {
   console.error(error.message); process.exitCode = 1;
 } finally {
