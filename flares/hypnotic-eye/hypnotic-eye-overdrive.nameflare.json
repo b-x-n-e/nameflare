@@ -1,0 +1,55 @@
+{
+  "format": "nameflare-design",
+  "version": 1,
+  "name": "Hypnotic Eye Overdrive",
+  "description": "Your eye in neon: a hypnotic spiral iris, lightning, plasma, embers and a CRT sweep.",
+  "listed": true,
+  "recipe": {
+    "colors": [
+      "#e00020",
+      "#560411",
+      "#ff4a5e"
+    ],
+    "animation": "none",
+    "speed": 4,
+    "angle": 90,
+    "glow": 3,
+    "glowColor": "#e00020",
+    "outline": 0,
+    "outlineColor": "#ffffff",
+    "shadowX": 0,
+    "shadowY": 0,
+    "shadowBlur": 0,
+    "shadowOpacity": 0,
+    "shadowColor": "#000000",
+    "depth": 1,
+    "depthAngle": 90,
+    "depthColor": "#140105",
+    "direction": "normal",
+    "fontWeight": 800,
+    "shadows": [
+      {
+        "x": 0,
+        "y": 0,
+        "blur": 10,
+        "color": "#ff1a3a40"
+      }
+    ],
+    "layers": [
+      {
+        "type": "image",
+        "opacity": 1,
+        "size": [
+          150,
+          150
+        ],
+        "at": [
+          50,
+          50
+        ],
+        "canvasRepeat": "no-repeat",
+        "blendMode": "normal"
+      }
+    ]
+  }
+}
